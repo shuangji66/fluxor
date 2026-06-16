@@ -27,6 +27,12 @@ window.Overview = (function() {
         return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
     }
 
+    // 构造完整 API URL - 确保正确处理 BASE_URL
+    function buildApiUrl(path) {
+        if (!BASE || BASE === '/') return path;
+        return BASE.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
+    }
+
     // ---------- 流量图表 ----------
     function getChartColors() {
         const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
@@ -98,52 +104,84 @@ window.Overview = (function() {
     // ---------- 数据获取（轮询） ----------
     async function fetchStats() {
         try {
+            const urls = {
+                traffic: buildApiUrl('/traffic'),
+                memory: buildApiUrl('/memory'),
+                connections: buildApiUrl('/connections'),
+                version: buildApiUrl('/version'),
+                status: buildApiUrl('/core/status')
+            };
+
+            console.log('[Overview] 正在获取数据，BASE_URL:', BASE, '实际 URL:', urls);
+
             const [trafficResp, memResp, connResp, versionResp, statusResp] = await Promise.all([
-                fetch(BASE + '/traffic'),
-                fetch(BASE + '/memory'),
-                fetch(BASE + '/connections'),
-                fetch(BASE + '/version'),
-                fetch(BASE + '/core/status')
+                fetch(urls.traffic).catch(e => { console.error('[Overview] 流量请求失败:', e); return null; }),
+                fetch(urls.memory).catch(e => { console.error('[Overview] 内存请求失败:', e); return null; }),
+                fetch(urls.connections).catch(e => { console.error('[Overview] 连接请求失败:', e); return null; }),
+                fetch(urls.version).catch(e => { console.error('[Overview] 版本请求失败:', e); return null; }),
+                fetch(urls.status).catch(e => { console.error('[Overview] 状态请求失败:', e); return null; })
             ]);
 
-            if (trafficResp.ok) {
-                const t = await trafficResp.json();
-                const up = t.up || t.upload || 0;
-                const down = t.down || t.download || 0;
-                updateSpeed(up, down);
+            if (trafficResp && trafficResp.ok) {
+                try {
+                    const t = await trafficResp.json();
+                    const up = t.up || t.upload || 0;
+                    const down = t.down || t.download || 0;
+                    updateSpeed(up, down);
+                } catch (e) {
+                    console.error('[Overview] 解析流量数据失败:', e);
+                }
+            } else if (trafficResp) {
+                console.warn('[Overview] 流量请求返回状态:', trafficResp.status);
             }
 
-            if (memResp.ok) {
-                const m = await memResp.json();
-                const el = document.getElementById('ov-memory');
-                if (el) el.textContent = formatBytes(m.inuse || m.memory || 0);
-            }
-
-            if (connResp.ok) {
-                const c = await connResp.json();
-                const elConn = document.getElementById('ov-connections');
-                if (elConn) elConn.textContent = c.connections ? c.connections.length : 0;
-                if (c.uploadTotal !== undefined && c.downloadTotal !== undefined) {
-                    updateTotals(c.uploadTotal, c.downloadTotal);
+            if (memResp && memResp.ok) {
+                try {
+                    const m = await memResp.json();
+                    const el = document.getElementById('ov-memory');
+                    if (el) el.textContent = formatBytes(m.inuse || m.memory || 0);
+                } catch (e) {
+                    console.error('[Overview] 解析内存数据失败:', e);
                 }
             }
 
-            if (versionResp.ok) {
-                const v = await versionResp.json();
-                const el = document.getElementById('ov-core-version');
-                if (el) el.textContent = `${v.type || 'Mihomo'} ${v.version || ''}`;
+            if (connResp && connResp.ok) {
+                try {
+                    const c = await connResp.json();
+                    const elConn = document.getElementById('ov-connections');
+                    if (elConn) elConn.textContent = c.connections ? c.connections.length : 0;
+                    if (c.uploadTotal !== undefined && c.downloadTotal !== undefined) {
+                        updateTotals(c.uploadTotal, c.downloadTotal);
+                    }
+                } catch (e) {
+                    console.error('[Overview] 解析连接数据失败:', e);
+                }
+            }
+
+            if (versionResp && versionResp.ok) {
+                try {
+                    const v = await versionResp.json();
+                    const el = document.getElementById('ov-core-version');
+                    if (el) el.textContent = `${v.type || 'Mihomo'} ${v.version || ''}`;
+                } catch (e) {
+                    console.error('[Overview] 解析版本数据失败:', e);
+                }
             } else {
                 const el = document.getElementById('ov-core-version');
                 if (el) el.textContent = '未知';
             }
 
-            if (statusResp.ok) {
-                const s = await statusResp.json();
-                coreRunning = s.running;
-                updateCoreButton();
+            if (statusResp && statusResp.ok) {
+                try {
+                    const s = await statusResp.json();
+                    coreRunning = s.running;
+                    updateCoreButton();
+                } catch (e) {
+                    console.error('[Overview] 解析状态数据失败:', e);
+                }
             }
         } catch (e) {
-            console.error('概览数据获取失败:', e);
+            console.error('[Overview] 概览数据获取异常:', e);
         }
     }
 
@@ -194,7 +232,7 @@ window.Overview = (function() {
 
     // ---------- 操作事件 ----------
     async function toggleCore() {
-        const url = coreRunning ? BASE + '/core/stop' : BASE + '/core/start';
+        const url = coreRunning ? buildApiUrl('/core/stop') : buildApiUrl('/core/start');
         try {
             const resp = await fetch(url, { method: 'POST' });
             const result = await resp.json();
@@ -212,7 +250,7 @@ window.Overview = (function() {
     async function restartCore() {
         if (!confirm('确定要重启内核吗？所有连接将断开。')) return;
         try {
-            const resp = await fetch(BASE + '/core/restart', { method: 'POST' });
+            const resp = await fetch(buildApiUrl('/core/restart'), { method: 'POST' });
             const result = await resp.json();
             if (resp.ok && result.status === 'ok') {
                 alert('重启指令已发送');
@@ -231,7 +269,7 @@ window.Overview = (function() {
         btn.disabled = true;
         btn.textContent = '⏳';
         try {
-            const resp = await fetch(BASE + '/update/meta', { method: 'POST' });
+            const resp = await fetch(buildApiUrl('/update/meta'), { method: 'POST' });
             const data = await resp.json();
             alert(data.message || '更新操作完成');
         } catch (e) {
@@ -248,7 +286,7 @@ window.Overview = (function() {
         btn.disabled = true;
         btn.textContent = '⏳';
         try {
-            const resp = await fetch(BASE + '/update/zash', { method: 'POST' });
+            const resp = await fetch(buildApiUrl('/update/zash'), { method: 'POST' });
             const data = await resp.json();
             alert(data.message || '更新操作完成');
         } catch (e) {
@@ -354,6 +392,7 @@ window.Overview = (function() {
 
     // ---------- 初始化 ----------
     function init() {
+        console.log('[Overview] 初始化模块，BASE_URL:', BASE);
         render();
         initLanguageListener();
     }
