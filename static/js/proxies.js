@@ -1,0 +1,1 @@
+window.Proxies = { init: function() {}, render: function() {} };

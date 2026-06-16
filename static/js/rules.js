@@ -1,0 +1,1 @@
+window.Rules = { init: function() {}, render: function() {} };

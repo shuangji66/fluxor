@@ -1,0 +1,1 @@
+window.Connections = { init: function() {}, render: function() {} };
