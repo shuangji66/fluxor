@@ -1,165 +1,243 @@
 window.i18n = (function() {
+    let currentLang = localStorage.getItem('lang') || 'zh';
+    
     const translations = {
         zh: {
+            // 通用
+            'common.loading': '加载中...',
+            'common.error': '错误',
+            'common.success': '成功',
+            'common.confirm': '确认',
+            'common.cancel': '取消',
+            'common.delete': '删除',
+            'common.edit': '编辑',
+            'common.save': '保存',
+            'common.refresh': '刷新',
+            'common.close': '关闭',
+            
+            // 侧边栏
             'nav.overview': '概览',
             'nav.proxies': '代理',
-            'nav.subscription': '订阅',
+            'nav.proxies_desc': '代理选择',
             'nav.rules': '规则',
+            'nav.rules_desc': '规则管理',
+            'nav.subscriptions': '订阅',
+            'nav.subscriptions_desc': '订阅管理',
             'nav.connections': '连接',
+            'nav.connections_desc': '活跃连接',
             'nav.logs': '日志',
+            'nav.logs_desc': '系统日志',
             'nav.config': '配置',
-
-            // 配置页
-            'config.core_config': '核心配置',
-            'config.allow_lan': '允许局域网连接',
-            'config.mode': '运行模式',
-            'config.mode_rule': '规则',
-            'config.mode_global': '全局',
-            'config.mode_direct': '直连',
-            'config.interface_name': '出站接口',
-            'config.interface_name_placeholder': '自动选择',
-            'config.tun': 'TUN 设置',
-            'config.tun_enable': '启用 TUN',
-            'config.tun_stack': 'TUN 栈',
-            'config.tun_device': '设备名称',
-            'config.tun_device_auto': '自动',
-            'config.auto_route': '自动路由',
-            'config.dns_hijack': 'DNS 劫持',
-            'config.dns_hijack_placeholder': '多个用逗号分隔',
-            'config.mtu': 'MTU',
-            'config.mtu_default': '默认',
-            'config.port_settings': '端口设置',
-            'config.mixed_port': '混合端口',
-            'config.http_port': 'HTTP 端口',
-            'config.socks_port': 'SOCKS 端口',
-            'config.redir_port': 'Redir 端口',
-            'config.tproxy_port': 'TProxy 端口',
-            'config.actions': '操作',
-            'config.reload': '重载配置',
-            'config.restart': '重启内核',
-            'config.flush_fakeip': '清空 FakeIP',
-            'config.flush_dns': '清空 DNS 缓存',
-            'config.update_geo': '更新 GEO 数据库',
-            'config.dns_query': 'DNS 查询',
-            'config.dns_placeholder': '输入域名',
-            'config.dns_query_btn': '查询',
-            'config.dns_querying': '查询中...',
-            'config.dns_query_failed': '查询失败',
-            'config.dns_result_default': '结果将显示在这里',
-            'config.confirm_restart': '确定要重启内核吗？所有连接将断开。',
-
-            // 代理设置（原有设置整合）
-            'config.proxy_settings': '代理与更新设置',
-            'config.enable_proxy': '启用代理',
-            'config.proxy_url': '代理地址',
-            'config.proxy_url_placeholder': 'http://host:port',
-            'config.enable_token': '启用 Access Token',
-            'config.github_token': 'GitHub Token',
-            'config.token_placeholder': '更新遇403错误时添加',
-            'config.modify_metacubexd': '修改 MetaCubeXD 后端地址',
-            'config.metacubexd_backend_url': '后端地址',
-            'config.metacubexd_url_placeholder': 'http://ip:port 或 https://domain:port',
-            'config.save_proxy': '保存代理设置',
-            'config.token_link': '前往 GitHub 获取 Token',
-
-            // 通用
-            'save': '保存',
-            'cancel': '取消',
-            'error': '错误',
-            'success': '成功',
-
-            'overview.core_version': '核心版本',
+            'nav.config_desc': '配置管理',
+            
+            // 概览模块
+            'overview.title': '仪表盘',
+            'overview.core_version': '内核版本',
             'overview.upload_speed': '上传速度',
             'overview.download_speed': '下载速度',
-            'overview.upload_total': '上传总量',
-            'overview.download_total': '下载总量',
-            'overview.memory_usage': '内存使用',
-            'overview.active_connections': '活动连接数',
+            'overview.upload_total': '总上传量',
+            'overview.download_total': '总下载量',
+            'overview.memory_usage': '内存占用',
+            'overview.active_connections': '活跃连接',
             'overview.traffic_trend': '流量趋势',
             'overview.upload': '上传',
             'overview.download': '下载',
+            
+            // 代理模块
+            'proxies.title': '代理组',
+            'proxies.current': '当前选择',
+            'proxies.test': '测速',
+            'proxies.testing': '测速中',
+            'proxies.timeout': '超时',
+            'proxies.error': '错误',
+            'proxies.test_all': '全部测速',
+            'proxies.test_complete': '测速完成',
+            'proxies.testing_all': '正在测速所有节点...',
+            'proxies.no_groups': '没有可用的代理组',
+            'proxies.switched': '已切换',
+            'proxies.switch_failed': '切换失败',
+            'proxies.empty': '暂无代理组',
+            'proxies.load_failed': '加载代理失败',
+            
+            // 规则模块
+            'rules.title': '规则',
+            'rules.type': '类型',
+            'rules.payload': '内容',
+            'rules.proxy': '代理',
+            'rules.total': '总计',
+            'rules.rules_count': '���规则',
+            'rules.search_placeholder': '搜索规则...',
+            'rules.providers_title': '规则提供商',
+            'rules.update_provider': '更新此提供商',
+            'rules.update_all_btn': '全部更新',
+            'rules.provider_update_success': '{name} 更新成功',
+            'rules.provider_update_failed': '{name} 更新失败',
+            'rules.no_providers': '暂无规则提供商',
+            'rules.updating_providers': '正在并发更新 {count} 个提供商...',
+            'rules.batch_update_complete': '批量更新完成',
+            'rules.unknown_time': '未知',
+            'rules.load_failed': '加载规则失败',
+            
+            // 连接模块
+            'connections.title': '连接管理',
+            'connections.host': '主机',
+            'connections.port': '端口',
+            'connections.rule': '规则',
+            'connections.chain': '链路',
+            'connections.upload_speed': '上传',
+            'connections.download_speed': '下载',
+            'connections.action': '操作',
+            'connections.close': '断开',
+            'connections.close_all': '全部断开',
+            'connections.pause': '暂停',
+            'connections.resume': '继续',
+            'connections.confirm_close_all': '确定要断开所有连接吗？',
+            'connections.close_failed': '断开失败',
+            'connections.close_all_success': '已断开所有连接',
+            'connections.close_all_failed': '批量断开失败',
+            'connections.empty': '暂无活跃连接',
+            'connections.loading': '加载中...',
+            'connections.search_placeholder': '搜索连接...',
+            
+            // 日志模块
+            'logs.title': '日志查看',
+            'logs.pause': '暂停',
+            'logs.resume': '继续',
+            'logs.clear': '清空',
+            'logs.ws_connected': 'WebSocket 已连接',
         },
         en: {
+            // Common
+            'common.loading': 'Loading...',
+            'common.error': 'Error',
+            'common.success': 'Success',
+            'common.confirm': 'Confirm',
+            'common.cancel': 'Cancel',
+            'common.delete': 'Delete',
+            'common.edit': 'Edit',
+            'common.save': 'Save',
+            'common.refresh': 'Refresh',
+            'common.close': 'Close',
+            
+            // Navigation
             'nav.overview': 'Overview',
             'nav.proxies': 'Proxies',
-            'nav.subscription': 'Subscription',
+            'nav.proxies_desc': 'Proxy Selection',
             'nav.rules': 'Rules',
+            'nav.rules_desc': 'Rules Management',
+            'nav.subscriptions': 'Subscriptions',
+            'nav.subscriptions_desc': 'Subscription Management',
             'nav.connections': 'Connections',
+            'nav.connections_desc': 'Active Connections',
             'nav.logs': 'Logs',
+            'nav.logs_desc': 'System Logs',
             'nav.config': 'Config',
-
-            'config.core_config': 'Core Config',
-            'config.allow_lan': 'Allow LAN',
-            'config.mode': 'Mode',
-            'config.mode_rule': 'Rule',
-            'config.mode_global': 'Global',
-            'config.mode_direct': 'Direct',
-            'config.interface_name': 'Interface Name',
-            'config.interface_name_placeholder': 'Auto',
-            'config.tun': 'TUN Settings',
-            'config.tun_enable': 'Enable TUN',
-            'config.tun_stack': 'TUN Stack',
-            'config.tun_device': 'Device Name',
-            'config.tun_device_auto': 'Auto',
-            'config.auto_route': 'Auto Route',
-            'config.dns_hijack': 'DNS Hijack',
-            'config.dns_hijack_placeholder': 'Comma separated',
-            'config.mtu': 'MTU',
-            'config.mtu_default': 'Default',
-            'config.port_settings': 'Port Settings',
-            'config.mixed_port': 'Mixed Port',
-            'config.http_port': 'HTTP Port',
-            'config.socks_port': 'SOCKS Port',
-            'config.redir_port': 'Redir Port',
-            'config.tproxy_port': 'TProxy Port',
-            'config.actions': 'Actions',
-            'config.reload': 'Reload Config',
-            'config.restart': 'Restart Core',
-            'config.flush_fakeip': 'Flush FakeIP',
-            'config.flush_dns': 'Flush DNS Cache',
-            'config.update_geo': 'Update GEO Database',
-            'config.dns_query': 'DNS Query',
-            'config.dns_placeholder': 'Enter domain',
-            'config.dns_query_btn': 'Query',
-            'config.dns_querying': 'Querying...',
-            'config.dns_query_failed': 'Query Failed',
-            'config.dns_result_default': 'Result will be shown here',
-            'config.confirm_restart': 'Are you sure you want to restart the core? All connections will be dropped.',
-
-            'config.proxy_settings': 'Proxy & Update Settings',
-            'config.enable_proxy': 'Enable Proxy',
-            'config.proxy_url': 'Proxy URL',
-            'config.proxy_url_placeholder': 'http://host:port',
-            'config.enable_token': 'Enable Access Token',
-            'config.github_token': 'GitHub Token',
-            'config.token_placeholder': 'Add if 403 error',
-            'config.modify_metacubexd': 'Modify MetaCubeXD Backend URL',
-            'config.metacubexd_backend_url': 'Backend URL',
-            'config.metacubexd_url_placeholder': 'http://ip:port or https://domain:port',
-            'config.save_proxy': 'Save Proxy Settings',
-            'config.token_link': 'Go to GitHub to get token',
-
-            'save': 'Save',
-            'cancel': 'Cancel',
-            'error': 'Error',
-            'success': 'Success',
-
+            'nav.config_desc': 'Configuration',
+            
+            // Overview
+            'overview.title': 'Dashboard',
             'overview.core_version': 'Core Version',
             'overview.upload_speed': 'Upload Speed',
             'overview.download_speed': 'Download Speed',
-            'overview.upload_total': 'Upload Total',
-            'overview.download_total': 'Download Total',
+            'overview.upload_total': 'Total Upload',
+            'overview.download_total': 'Total Download',
             'overview.memory_usage': 'Memory Usage',
             'overview.active_connections': 'Active Connections',
             'overview.traffic_trend': 'Traffic Trend',
             'overview.upload': 'Upload',
             'overview.download': 'Download',
-
+            
+            // Proxies
+            'proxies.title': 'Proxy Groups',
+            'proxies.current': 'Current',
+            'proxies.test': 'Test',
+            'proxies.testing': 'Testing',
+            'proxies.timeout': 'Timeout',
+            'proxies.error': 'Error',
+            'proxies.test_all': 'Test All',
+            'proxies.test_complete': 'Speed test completed',
+            'proxies.testing_all': 'Testing all proxies...',
+            'proxies.no_groups': 'No proxy groups available',
+            'proxies.switched': 'Switched to',
+            'proxies.switch_failed': 'Switch failed',
+            'proxies.empty': 'No proxy groups',
+            'proxies.load_failed': 'Failed to load proxies',
+            
+            // Rules
+            'rules.title': 'Rules',
+            'rules.type': 'Type',
+            'rules.payload': 'Payload',
+            'rules.proxy': 'Proxy',
+            'rules.total': 'Total',
+            'rules.rules_count': 'rules',
+            'rules.search_placeholder': 'Search rules...',
+            'rules.providers_title': 'Rule Providers',
+            'rules.update_provider': 'Update this provider',
+            'rules.update_all_btn': 'Update All',
+            'rules.provider_update_success': '{name} updated',
+            'rules.provider_update_failed': '{name} update failed',
+            'rules.no_providers': 'No rule providers',
+            'rules.updating_providers': 'Updating {count} providers concurrently...',
+            'rules.batch_update_complete': 'Batch update completed',
+            'rules.unknown_time': 'Unknown',
+            'rules.load_failed': 'Failed to load rules',
+            
+            // Connections
+            'connections.title': 'Connections',
+            'connections.host': 'Host',
+            'connections.port': 'Port',
+            'connections.rule': 'Rule',
+            'connections.chain': 'Chain',
+            'connections.upload_speed': 'Upload',
+            'connections.download_speed': 'Download',
+            'connections.action': 'Action',
+            'connections.close': 'Close',
+            'connections.close_all': 'Close All',
+            'connections.pause': 'Pause',
+            'connections.resume': 'Resume',
+            'connections.confirm_close_all': 'Are you sure to close all connections?',
+            'connections.close_failed': 'Close failed',
+            'connections.close_all_success': 'All connections closed',
+            'connections.close_all_failed': 'Batch close failed',
+            'connections.empty': 'No active connections',
+            'connections.loading': 'Loading...',
+            'connections.search_placeholder': 'Search connections...',
+            
+            // Logs
+            'logs.title': 'Logs',
+            'logs.pause': 'Pause',
+            'logs.resume': 'Resume',
+            'logs.clear': 'Clear',
+            'logs.ws_connected': 'WebSocket connected',
         }
     };
-    let currentLang = 'zh';
-    function t(key) { return translations[currentLang]?.[key] || key; }
-    function setLanguage(lang) { currentLang = lang; document.documentElement.lang = lang; window.dispatchEvent(new Event('languageChanged')); }
-    function getLanguage() { return currentLang; }
-    return { t, setLanguage, getLanguage };
+
+    function t(key) {
+        const keys = key.split('.');
+        let value = translations[currentLang];
+        for (const k of keys) {
+            value = value?.[k];
+            if (!value) break;
+        }
+        return value || key;
+    }
+
+    function setLanguage(lang) {
+        if (currentLang === lang) return;
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        console.log('[i18n] 语言切换到:', lang);
+        window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang } }));
+    }
+
+    function getLanguage() {
+        return currentLang;
+    }
+
+    return {
+        t,
+        setLanguage,
+        getLanguage,
+        translations
+    };
 })();
