@@ -217,7 +217,7 @@ window.i18n = (function() {
             'config.dns_querying': '查询中...',
             'config.dns_query_failed': 'DNS 查询失败',
             'config.dns_no_record': '无记录',
-            'config.tun_advanced_title': 'TUN 高级设置',
+            'config.tun_settings': 'TUN设置',
 
             // ===== 订阅 =====
             'subscription.title': '订阅中心',
@@ -465,7 +465,7 @@ window.i18n = (function() {
             'config.dns_querying': 'Querying...',
             'config.dns_query_failed': 'DNS query failed',
             'config.dns_no_record': 'No record',
-            'config.tun_advanced_title': 'Advanced TUN Settings',
+            'config.tun_settings': 'TUN Settings',
 
             // ===== Subscription =====
             'subscription.title': 'Subscription Center',
