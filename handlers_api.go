@@ -373,3 +373,23 @@ func handleProviderProxies(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
+// handleUpgrade 更新内核（POST /upgrade）
+func handleUpgrade(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	resp, err := coreRequest("POST", "/upgrade", nil)
+	if err != nil {
+		// 连接内核失败（如内核未运行或 socket 不可达）
+		writeJSONError(w, http.StatusBadGateway, "请求内核失败: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	// 原样透传状态码和响应体（包括 500 以及 JSON 消息）
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}

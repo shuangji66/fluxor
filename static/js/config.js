@@ -30,10 +30,23 @@ window.Config = (function() {
     let coreStatusTimer = null;
     let _populating = false;
     let _lastCoreStatus = null;
+    let currentVersion = '加载中...';
+
+    let globalListenersAdded = false;
 
     const t = (key) => (window.i18n && window.i18n.t) ? window.i18n.t(key) : key;
 
-    // ---------- 获取内核配置（全量渲染） ----------
+    function onThemeChanged(e) {
+        const select = document.getElementById('config-theme-select');
+        if (select) select.value = e.detail.theme;
+    }
+
+    function onLanguageChanged(e) {
+        const select = document.getElementById('config-language-select');
+        if (select && e.detail && e.detail.lang) select.value = e.detail.lang;
+        fetchConfig();
+    }
+
     async function fetchConfig() {
         try {
             const resp = await api.apiFetch('/configs');
@@ -41,6 +54,7 @@ window.Config = (function() {
             const data = await resp.json();
             currentConfig = typeof data === 'string' ? JSON.parse(data) : data;
             renderForm();
+            await fetchVersion();
         } catch (err) {
             console.error('获取配置失败:', err);
             currentConfig = {};
@@ -48,7 +62,19 @@ window.Config = (function() {
         }
     }
 
-    // ---------- 仅刷新数据（不重建DOM） ----------
+    async function fetchVersion() {
+        try {
+            const resp = await api.apiFetch('/version');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            let version = data.version || '';
+            version = version.replace(/^v/, '');
+            currentVersion = version || '未知';
+            const btn = document.getElementById('op-upgrade-core-version');
+            if (btn) btn.textContent = currentVersion;
+        } catch (e) {}
+    }
+
     async function refreshConfigData() {
         try {
             const resp = await api.apiFetch('/configs');
@@ -61,7 +87,6 @@ window.Config = (function() {
         }
     }
 
-    // ---------- 收集内核配置变更（仅变更字段） ----------
     function collectCoreFormValues() {
         if (!currentConfig) return null;
 
@@ -86,6 +111,7 @@ window.Config = (function() {
             { id: 'cfg-allow-lan', key: 'allow-lan', type: 'boolean' },
             { id: 'cfg-ipv6', key: 'ipv6', type: 'boolean' },
             { id: 'cfg-mode', key: 'mode', type: 'string' },
+            { id: 'cfg-log-level', key: 'log-level', type: 'string' },
             { id: 'cfg-interface-name', key: 'interface-name', type: 'string' },
             { id: 'cfg-mixed-port', key: 'mixed-port', type: 'number' },
             { id: 'cfg-http-port', key: 'port', type: 'number' },
@@ -97,9 +123,7 @@ window.Config = (function() {
         for (const f of fields) {
             const val = getVal(f.id, f.type);
             const currentVal = currentConfig[f.key];
-            if (val !== undefined && val !== currentVal) {
-                payload[f.key] = val;
-            }
+            if (val !== undefined && val !== currentVal) payload[f.key] = val;
         }
 
         const currentTun = currentConfig.tun || {};
@@ -127,7 +151,6 @@ window.Config = (function() {
         return payload;
     }
 
-    // ---------- 保存内核配置（直接发送，无分步） ----------
     function saveCoreDebounced() {
         if (_populating) return;
         if (saveTimeout) clearTimeout(saveTimeout);
@@ -181,7 +204,6 @@ window.Config = (function() {
         }
     }
 
-    // ---------- 内核状态 ----------
     async function fetchCoreStatus() {
         try {
             const resp = await api.apiFetch('/core/status');
@@ -193,6 +215,7 @@ window.Config = (function() {
                 coreRunning = running;
                 updateCoreUI();
             }
+            await fetchVersion();
         } catch (e) {
             console.warn('[Config] 获取内核状态失败', e);
         }
@@ -236,7 +259,6 @@ window.Config = (function() {
             const resp = await api.apiFetch('/core/start', { method: 'POST' });
             const result = await resp.json();
             if (resp.ok && result.status === 'ok') {
-                alert(t('config.core_start_success') || '内核启动成功');
                 await fetchCoreStatus();
             } else {
                 alert(t('config.core_start_failed') + ': ' + (result.message || result.error || ''));
@@ -247,12 +269,11 @@ window.Config = (function() {
     }
 
     async function stopCore() {
-        if (!confirm(t('config.confirm_stop_core') || '确定要停止内核吗？所有连接将断开。')) return;
+        if (!confirm(t('config.confirm_stop_core'))) return;
         try {
             const resp = await api.apiFetch('/core/stop', { method: 'POST' });
             const result = await resp.json();
             if (resp.ok && result.status === 'ok') {
-                alert(t('config.core_stopped_success') || '内核已停止');
                 await fetchCoreStatus();
             } else {
                 alert(t('config.core_stop_failed') + ': ' + (result.message || result.error || ''));
@@ -262,7 +283,6 @@ window.Config = (function() {
         }
     }
 
-    // ---------- 操作按钮 ----------
     async function reloadConfig() {
         try {
             const resp = await api.apiFetch('/configs', { method: 'PUT' });
@@ -278,11 +298,10 @@ window.Config = (function() {
     }
 
     async function restartCore() {
-        if (!confirm(t('config.confirm_restart') || '确定要重启内核吗？所有连接将断开。')) return;
+        if (!confirm(t('config.confirm_restart'))) return;
         try {
             const resp = await api.apiFetch('/restart', { method: 'POST' });
             if (!resp.ok) throw new Error(t('config.restart_failed') || '重启失败');
-            alert(t('config.restart_sent') || '重启指令已发送');
         } catch (e) {
             alert((t('config.restart_failed') || '重启失败') + ': ' + e.message);
         }
@@ -305,9 +324,7 @@ window.Config = (function() {
     async function updateGeoDB() {
         try {
             let resp = await api.apiFetch('/providers/geo', { method: 'POST' });
-            if (!resp.ok) {
-                resp = await api.apiFetch('/configs/geo', { method: 'POST' });
-            }
+            if (!resp.ok) resp = await api.apiFetch('/configs/geo', { method: 'POST' });
             if (resp.ok) {
                 alert(t('config.update_geo_sent') || 'GEO 数据库更新请求已发送');
             } else {
@@ -316,6 +333,12 @@ window.Config = (function() {
         } catch (e) {
             alert((t('config.update_geo_failed') || '更新失败') + ': ' + e.message);
         }
+    }
+
+    async function upgradeCoreSilent() {
+        try {
+            api.apiFetch('/upgrade', { method: 'POST' });
+        } catch (e) {}
     }
 
     async function dnsQuery() {
@@ -337,12 +360,10 @@ window.Config = (function() {
         }
     }
 
-    // ---------- 语言切换（修改：不再直接调用 fetchConfig） ----------
     function toggleLanguage(lang) {
         if (!window.i18n) return;
         window.i18n.setLanguage(lang);
         window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang } }));
-        // 更新侧边栏语言按钮
         const langToggle = document.getElementById('langToggle');
         if (langToggle) {
             const span = langToggle.querySelector('#currentLang');
@@ -350,11 +371,9 @@ window.Config = (function() {
         }
     }
 
-    // ---------- 渲染 ----------
     function renderForm() {
         if (!container) return;
         const tun = currentConfig?.tun || {};
-        const currentLang = window.i18n ? window.i18n.getLanguage() : 'zh';
         container.innerHTML = `
             <div class="card">
                 <h3>${t('config.core_config')}</h3>
@@ -378,6 +397,16 @@ window.Config = (function() {
                         <option value="rule">${t('config.mode_rule')}</option>
                         <option value="global">${t('config.mode_global')}</option>
                         <option value="direct">${t('config.mode_direct')}</option>
+                    </select>
+                </div>
+                <div class="config-row">
+                    <label>${t('config.log_level')}</label>
+                    <select id="cfg-log-level">
+                        <option value="debug">debug</option>
+                        <option value="info">info</option>
+                        <option value="warning">warning</option>
+                        <option value="error">error</option>
+                        <option value="silent">silent</option>
                     </select>
                 </div>
                 <div class="config-row">
@@ -409,23 +438,23 @@ window.Config = (function() {
                 <h4>${t('config.port_settings')}</h4>
                 <div class="config-row">
                     <label>${t('config.mixed_port')}</label>
-                    <input type="number" id="cfg-mixed-port">
+                    <input type="number" id="cfg-mixed-port" placeholder="${t('config.port_disabled_hint')}">
                 </div>
                 <div class="config-row">
                     <label>${t('config.http_port')}</label>
-                    <input type="number" id="cfg-http-port">
+                    <input type="number" id="cfg-http-port" placeholder="${t('config.port_disabled_hint')}">
                 </div>
                 <div class="config-row">
                     <label>${t('config.socks_port')}</label>
-                    <input type="number" id="cfg-socks-port">
+                    <input type="number" id="cfg-socks-port" placeholder="${t('config.port_disabled_hint')}">
                 </div>
                 <div class="config-row">
                     <label>${t('config.redir_port')}</label>
-                    <input type="number" id="cfg-redir-port">
+                    <input type="number" id="cfg-redir-port" placeholder="${t('config.port_disabled_hint')}">
                 </div>
                 <div class="config-row">
                     <label>${t('config.tproxy_port')}</label>
-                    <input type="number" id="cfg-tproxy-port">
+                    <input type="number" id="cfg-tproxy-port" placeholder="${t('config.port_disabled_hint')}">
                 </div>
             </div>
 
@@ -434,10 +463,13 @@ window.Config = (function() {
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                     <span id="core-status-indicator" style="display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--text-secondary);"></span>
                     <span id="core-status-text" style="font-size:14px; color:var(--text-secondary);">${t('config.core_checking')}</span>
+                    <!-- 版本号按钮：使用 var(--hover-bg) 确保常驻底色 -->
+                    <button id="op-upgrade-core-version" style="background:var(--hover-bg);border:none;cursor:pointer;color:var(--accent);font-size:14px;padding:2px 10px;border-radius:4px;transition:background 0.2s;" title="${t('config.click_to_upgrade')}" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='var(--hover-bg)'">${currentVersion}</button>
                 </div>
                 <div class="button-group">
                     <button id="op-core-toggle" class="btn btn-success">${t('config.start_core')}</button>
                     <button id="op-restart" class="btn btn-danger">${t('config.restart')}</button>
+                    <div style="width:100%;"></div>
                     <button id="op-reload" class="btn btn-secondary">${t('config.reload')}</button>
                     <button id="op-flush-fakeip" class="btn btn-secondary">${t('config.flush_fakeip')}</button>
                     <button id="op-flush-dns" class="btn btn-secondary">${t('config.flush_dns')}</button>
@@ -445,7 +477,6 @@ window.Config = (function() {
                 </div>
             </div>
 
-            <!-- ===== 界面设置（主题 + 语言下拉菜单） ===== -->
             <div class="card">
                 <h3>${t('config.interface_settings')}</h3>
                 <div class="config-row">
@@ -485,17 +516,14 @@ window.Config = (function() {
         populateForm();
         startCoreStatusPolling();
 
-        // 设置主题下拉初始值
         const themeSelect = document.getElementById('config-theme-select');
-        if (themeSelect && window.themeManager) {
-            themeSelect.value = window.themeManager.getTheme();
-        }
+        if (themeSelect && window.themeManager) themeSelect.value = window.themeManager.getTheme();
 
-        // 设置语言下拉初始值
         const langSelect = document.getElementById('config-language-select');
-        if (langSelect && window.i18n) {
-            langSelect.value = window.i18n.getLanguage() || 'zh';
-        }
+        if (langSelect && window.i18n) langSelect.value = window.i18n.getLanguage() || 'zh';
+
+        const btn = document.getElementById('op-upgrade-core-version');
+        if (btn) btn.textContent = currentVersion;
     }
 
     function populateForm() {
@@ -507,10 +535,10 @@ window.Config = (function() {
             document.getElementById('cfg-allow-lan').checked = cfg['allow-lan'] || false;
             document.getElementById('cfg-ipv6').checked = cfg['ipv6'] || false;
             document.getElementById('cfg-mode').value = cfg.mode || 'rule';
+            document.getElementById('cfg-log-level').value = cfg['log-level'] || 'info';
             document.getElementById('cfg-interface-name').value = cfg['interface-name'] || '';
             document.getElementById('cfg-tun-enable').checked = tun.enable || false;
-            const stackVal = tun.stack || 'System';
-            document.getElementById('cfg-tun-stack').value = stackVal;
+            document.getElementById('cfg-tun-stack').value = tun.stack || 'System';
             document.getElementById('cfg-tun-device').value = tun.device || '';
             document.getElementById('cfg-mixed-port').value = cfg['mixed-port'] || '';
             document.getElementById('cfg-http-port').value = cfg.port || '';
@@ -523,7 +551,7 @@ window.Config = (function() {
     }
 
     function bindEvents() {
-        ['cfg-allow-lan', 'cfg-ipv6', 'cfg-mode', 'cfg-interface-name',
+        ['cfg-allow-lan', 'cfg-ipv6', 'cfg-mode', 'cfg-log-level', 'cfg-interface-name',
          'cfg-mixed-port', 'cfg-http-port', 'cfg-socks-port', 'cfg-redir-port', 'cfg-tproxy-port',
          'cfg-tun-enable', 'cfg-tun-stack', 'cfg-tun-device'
         ].forEach(id => {
@@ -536,7 +564,6 @@ window.Config = (function() {
             }
         });
 
-        // 按钮事件（顺序调整）
         document.getElementById('op-core-toggle').onclick = coreRunning ? stopCore : startCore;
         document.getElementById('op-restart').onclick = restartCore;
         document.getElementById('op-reload').onclick = reloadConfig;
@@ -545,7 +572,9 @@ window.Config = (function() {
         document.getElementById('op-update-geo').onclick = updateGeoDB;
         document.getElementById('dns-query').onclick = dnsQuery;
 
-        // ===== 主题下拉菜单 =====
+        const versionBtn = document.getElementById('op-upgrade-core-version');
+        if (versionBtn) versionBtn.onclick = upgradeCoreSilent;
+
         const themeSelect = document.getElementById('config-theme-select');
         if (themeSelect && window.themeManager) {
             themeSelect.addEventListener('change', (e) => {
@@ -553,36 +582,24 @@ window.Config = (function() {
             });
         }
 
-        // ===== 语言下拉菜单 =====
         const langSelect = document.getElementById('config-language-select');
         if (langSelect && window.i18n) {
             langSelect.addEventListener('change', (e) => {
                 toggleLanguage(e.target.value);
             });
         }
-
-        // 监听外部主题变化，同步下拉菜单
-        window.addEventListener('themeChanged', (e) => {
-            const select = document.getElementById('config-theme-select');
-            if (select) {
-                select.value = e.detail.theme;
-            }
-        });
-
-        // 监听语言变化（由侧边栏或移动端顶栏触发），同步下拉值并刷新页面
-        window.addEventListener('languageChanged', (e) => {
-            const select = document.getElementById('config-language-select');
-            if (select && e.detail && e.detail.lang) {
-                select.value = e.detail.lang;
-            }
-            // 重新加载配置以刷新界面文字（确保所有 t() 调用更新）
-            fetchConfig();
-        });
     }
 
     async function init() {
         container = document.getElementById('config-content');
         if (!container) return;
+
+        if (!globalListenersAdded) {
+            window.addEventListener('themeChanged', onThemeChanged);
+            window.addEventListener('languageChanged', onLanguageChanged);
+            globalListenersAdded = true;
+        }
+
         await fetchConfig();
     }
 
@@ -590,8 +607,12 @@ window.Config = (function() {
         if (saveTimeout) clearTimeout(saveTimeout);
         if (abortController) abortController.abort();
         stopCoreStatusPolling();
-        window.removeEventListener('languageChanged', () => {});
-        window.removeEventListener('themeChanged', () => {});
+
+        if (globalListenersAdded) {
+            window.removeEventListener('themeChanged', onThemeChanged);
+            window.removeEventListener('languageChanged', onLanguageChanged);
+            globalListenersAdded = false;
+        }
     }
 
     return { init, destroy };

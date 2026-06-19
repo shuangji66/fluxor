@@ -417,6 +417,8 @@ input:checked + .slider:before {
     font-size: 0.85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-color);
+    width: 100%;
+    max-width: 470px;
 }
 
 .token-link {
@@ -725,9 +727,15 @@ input:checked + .slider:before {
 #subPanelPort {
     width: 150px;          /* 端口输入框固定 150px */
 }
-#subUIPanel,
+/* 面板下拉菜单和后端地址输入框独立宽度 */
+#subUIPanel {
+    width: 200px;          /* 下拉菜单宽度，按需调整 */
+    flex: 0 0 auto;        /* 不允许收缩或拉伸 */
+}
+
 #subMetaBackend {
-    width: 220px;          /* 下拉菜单和后端地址输入框固定 220px */
+    width: 220px !important;          /* 后端地址输入框宽度，按需调整 */
+    flex: 0 0 auto;
 }
 /* 密码输入框由 .password-wrapper 控制宽度，见下 */
 

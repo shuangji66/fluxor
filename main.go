@@ -104,6 +104,8 @@ func main() {
 	mux.HandleFunc(baseURL+"/core/start", handleCoreStart)
 	mux.HandleFunc(baseURL+"/core/stop", handleCoreStop)
 	mux.HandleFunc(baseURL+"/core/restart", handleCoreRestart)
+	// 内核升级
+    mux.HandleFunc(baseURL+"/upgrade", handleUpgrade)
 
 	// 订阅中心 API
 	mux.HandleFunc(baseURL+"/subscribe/config", handleSubscribeConfigAPI)

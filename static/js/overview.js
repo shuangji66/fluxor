@@ -139,30 +139,28 @@ window.Overview = (function() {
         if (elDt) elDt.textContent = formatBytes(totalDownload);
     }
 
-    // ---------- 更新当前节点 ----------
+    // ---------- 更新当前节点（修改：递归解析代理组） ----------
     function updateProxySelection(proxies) {
         const container = document.getElementById('current-proxy-container');
         if (!container) return;
 
         const entries = Object.entries(proxies || {});
-        const mainGroup = entries.find(([, g]) => g.type === 'Selector' && g.name.includes('节点选择'));
+        // 查找主节点选择组（Selector 且名称包含“节点选择”）
+        const mainGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name.includes('节点选择'));
         if (!mainGroup) {
             container.innerHTML = '<div style="color:var(--text-secondary);font-size:0.9em;">暂无节点选择</div>';
             return;
         }
 
-        const [, group] = mainGroup;
-        let selected = group.now || '-';
-
-        if (selected.includes('自动选择')) {
-            const autoGroup = entries.find(([, g]) => g.type === 'URLTest' && g.name === selected);
-            if (autoGroup) {
-                selected = autoGroup[1].now || '-';
-            }
-        } else if (selected.includes('手动选择')) {
-            const manualGroup = entries.find(([, g]) => g.type === 'Selector' && g.name === selected);
-            if (manualGroup) {
-                selected = manualGroup[1].now || '-';
+        let selected = mainGroup[1].now || '-';
+        // 递归解析：如果选中的名称匹配某个代理组（Selector 或 URLTest），则继续解析
+        let maxLoop = 10;
+        while (maxLoop-- > 0) {
+            const found = entries.find(([name, g]) => name === selected && (g.type === 'Selector' || g.type === 'URLTest'));
+            if (found) {
+                selected = found[1].now || '-';
+            } else {
+                break;
             }
         }
 
@@ -348,42 +346,49 @@ window.Overview = (function() {
         themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     }
 
-    // ---------- 渲染主界面 ----------
+    // ---------- 渲染主界面（调整顺序） ----------
     function render() {
         const container = document.getElementById('overview-content');
         if (!container) return;
 
         container.innerHTML = `
             <div class="stats-grid">
-                <div class="stat-box">
-                    <div class="stat-label">${t('overview.core_version')}</div>
-                    <div class="stat-value" id="ov-core-version">加载中...</div>
-                </div>
+                <!-- 上传速度 -->
                 <div class="stat-box">
                     <div class="stat-label">${t('overview.upload_speed')}</div>
                     <div class="stat-value" id="ov-upload-speed">0 B/s</div>
                 </div>
+                <!-- 下载速度 -->
                 <div class="stat-box">
                     <div class="stat-label">${t('overview.download_speed')}</div>
                     <div class="stat-value" id="ov-download-speed">0 B/s</div>
                 </div>
+                <!-- 上传总量 -->
                 <div class="stat-box">
                     <div class="stat-label">${t('overview.upload_total')}</div>
                     <div class="stat-value" id="ov-upload-total">0 B</div>
                 </div>
+                <!-- 下载总量 -->
                 <div class="stat-box">
                     <div class="stat-label">${t('overview.download_total')}</div>
                     <div class="stat-value" id="ov-download-total">0 B</div>
                 </div>
+                <!-- 内存占用 -->
                 <div class="stat-box">
                     <div class="stat-label">${t('overview.memory_usage')}</div>
                     <div class="stat-value" id="ov-memory">N/A</div>
                 </div>
+                <!-- 活跃连接 -->
                 <div class="stat-box">
                     <div class="stat-label">${t('overview.active_connections')}</div>
                     <div class="stat-value" id="ov-connections">0</div>
                 </div>
-                <!-- 外部控制卡片（放在最后） -->
+                <!-- 内核版本（倒数第二个） -->
+                <div class="stat-box">
+                    <div class="stat-label">${t('overview.core_version')}</div>
+                    <div class="stat-value" id="ov-core-version">加载中...</div>
+                </div>
+                <!-- 外部控制（最后一个） -->
                 <div class="stat-box" id="external-control-card">
                     <a href="${BASE}/meta/" target="_blank" style="display:block;text-decoration:none;color:var(--text-primary);">
                         <div style="display:flex;justify-content:space-between;align-items:center;">

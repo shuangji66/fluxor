@@ -2,7 +2,7 @@
     const pages = ['overview', 'proxies', 'rules', 'connections', 'logs', 'config', 'subscription'];
     let currentPage = 'overview';
     let mobileTabBarCreated = false;
-    let mobileTopBarCreated = false; // 新增
+    let mobileTopBarCreated = false;
 
     const moduleMap = {
         overview: 'Overview',
@@ -14,7 +14,6 @@
         subscription: 'Subscription'
     };
 
-    // 确保模块存在
     Object.values(moduleMap).forEach(name => {
         if (!window[name]) {
             window[name] = { init: function() {}, render: function() {} };
@@ -62,11 +61,20 @@
         } catch (e) {
             console.error('[App] 模块 ' + page + ' 初始化错误:', e);
         }
+
+        // 更新页面标题
+        updateTitle();
+    }
+
+    // 新增：更新浏览器标签页标题
+    function updateTitle() {
+        const pageKey = 'nav.' + currentPage;
+        const pageName = (window.i18n && window.i18n.t) ? window.i18n.t(pageKey) : currentPage;
+        document.title = 'Fluxor - ' + pageName;
     }
 
     function updateSidebarLabels() {
         const t = window.i18n ? window.i18n.t : (key) => key;
-        // 更新侧边栏
         document.querySelectorAll('.nav-item').forEach(item => {
             const page = item.dataset.page;
             if (page) {
@@ -74,7 +82,6 @@
                 if (labelSpan) labelSpan.textContent = t('nav.' + page);
             }
         });
-        // 更新底部导航
         document.querySelectorAll('.mobile-tab-item').forEach(item => {
             const page = item.dataset.page;
             if (page) {
@@ -82,20 +89,20 @@
                 if (labelSpan) labelSpan.textContent = t('nav.' + page);
             }
         });
-        // 更新语言切换按钮（桌面侧边栏）
         const langToggle = document.getElementById('langToggle');
         if (langToggle) {
             const currentLang = window.i18n ? window.i18n.getLanguage() : 'zh';
             const span = langToggle.querySelector('#currentLang');
             if (span) span.textContent = currentLang === 'zh' ? '简' : 'EN';
         }
-        // 新增：更新移动顶栏语言按钮
         const mobileLangBtn = document.getElementById('mobileLangToggle');
         if (mobileLangBtn) {
             const currentLang = window.i18n ? window.i18n.getLanguage() : 'zh';
             const span = mobileLangBtn.querySelector('#mobileCurrentLang');
             if (span) span.textContent = currentLang === 'zh' ? '简' : 'EN';
         }
+        // 语言变化时，标题也需要更新
+        updateTitle();
     }
 
     function initNavigation() {
@@ -124,11 +131,12 @@
                 showPage(currentPage);
             });
         }
-        // 移动端语言按钮事件（在 initMobileTopBar 中绑定，但监听 languageChanged 统一更新）
-        window.addEventListener('languageChanged', updateSidebarLabels);
+        window.addEventListener('languageChanged', () => {
+            updateSidebarLabels(); // 内部已调用 updateTitle
+        });
     }
 
-    // ===== 侧边栏（仅汉堡菜单，无箭头） =====
+    // ===== 侧边栏 =====
     function initSidebar() {
         const sidebar = document.getElementById('sidebar');
         const toggleBtn = document.getElementById('sidebarToggle');
@@ -198,7 +206,7 @@
                 }
                 prevMobile = nowMobile;
                 updateMobileTabBarVisibility();
-                updateMobileTopBarVisibility(); // 新增：同步顶栏
+                updateMobileTopBarVisibility();
                 if (toggleBtn && toggleBtn._updateIcon) toggleBtn._updateIcon();
             }
         });
@@ -221,8 +229,6 @@
 
     function initMobileTabBar() {
         if (mobileTabBarCreated) return;
-        if (window.innerWidth > 768) return;
-
         const tabBar = document.createElement('div');
         tabBar.className = 'mobile-tabbar';
         tabBar.style.display = 'none';
@@ -254,7 +260,7 @@
         updateMobileTabBarVisibility();
     }
 
-    // ===== 新增：移动端顶栏 =====
+    // ===== 移动端顶栏 =====
     function updateMobileTopBarVisibility() {
         const isMobile = window.innerWidth <= 768;
         const topbar = document.getElementById('mobile-topbar');
@@ -288,7 +294,6 @@
         document.body.prepend(topbar);
         mobileTopBarCreated = true;
 
-        // 标题点击回到概览
         const title = document.getElementById('mobileTitle');
         if (title) {
             title.addEventListener('click', () => {
@@ -299,7 +304,6 @@
             });
         }
 
-        // 语言切换（与桌面侧边栏一致）
         const mobileLangBtn = document.getElementById('mobileLangToggle');
         if (mobileLangBtn && window.i18n) {
             mobileLangBtn.addEventListener('click', () => {
@@ -312,7 +316,6 @@
             });
         }
 
-        // 主题切换（与桌面侧边栏一致）
         const mobileThemeBtn = document.getElementById('mobileThemeToggle');
         if (mobileThemeBtn && window.themeManager) {
             mobileThemeBtn.addEventListener('click', () => {
@@ -323,14 +326,12 @@
         }
 
         updateMobileTopBarVisibility();
-        // 初始更新语言显示
         updateSidebarLabels();
     }
 
     // ========== 主题管理 ==========
     function initTheme() {
         const themeToggle = document.getElementById('themeToggle');
-        // 移除局部变量，改用全局遍历更新
 
         let systemMediaQuery = null;
         let systemListener = null;
@@ -340,7 +341,6 @@
         }
 
         function setTheme(theme) {
-            // 移除旧监听
             if (systemMediaQuery && systemListener) {
                 systemMediaQuery.removeEventListener('change', systemListener);
                 systemMediaQuery = null;
@@ -361,7 +361,6 @@
 
             document.documentElement.setAttribute('data-theme', effectiveTheme);
 
-            // 更新所有图标（桌面侧边栏 + 移动顶栏）
             document.querySelectorAll('.icon-moon').forEach(el => el.style.display = theme === 'dark' ? 'block' : 'none');
             document.querySelectorAll('.icon-sun').forEach(el => el.style.display = theme === 'light' ? 'block' : 'none');
             document.querySelectorAll('.icon-auto').forEach(el => el.style.display = theme === 'system' ? 'block' : 'none');
@@ -373,10 +372,8 @@
             return localStorage.getItem('fluxor-theme') || 'system';
         }
 
-        // 暴露给其他模块（如 config.js）
         window.themeManager = { setTheme, getTheme };
 
-        // 初始化
         const saved = getTheme();
         setTheme(saved);
 
@@ -394,10 +391,10 @@
         createContainers();
         initNavigation();
         initSidebar();
-        initTheme();        // 主题初始化（会暴露 themeManager）
+        initTheme();
         initLanguage();
         initMobileTabBar();
-        initMobileTopBar(); // 新增：创建移动顶栏
+        initMobileTopBar();
         updateMobileTabBarVisibility();
         updateMobileTopBarVisibility();
         showPage('overview');

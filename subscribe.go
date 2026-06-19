@@ -14,14 +14,13 @@ import (
 
 // SubscribeConfig 订阅配置结构体（与前端 JSON 完全对应）
 type SubscribeConfig struct {
-	ProxyPort        int            `json:"proxy_port"`
-	PanelPort        int            `json:"panel_port"`
-	PanelSecret      string         `json:"panel_secret"`
-	RuleGroup        string         `json:"rule_group"`
-	PrefixSwitch     bool           `json:"prefix_switch"`
-	UIPanel          string         `json:"ui_panel"` // "metacubexd" 或 "zashboard"
-	MetaBackendURL   string         `json:"meta_backend_url"` // MetaCubeXD 后端地址，空表示不修改
-	Subscriptions    []Subscription `json:"subscriptions"`
+	ProxyPort      int            `json:"proxy_port"`
+	PanelPort      int            `json:"panel_port"`
+	PanelSecret    string         `json:"panel_secret"`
+	RuleGroup      string         `json:"rule_group"`
+	UIPanel        string         `json:"ui_panel"`          // "metacubexd" 或 "zashboard"
+	MetaBackendURL string         `json:"meta_backend_url"`  // MetaCubeXD 后端地址，空表示不修改
+	Subscriptions  []Subscription `json:"subscriptions"`
 }
 
 type Subscription struct {
@@ -47,7 +46,6 @@ func loadSubscribeConfig() {
 		PanelPort:      9090,
 		PanelSecret:    "",
 		RuleGroup:      "base",
-		PrefixSwitch:   false,
 		UIPanel:        "metacubexd",
 		MetaBackendURL: "",
 		Subscriptions:  []Subscription{},
@@ -207,7 +205,6 @@ external-controller: '0.0.0.0:%d'
 		if cfg.PanelSecret != "" {
 			basic += fmt.Sprintf("secret: '%s'\n", cfg.PanelSecret)
 		}
-		// 无订阅时也支持外置面板设置，直接写入
 		uiSelect := "ui/meta"
 		uiURL := ""
 		if cfg.UIPanel == "zashboard" {
@@ -236,10 +233,8 @@ external-controller: '0.0.0.0:%d'
 		if health <= 0 {
 			health = 300
 		}
-		prefix := ""
-		if cfg.PrefixSwitch {
-			prefix = sub.Prefix
-		}
+		prefix := sub.Prefix // 直接使用，不再依赖开关
+
 		providersBuf.WriteString(fmt.Sprintf(`  %s:
     type: http
     url: "%s"
@@ -248,9 +243,15 @@ external-controller: '0.0.0.0:%d'
       enable: true
       url: "https://www.gstatic.com/generate_204"
       interval: %d
-    override:
+`, sub.Name, sub.URL, interval, health))
+
+		// 如果前缀非空，添加 override.additional-prefix
+		if prefix != "" {
+			providersBuf.WriteString(fmt.Sprintf(`    override:
       additional-prefix: "%s"
-`, sub.Name, sub.URL, interval, health, prefix))
+`, prefix))
+		}
+
 		if i < len(cfg.Subscriptions)-1 {
 			providersBuf.WriteString("\n")
 		}

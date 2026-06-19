@@ -89,7 +89,7 @@ window.Subscription = (function() {
             const encoded = encodeURIComponent(sub.name);
             const resp = await apiFetch('/providers/proxies/' + encoded, { method: 'PUT' });
             if (resp.ok) {
-                alert(`订阅 "${sub.name}" 更新成功`); // alert 暂不翻译，后续可优化
+                alert(`订阅 "${sub.name}" 更新成功`);
                 await enrichSubscriptions(currentConfig.subscriptions);
                 renderSubList(currentConfig.subscriptions);
             } else {
@@ -124,17 +124,14 @@ window.Subscription = (function() {
             const panelPortEl = document.getElementById('subPanelPort');
             const panelSecretEl = document.getElementById('subPanelSecret');
             const ruleGroupEl = document.getElementById('subRuleGroup');
-            const prefixSwitchEl = document.getElementById('subPrefixSwitch');
             const uiPanelEl = document.getElementById('subUIPanel');
             const metaBackendEl = document.getElementById('subMetaBackend');
             if (proxyPortEl) proxyPortEl.value = cfg.proxy_port || 7890;
             if (panelPortEl) panelPortEl.value = cfg.panel_port || 9090;
             if (panelSecretEl) panelSecretEl.value = cfg.panel_secret || '';
             if (ruleGroupEl) ruleGroupEl.value = cfg.rule_group || 'none';
-            if (prefixSwitchEl) prefixSwitchEl.checked = cfg.prefix_switch || false;
             if (uiPanelEl) uiPanelEl.value = cfg.ui_panel || 'metacubexd';
             if (metaBackendEl) metaBackendEl.value = cfg.meta_backend_url || '';
-            togglePrefixMode();
 
             const subs = currentConfig.subscriptions || [];
             await enrichSubscriptions(subs);
@@ -186,13 +183,6 @@ window.Subscription = (function() {
                     </select>
                 </div>
                 <div class="config-row">
-                    <label for="subPrefixSwitch">${t('subscription.prefix_switch')}</label>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="subPrefixSwitch">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="config-row">
                     <label>${t('subscription.ui_panel')}</label>
                     <select id="subUIPanel">
                         <option value="metacubexd">MetaCubeXD</option>
@@ -236,7 +226,7 @@ window.Subscription = (function() {
                         <label>${t('subscription.health_interval')}</label>
                         <input type="number" id="subHealthInterval" placeholder="300">
                     </div>
-                    <div class="modal-section" id="prefixSection" style="display:none;">
+                    <div class="modal-section" id="prefixSection">
                         <label>${t('subscription.prefix')}</label>
                         <input type="text" id="subPrefix" placeholder="[Proxy]">
                     </div>
@@ -270,8 +260,6 @@ window.Subscription = (function() {
             if (e.target === this) closeSubModal();
         });
 
-        document.getElementById('subPrefixSwitch').addEventListener('change', togglePrefixMode);
-
         const toggleBtn = document.getElementById('toggleSecret');
         const passwordInput = document.getElementById('subPanelSecret');
         if (toggleBtn && passwordInput) {
@@ -287,13 +275,6 @@ window.Subscription = (function() {
                 }
             });
         }
-    }
-
-    // ---------- UI 逻辑 ----------
-    function togglePrefixMode() {
-        const enabled = document.getElementById('subPrefixSwitch').checked;
-        const prefixSection = document.getElementById('prefixSection');
-        if (prefixSection) prefixSection.style.display = enabled ? 'block' : 'none';
     }
 
     // ---------- 辅助：格式化更新时间为 YYYY-MM-DD HH:mm，无效返回 null ----------
@@ -384,6 +365,7 @@ window.Subscription = (function() {
                 updatedHtml = '';
             }
 
+            // 前缀不再显示在名称旁（移除 prefixDisplay）
             html += `
                 <div class="sub-item">
                     <div class="info" style="flex:1; min-width:0;">
@@ -485,10 +467,6 @@ window.Subscription = (function() {
         const modal = document.getElementById('subModal');
         if (!modal) return;
 
-        const prefixEnabled = document.getElementById('subPrefixSwitch')?.checked || false;
-        const prefixSection = document.getElementById('prefixSection');
-        if (prefixSection) prefixSection.style.display = prefixEnabled ? 'block' : 'none';
-
         if (index >= 0) {
             document.getElementById('subModalTitle').textContent = t('subscription.edit_modal_title');
             const sub = currentConfig.subscriptions[index];
@@ -549,7 +527,6 @@ window.Subscription = (function() {
             panel_port: parseInt(document.getElementById('subPanelPort').value),
             panel_secret: document.getElementById('subPanelSecret').value.trim(),
             rule_group: document.getElementById('subRuleGroup').value,
-            prefix_switch: document.getElementById('subPrefixSwitch').checked,
             ui_panel: document.getElementById('subUIPanel').value,
             meta_backend_url: document.getElementById('subMetaBackend').value.trim(),
             subscriptions: currentConfig.subscriptions
