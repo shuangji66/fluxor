@@ -273,7 +273,7 @@ window.Proxies = (function() {
                 .btn-sm:disabled{opacity:.5;cursor:not-allowed;transform:none}
             </style>
             <div class="proxy-toolbar">
-                <button class="btn-sm" id="test-all-btn">⚡ ${t('proxies.test_all')}</button>
+                <button class="btn-sm" id="test-all-btn">${t('proxies.test_all')}</button>
             </div>
             ${groups.map(([name, group]) => {
                 if (expandedState[name] === undefined) expandedState[name] = false;

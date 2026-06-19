@@ -220,7 +220,7 @@ func handleProxyDelay(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	trimmed := strings.TrimPrefix(path, baseURL+"/proxies/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 2 || parts[1] != "delay" {
@@ -245,7 +245,7 @@ func handleProxySwitch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	trimmed := strings.TrimPrefix(path, baseURL+"/proxies/")
 	if trimmed == "" || strings.Contains(trimmed, "/") {
 		writeJSONError(w, http.StatusBadRequest, "无效的代理名称")
@@ -302,7 +302,7 @@ func handleUpdateRuleProvider(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	// 使用 baseURL + "/providers/rules/" 作为前缀
 	trimmed := strings.TrimPrefix(path, baseURL+"/providers/rules/")
 	if trimmed == "" || strings.Contains(trimmed, "/") {
@@ -342,7 +342,7 @@ func handleRulesDisable(w http.ResponseWriter, r *http.Request) {
 // handleProviderProxies 处理订阅信息获取（GET）和更新（PUT）
 func handleProviderProxies(w http.ResponseWriter, r *http.Request) {
 	// 提取路径 /providers/proxies/{name}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	trimmed := strings.TrimPrefix(path, baseURL+"/providers/proxies/")
 	if trimmed == "" {
 		writeJSONError(w, http.StatusBadRequest, "缺少代理名称")

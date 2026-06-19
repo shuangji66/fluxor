@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -18,8 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-//go:embed static/*
-var staticFS embed.FS
+var staticFS fs.FS
 
 const (
 	socketPath   = "/var/apps/Fluxor/target/app.sock"
