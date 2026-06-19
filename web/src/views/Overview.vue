@@ -11,7 +11,7 @@ import { useGlobalStore } from '../store/global'
 const { t } = useI18n()
 
 const overviewStore = useOverviewStore()
-const { stats, uiPanel, uploadHistory, downloadHistory } = storeToRefs(overviewStore)
+const { stats, uiPanel, uploadHistory, downloadHistory, timeHistory } = storeToRefs(overviewStore)
 const globalStore = useGlobalStore()
 
 const connectionsStore = useConnectionsStore()
@@ -43,6 +43,17 @@ let dpr = window.devicePixelRatio || 1
 let resizeObserver: ResizeObserver | null = null
 let themeObserver: MutationObserver | null = null
 
+// 交互状态
+const tooltip = ref({
+  show: false,
+  x: 0,
+  y: 0,
+  time: '',
+  up: 0,
+  down: 0
+})
+const hoverIndex = ref<number | null>(null)
+
 // 字节格式转换
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 B'
@@ -56,13 +67,67 @@ const formatBytes = (bytes: number): string => {
 const getChartColors = () => {
   const isDark = document.documentElement.getAttribute('data-theme') !== 'light'
   return {
-    grid: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(15,23,42,0.06)',
-    upload: '#3b82f6',
-    download: '#10b981',
-    uploadFill: isDark ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.05)',
-    downloadFill: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.05)',
-    text: isDark ? '#94a3b8' : '#64748b'
+    grid: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(15,23,42,0.04)',
+    text: isDark ? '#64748b' : '#94a3b8'
   }
+}
+
+// 绘制贝塞尔曲线与面积填充
+const drawSmoothArea = (
+  data: number[],
+  strokeColor: string,
+  topGradientColor: string,
+  bottomGradientColor: string,
+  offsetX: number,
+  stepX: number,
+  h: number,
+  chartH: number
+) => {
+  if (data.length < 2) return
+  if (!ctx) return
+  
+  ctx.save()
+  
+  // 构造曲线数据点数组
+  const points = data.map((val, idx) => ({
+    x: offsetX + idx * stepX,
+    y: h - 25 - (val / cachedMaxY) * chartH
+  }))
+  
+  // 1. 绘制面积填充
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, h - 25)
+  ctx.lineTo(points[0].x, points[0].y)
+  
+  for (let i = 0; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i + 1].x) / 2
+    const yc = (points[i].y + points[i + 1].y) / 2
+    ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc)
+  }
+  ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y)
+  ctx.lineTo(points[points.length - 1].x, h - 25)
+  ctx.closePath()
+  
+  const grad = ctx.createLinearGradient(0, h - 25 - chartH, 0, h - 25)
+  grad.addColorStop(0, topGradientColor)
+  grad.addColorStop(1, bottomGradientColor)
+  ctx.fillStyle = grad
+  ctx.fill()
+  
+  // 2. 绘制描边曲线
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 0; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i + 1].x) / 2
+    const yc = (points[i].y + points[i + 1].y) / 2
+    ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc)
+  }
+  ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y)
+  ctx.strokeStyle = strokeColor
+  ctx.lineWidth = 1.75
+  ctx.stroke()
+  
+  ctx.restore()
 }
 
 // Canvas 绘制折线图
@@ -76,7 +141,8 @@ const drawChart = () => {
   ctx.save()
   ctx.scale(dpr, dpr)
 
-  if (uploadHistory.value.length < 2 && downloadHistory.value.length < 2) {
+  const totalLen = uploadHistory.value.length
+  if (totalLen < 2 && downloadHistory.value.length < 2) {
     ctx.restore()
     return
   }
@@ -89,51 +155,125 @@ const drawChart = () => {
 
   const stepX = w / (maxPoints - 1)
   const colors = getChartColors()
-  const chartH = h * 0.9
-  const offsetX = (maxPoints - uploadHistory.value.length) * stepX
+  
+  // 底部预留 25px 给 X 轴刻度，上部留 10px 缓冲，图表真实高度
+  const chartH = h - 35
+  const offsetX = (maxPoints - totalLen) * stepX
 
-  // 绘制网格线与 Y 轴刻度
+  // 1. 绘制网格线与 Y 轴刻度（精致虚线）
   ctx.strokeStyle = colors.grid
   ctx.lineWidth = 1
+  ctx.setLineDash([4, 4])
   ctx.font = '10px monospace'
   ctx.textAlign = 'right'
   ctx.fillStyle = colors.text
+  
   for (let i = 0; i <= 4; i++) {
-    const y = (i / 4) * h
+    const y = 10 + (i / 4) * chartH
     ctx.beginPath()
     ctx.moveTo(0, y)
-    ctx.lineTo(w, y)
+    ctx.lineTo(w - 5, y)
     ctx.stroke()
-    ctx.fillText(formatBytes(cachedMaxY * (1 - i / 4)), w - 4, y - 3)
+    
+    // 实线画文本（清除虚线设置）
+    ctx.save()
+    ctx.setLineDash([])
+    ctx.fillText(formatBytes(cachedMaxY * (1 - i / 4)), w - 8, y - 3)
+    ctx.restore()
   }
+  ctx.setLineDash([]) // 清除虚线设置
 
-  // 绘制面积折线
-  const drawArea = (data: number[], strokeColor: string, fillColor: string) => {
-    if (data.length < 2) return
-    if (!ctx) return
-    ctx.beginPath()
-    for (let i = 0; i < data.length; i++) {
-      const x = offsetX + i * stepX
-      const y = h - (data[i] / cachedMaxY) * chartH
-      if (i === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
+  // 2. 绘制平滑渐变曲线
+  // 上传：蓝色 #3b82f6；下载：绿色 #10b981
+  drawSmoothArea(uploadHistory.value, '#3b82f6', 'rgba(59, 130, 246, 0.18)', 'rgba(59, 130, 246, 0.0)', offsetX, stepX, h, chartH)
+  drawSmoothArea(downloadHistory.value, '#10b981', 'rgba(16, 185, 129, 0.18)', 'rgba(16, 185, 129, 0.0)', offsetX, stepX, h, chartH)
+
+  // 3. 绘制 X 轴动态时间刻度
+  ctx.font = '10px monospace'
+  ctx.fillStyle = colors.text
+  ctx.textAlign = 'center'
+  
+  // 每隔 15 个点绘制一个绝对时间刻度
+  for (let i = totalLen - 1; i >= 0; i -= 15) {
+    const x = offsetX + i * stepX
+    const tVal = timeHistory.value[i]
+    if (tVal) {
+      ctx.fillText(tVal, x, h - 6)
     }
-    ctx.strokeStyle = strokeColor
-    ctx.lineWidth = 2
-    ctx.stroke()
-
-    const lastX = offsetX + (data.length - 1) * stepX
-    ctx.lineTo(lastX, h)
-    ctx.lineTo(offsetX, h)
-    ctx.closePath()
-    ctx.fillStyle = fillColor
-    ctx.fill()
   }
 
-  drawArea(uploadHistory.value, colors.upload, colors.uploadFill)
-  drawArea(downloadHistory.value, colors.download, colors.downloadFill)
+  // 4. 绘制悬浮指示器
+  if (hoverIndex.value !== null && hoverIndex.value < totalLen) {
+    const idx = hoverIndex.value
+    const x = offsetX + idx * stepX
+    
+    // 绘制垂直引导实线（竖线）
+    ctx.save()
+    ctx.strokeStyle = colors.grid
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(x, 10)
+    ctx.lineTo(x, h - 25)
+    ctx.stroke()
+    ctx.restore()
+  }
 
   ctx.restore()
+}
+
+// 交互事件处理
+const updateHoverState = (x: number, y: number) => {
+  if (!canvasRef.value || uploadHistory.value.length === 0) return
+  const canvas = canvasRef.value
+  const w = canvas.width / dpr
+  const h = canvas.height / dpr
+  
+  const chartH = h - 35
+  const stepX = w / (maxPoints - 1)
+  const offsetX = (maxPoints - uploadHistory.value.length) * stepX
+  
+  const rawIdx = Math.round((x - offsetX) / stepX)
+  const idx = Math.max(0, Math.min(uploadHistory.value.length - 1, rawIdx))
+  
+  const pointX = offsetX + idx * stepX
+  if (Math.abs(x - pointX) < stepX * 1.5) {
+    hoverIndex.value = idx
+    tooltip.value.show = true
+    tooltip.value.x = pointX
+    
+    const upVal = uploadHistory.value[idx] || 0
+    const downVal = downloadHistory.value[idx] || 0
+    const upY = h - 25 - (upVal / cachedMaxY) * chartH
+    const downY = h - 25 - (downVal / cachedMaxY) * chartH
+    tooltip.value.y = Math.min(upY, downY) - 12
+    
+    tooltip.value.time = timeHistory.value[idx] || ''
+    tooltip.value.up = upVal
+    tooltip.value.down = downVal
+  } else {
+    hoverIndex.value = null
+    tooltip.value.show = false
+  }
+  drawChart()
+}
+
+const handleMouseMove = (e: MouseEvent) => {
+  updateHoverState(e.offsetX, e.offsetY)
+}
+
+const handleTouchMove = (e: TouchEvent) => {
+  if (!canvasRef.value) return
+  const rect = canvasRef.value.getBoundingClientRect()
+  const touch = e.touches[0]
+  const x = touch.clientX - rect.left
+  const y = touch.clientY - rect.top
+  updateHoverState(x, y)
+}
+
+const handleMouseLeave = () => {
+  hoverIndex.value = null
+  tooltip.value.show = false
+  drawChart()
 }
 
 // 监听历史队列自动重绘
@@ -165,7 +305,7 @@ const initCanvas = () => {
     const parent = canvas.parentElement
     if (!parent) return
     const w = parent.clientWidth
-    if (w === 0) return // 宽度为0说明DOM尚未就绪，拦截改变，避免Canvas被强设为0清空
+    if (w === 0) return
     const h = 260
     canvas.style.width = w + 'px'
     canvas.style.height = h + 'px'
@@ -221,40 +361,40 @@ onUnmounted(() => {
   <div class="space-y-6">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.upload_speed') }}</div>
-        <div class="text-sm sm:text-base font-bold text-blue-500 mt-1 select-all">{{ formatBytes(stats.uploadSpeed) }}/s</div>
+        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_speed') }}</div>
+        <div class="text-base sm:text-lg font-extrabold text-blue-500 mt-1 select-all">{{ formatBytes(stats.uploadSpeed) }}/s</div>
       </div>
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.download_speed') }}</div>
-        <div class="text-sm sm:text-base font-bold text-success mt-1 select-all">{{ formatBytes(stats.downloadSpeed) }}/s</div>
+        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_speed') }}</div>
+        <div class="text-base sm:text-lg font-extrabold text-success mt-1 select-all">{{ formatBytes(stats.downloadSpeed) }}/s</div>
       </div>
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.upload_total') }}</div>
-        <div class="text-sm sm:text-base font-bold mt-1 select-all">{{ formatBytes(uploadTotal) }}</div>
+        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_total') }}</div>
+        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(uploadTotal) }}</div>
       </div>
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.download_total') }}</div>
-        <div class="text-sm sm:text-base font-bold mt-1 select-all">{{ formatBytes(downloadTotal) }}</div>
+        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_total') }}</div>
+        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(downloadTotal) }}</div>
       </div>
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.memory_usage') }}</div>
-        <div class="text-sm sm:text-base font-bold mt-1 select-all">{{ stats.memory > 0 ? formatBytes(stats.memory) : 'N/A' }}</div>
+        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.memory_usage') }}</div>
+        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ stats.memory > 0 ? formatBytes(stats.memory) : 'N/A' }}</div>
       </div>
       <div @click="globalStore.activeTab = 'connections'" class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all cursor-pointer hover:border-accent/40 hover:shadow-md active:scale-[0.98]">
-        <div class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.active_connections') }}</div>
-        <div class="text-sm sm:text-base font-bold mt-1 select-all">{{ connectionsCount }}</div>
+        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.active_connections') }}</div>
+        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ connectionsCount }}</div>
       </div>
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.core_version') }}</div>
-        <div class="text-sm sm:text-base font-bold mt-1 select-all truncate" :title="coreVersionDisplay">{{ coreVersionDisplay }}</div>
+        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.core_version') }}</div>
+        <div class="text-base sm:text-lg font-extrabold mt-1 select-all truncate" :title="coreVersionDisplay">{{ coreVersionDisplay }}</div>
       </div>
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
         <a :href="`${base}${uiPanel === 'zashboard' ? '/zash/' : '/meta/'}`" target="_blank" class="block text-slate-800 dark:text-slate-100 decoration-transparent">
           <div class="flex justify-between items-center">
-            <span class="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('overview.external_control') }}</span>
+            <span class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.external_control') }}</span>
             <OpenOutline class="w-3.5 h-3.5 text-slate-400" />
           </div>
-          <div class="text-sm sm:text-base font-bold text-accent mt-1 select-none">{{ uiPanel === 'zashboard' ? 'Zashboard' : 'MetaCubeXD' }}</div>
+          <div class="text-base sm:text-lg font-extrabold text-accent mt-1 select-none">{{ uiPanel === 'zashboard' ? 'Zashboard' : 'MetaCubeXD' }}</div>
         </a>
       </div>
     </div>
@@ -262,9 +402,9 @@ onUnmounted(() => {
     <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all flex items-center justify-between gap-4">
       <div class="flex items-center gap-2">
         <RadioOutline class="w-5 h-5 text-accent" />
-        <span class="text-xs font-bold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
+        <span class="text-sm font-extrabold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
       </div>
-      <div class="text-sm font-semibold text-accent break-all select-all">{{ currentNodeDisplay }}</div>
+      <div class="text-base font-bold text-accent break-all select-all">{{ currentNodeDisplay }}</div>
     </div>
 
     <div class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all space-y-4">
@@ -279,8 +419,40 @@ onUnmounted(() => {
           </span>
         </div>
       </div>
-      <div>
-        <canvas ref="canvasRef"></canvas>
+      <div class="relative overflow-visible">
+        <canvas
+          ref="canvasRef"
+          @mousemove="handleMouseMove"
+          @mouseleave="handleMouseLeave"
+          @touchmove="handleTouchMove"
+          @touchend="handleMouseLeave"
+          class="cursor-crosshair block w-full"
+        ></canvas>
+        
+        <!-- Interactive Tooltip Card -->
+        <div
+          v-show="tooltip.show"
+          :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
+          class="absolute pointer-events-none transform -translate-x-1/2 -translate-y-[100%] z-30 transition-[left,top] duration-75 min-w-[125px] rounded-xl px-3 py-2 text-[11px] font-medium backdrop-blur-md bg-white/90 dark:bg-slate-900/90 shadow-xl border border-slate-200/50 dark:border-slate-800/50 text-slate-800 dark:text-slate-200"
+        >
+          <div class="font-bold border-b border-slate-200/30 dark:border-slate-700/30 pb-1 mb-1 text-slate-500 dark:text-slate-400 text-[10px] text-center">
+            {{ tooltip.time }}
+          </div>
+          <div class="space-y-0.5">
+            <div class="flex justify-between items-center gap-4">
+              <span class="flex items-center gap-1 text-blue-500">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>{{ t('overview.upload') }}
+              </span>
+              <span class="font-bold font-mono">{{ formatBytes(tooltip.up) }}/s</span>
+            </div>
+            <div class="flex justify-between items-center gap-4">
+              <span class="flex items-center gap-1 text-success">
+                <span class="w-1.5 h-1.5 rounded-full bg-success"></span>{{ t('overview.download') }}
+              </span>
+              <span class="font-bold font-mono">{{ formatBytes(tooltip.down) }}/s</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -27,6 +27,7 @@ export const useOverviewStore = defineStore('overview', () => {
 
   const uploadHistory = ref<number[]>([])
   const downloadHistory = ref<number[]>([])
+  const timeHistory = ref<string[]>([])
   const uiPanel = ref('metacubexd')
 
   // === Traffic WS ===
@@ -234,14 +235,21 @@ export const useOverviewStore = defineStore('overview', () => {
   const pushHistory = (up: number, down: number, maxPoints = 60) => {
     uploadHistory.value.push(up)
     downloadHistory.value.push(down)
+    
+    const now = new Date()
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+    timeHistory.value.push(timeStr)
+
     if (uploadHistory.value.length > maxPoints) uploadHistory.value.shift()
     if (downloadHistory.value.length > maxPoints) downloadHistory.value.shift()
+    if (timeHistory.value.length > maxPoints) timeHistory.value.shift()
   }
 
   return {
     stats,
     uploadHistory,
     downloadHistory,
+    timeHistory,
     uiPanel,
     pushHistory,
     subscribeTraffic,

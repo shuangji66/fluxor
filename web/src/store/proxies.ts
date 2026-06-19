@@ -12,6 +12,7 @@ export interface ProxyGroup {
 export const useProxyStore = defineStore('proxies', () => {
   const proxyGroups = ref<ProxyGroup[]>([])
   const delays = ref<Record<string, number>>({})
+  const allProxiesRaw = ref<Record<string, any>>({})
   const isLoading = ref(false)
   const expandedState = ref<Record<string, boolean>>({})
 
@@ -22,6 +23,7 @@ export const useProxyStore = defineStore('proxies', () => {
       const resp = await apiFetch('/proxies')
       if (resp.ok) {
         const data = await resp.json()
+        allProxiesRaw.value = data.proxies || {}
         const groups = Object.values(data.proxies || {}).filter((p: any) => 
           p.type === 'Selector' || p.type === 'URLTest' || p.type === 'Fallback' || p.type === 'LoadBalance'
         ) as ProxyGroup[]
@@ -97,6 +99,7 @@ export const useProxyStore = defineStore('proxies', () => {
   return {
     proxyGroups,
     delays,
+    allProxiesRaw,
     isLoading,
     expandedState,
     fetchProxies,
