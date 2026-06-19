@@ -29,39 +29,49 @@
 
 ```text
 fluxor/
-├── main.go                 # 程序入口，初始化路由，绑定 Unix Socket
-├── assets_vanilla.go       # 嵌入旧版静态资源 (tags: !vue)
-├── assets_vue.go           # 嵌入 Vue 版编译产物 (tags: vue)
-├── handlers_core.go        # 内核进程控制、核心请求代理与 Context 释放控制
-├── handlers_api.go         # 代理内核 HTTP API 接口
+├── main.go                 # 程序入口，路由注册，Unix Socket 监听，WebSocket 双向代理 (wsProxyHandler)
+├── assets_vanilla.go       # 嵌入旧版静态资源 (go:build !vue)
+├── assets_vue.go           # 嵌入 Vue 版编译产物 (go:build vue)
+├── handlers_core.go        # 内核进程生命周期（start/stop/restart/coreRequest/cancelableReadCloser）
+├── handlers_api.go         # 代理内核 HTTP API（流量、内存、连接、代理、规则、配置、DNS、GEO、升级等）
 ├── handlers_index.go       # 主页入口 index.html 模板渲染
-├── handlers_utils.go       # JSON 错误响应等辅助工具
-├── subscribe.go            # 订阅生成逻辑
-├── build/                  # 跨平台自动化编译与打包工具链（含配置文件模板）
+├── handlers_utils.go       # JSON 错误响应工具 (writeJSONError/respondJSON) 及后端地址正则校验
+├── subscribe.go            # 订阅配置 CRUD、config.yaml 生成、模板替换、MetaCubeXD config.js 修改
+├── build/                  # 跨平台自动化编译与打包工具链（含 config_lite/base/full.yaml 模板）
 ├── static/                 # 旧版原生 Vanilla JS 前端目录
 └── web/                    # 主维护 Vue 3 前端源码目录
-    ├── src/
-    │   ├── App.vue         # 主框架组件，负责侧边栏切换、亮暗主题、语言及全局配置状态预加载
-    │   ├── main.ts         # 入口文件，挂载 Pinia 和 i18n
-    │   ├── i18n.ts         # 全站国际化翻译资源文件，禁止在页面写入硬编码中文
-    │   ├── store/
-    │   │   ├── global.ts   # 侧边栏折叠、当前 Tab 激活状态及全局 Toast 队列控制
-    │   │   ├── config.ts   # 托管内核状态、常规配置及订阅管理列表，提供全局初始化 actions
-    │   │   ├── proxies.ts  # 托管代理组数据与节点测速延迟记录，支持静默刷新
-    │   │   ├── overview.ts # 托管仪表盘实时性能指标与 60 点流量图表历史快照
-    │   │   └── logs.ts     # 托管系统终端历史日志缓存快照，切页自动回显
-    │   ├── utils/
-    │   │   └── api.ts      # 强类型网络类库（HTTP fetch / WebSocket 连接）
-    │   └── views/          # 业务视图组件
-    │       ├── Overview.vue     # 概览：Canvas 高清折线图自绘
-    │       ├── Proxies.vue      # 代理：手风琴组折叠与测速，根据延迟动态着色（红/黄/绿）
-    │       ├── Subscription.vue # 订阅：订阅增删改查、手动健康度测试
-    │       ├── Config.vue       # 配置：内核常规、网卡、TUN及高级运维微调
-    │       ├── Connections.vue  # 连接：实时 TCP/UDP 树形监控、主动切断与历史已关闭连接审计
-    │       ├── Rules.vue        # 规则：规则匹配列表规则过滤与启用/禁用控制
-    │       └── Logs.vue         # 日志：着色过滤与终端自滚
-    └── vite.config.ts      # 配置自定义编译重定向插件，确保产物目录兼容 embed.FS
+    ├── package.json        # Vue 3.4 + Pinia + vue-i18n 9 + Vite 5 + Tailwind CSS 3 + TypeScript 5 + @vicons/ionicons5
+    ├── vite.config.js      # 自定义 fluxorBuildPlugin：构建后将 index.html 移至 static/html/ 适配 embed.FS
+    ├── tailwind.config.js  # data-theme 暗黑模式 + 扩展 accent/success/danger/warning 颜色
+    ├── postcss.config.js   # Tailwind + Autoprefixer
+    ├── index.html          # HTML 入口
+    └── src/
+        ├── main.ts         # 挂载 Pinia + vue-i18n (Composition API, legacy:false)
+        ├── App.vue         # 根组件：响应式侧边栏/移动端底部 Tab、亮暗/跟随系统主题、中英切换、Toast 队列、Promise 确认框
+        ├── env.d.ts        # .vue 类型声明 & Window.BASE_URL 接口扩展
+        ├── i18n.ts         # 全站国际化（zh/en），从 localStorage 读取语言偏好，禁止硬编码中文
+        ├── index.css       # Tailwind 基础指令 + CSS 变量亮暗主题（data-theme 选择器）+ 自定义滚动条
+        ├── utils/
+        │   └── api.ts      # withBase() 拼接 BASE_URL、apiFetch() HTTP 封装、wsConnect() WebSocket 封装（自动 ws/wss 协议选择）
+        ├── store/
+        │   ├── global.ts   # 标签页激活状态、侧边栏折叠、亮暗/跟随系统主题、Toast 队列（3s 自动消失）、Promise 驱动确认框
+        │   ├── config.ts   # 内核运行状态、内核配置参数（allow-lan/ipv6/mode/log-level/tun/端口等）、订阅配置 CRUD
+        │   ├── overview.ts # 仪表盘实时统计（速度/流量/内存/连接数/版本/当前节点）、60 点流量历史、3 路 WS + 1 路 HTTP 轮询
+        │   ├── proxies.ts  # 代理组列表、节点延迟字典、手风琴展开状态、并发受限（10）批量测速
+        │   ├── connections.ts # 活跃/已关闭连接列表、汇总统计、排序/搜索、WS 瞬时速率计算（快照差分）
+        │   ├── rules.ts    # 规则列表、规则提供商列表、fetch/refresh 方法
+        │   └── logs.ts     # 日志缓冲区（上限 2000 条）、自动滚动、暂停/继续、指数退避重连（1s~30s）
+        └── views/
+            ├── Overview.vue     # 概览：4 指标卡（上传/下载速度+总量）+ 4 信息卡（内存/连接数/版本/外部面板）+ Canvas 自绘折线图（max 60 点）
+            ├── Proxies.vue      # 代理：手风琴展开/折叠、点击切换选择、单节点/组/全部测速、延迟着色（绿≤150 / 黄≤300 / 红>300ms/超时）
+            ├── Rules.vue        # 规则：搜索过滤、启用/禁用开关（乐观更新+回滚）、规则提供商单个/全部更新
+            ├── Connections.vue  # 连接：活跃/已关闭双标签、多列排序、搜索过滤、单条/全部断开（乐观更新移入 closed）、清空已关闭
+            ├── Logs.vue         # 日志：暗色终端风格、级别过滤（Debug/Info/Warning/Error）、搜索、暂停/继续、智能自动滚动
+            ├── Config.vue       # 配置：内核状态卡（启动/停止/升级）、常规参数、端口校验（1025-65535+重复检测）、TUN（gVisor/System/Mixed）、高级运维（重载/清缓存/GEO）、内置 DNS 查询
+            └── Subscription.vue # 订阅：代理/面板端口、密钥显隐切换、规则集（lite/base/full）、UI 面板选择、订阅 CRUD 模态框（zoomIn 动画）、流量/健康度/有效期卡片、「保存并应用」
 ```
+
+> **页面路由机制**：未使用 vue-router，通过 `globalStore.activeTab` 与 `<component :is="..." />`　动态组件切换视图。
 
 ---
 
@@ -86,18 +96,89 @@ func (c *cancelableReadCloser) Close() error {
 ```
 编写新的 API 代理 Handler 时，必须使用此包装类接管 Context 的回收。
 
+### 3.3 后端 API 路由对照表（`main.go` 注册）
+
+| 路由 | 方法 | Handler | 说明 |
+|------|------|---------|------|
+| `/` | GET | `handleIndex` | SPA 主页模板渲染 |
+| `/core/status` | GET | `handleCoreStatus` | 内核运行状态（PID 文件检测） |
+| `/core/start` | POST | `handleCoreStart` | 启动内核进程 |
+| `/core/stop` | POST | `handleCoreStop` | 停止内核进程（SIGTERM） |
+| `/core/restart` | POST | `handleCoreRestart` | 热重启（重载配置） |
+| `/upgrade` | POST | `handleUpgrade` | 升级内核（透传内核 /upgrade） |
+| `/subscribe/config` | GET/POST | `handleSubscribeConfigAPI` | 订阅配置读写（持久化到 subscribe.json） |
+| `/subscribe/generate` | POST | `handleGenerateConfig` | 保存配置 + 生成 config.yaml + 重载内核 |
+| `/traffic` | WS | `wsProxyHandler("/traffic")` | 实时流量数据 WebSocket 代理 |
+| `/memory` | WS | `wsProxyHandler("/memory")` | 实时内存数据 WebSocket 代理 |
+| `/logs` | WS | `wsProxyHandler("/logs")` | 实时日志流 WebSocket 代理 |
+| `/connections` | WS/DELETE | `wsProxyHandler` / `handleConnectionsClose` | 连接实时流或全部断开 |
+| `/connections/{id}` | DELETE | `handleConnectionsClose` | 断开指定连接 |
+| `/version` | GET | `handleVersion` | 内核版本信息 |
+| `/configs` | GET/PATCH/PUT | `handleConfigsAPI` | 获取/修改/重载内核配置 |
+| `/configs/geo` | POST | `handleConfigsGeo` | 更新 GEO 数据库 |
+| `/providers/geo` | POST | `handleProvidersGeo` | 回退 GEO 更新接口 |
+| `/providers/rules` | GET | `handleRuleProviders` | 获取规则提供商列表 |
+| `/providers/rules/{name}` | PUT | `handleUpdateRuleProvider` | 更新单个规则提供商 |
+| `/providers/proxies/{name}` | GET/PUT | `handleProviderProxies` | 获取/更新订阅代理信息 |
+| `/rules` | GET | `handleRules` | 获取所有规则 |
+| `/rules/disable` | PATCH | `handleRulesDisable` | 启用/禁用规则 |
+| `/proxies` | GET | `handleProxies` | 获取所有代理组 |
+| `/proxies/{name}/delay` | GET | `handleProxyDelay` | 测速（需 ?url=&timeout= 参数） |
+| `/proxies/{name}` | PUT | `handleProxySwitch` | 切换代理选择 |
+| `/cache/fakeip/flush` | POST | `handleFlushFakeIP` | 清空 FakeIP 缓存 |
+| `/cache/dns/flush` | POST | `handleFlushDNS` | 清空 DNS 缓存 |
+| `/dns/query` | GET | `handleDNSQuery` | DNS 查询（?name=&type=） |
+| `/restart` | POST | `handleRestart` | 内核远端重启 |
+| `/meta/` | GET | `http.FileServer` | MetaCubeXD 外部面板静态文件 |
+| `/zash/` | GET | `http.FileServer` | Zashboard 外部面板静态文件 |
+| `/static/` | GET | `http.FileServer` | 内嵌前端静态资源 |
+
+> 所有路由均挂载在 `baseURL = "/app/Fluxor"` 之下，如 `/app/Fluxor/core/status`。
+
 ---
 
 ## 4. 前端数据更新与缓存架构 (开发约束)
 
 为了保证页面来回切换时的丝滑体验，同时避免在后台空跑产生资源泄漏：
-1. **状态托管与秒开**：
-   - 将各个页面的核心业务数据（如配置、代理节点）收归全局 Pinia store 维护。组件重新挂载时无缝呈现历史快照，随后在后台静默发起 fetch 刷新数据。
-2. **WebSocket 生命周期控制**：
-   - 流量图表（`Overview.vue`）和终端日志（`Logs.vue`）所依赖的 WebSockets 连接，**必须在组件卸载 (onUnmounted) 时主动关闭**，避免用户不在当前页时持续消耗系统资源。
-   - 关闭连接前，最新的图表折线点、日志内容会被保存在 `useOverviewStore` 和 `useLogStore` 中。重新切回页面时，这些数据会立刻呈现，并由新开启 of WS 连接继续往下追加，实现无感过渡。
-3. **批量测速并发控制规约**：
-   - 无论是新版 Vue 3 还是旧版 Vanilla JS 前端，进行批量测速（全部测速或组测速）时，**必须强制实施并发控制（默认并发数限制为 10）**。绝对禁止一次性无限制发起数百个网络测速请求，防止浏览器连接队列拥堵与后端 Unix Socket 重试负载崩溃。
-4. **弹窗与交互去原生化**：
-   - 全站**绝对禁止使用**浏览器的阻塞式 `alert(...)`。如有提示需要，一律使用 `globalStore.showToast(text, 'success' | 'error' | 'warning' | 'info')` 发送非阻塞高颜值 Toast。
-   - 所有在页面上展示的图标**必须使用 `xicons` (@vicons/ionicons5)**，禁止在系统硬编码 SVG、Emoji 或 颜文字符号（包括 `build/app/templates` 的内置配置模板中也绝对禁止在代理组和规则名中硬编码 Emoji），保持视觉绝对统一。
+
+### 4.1 状态托管与秒开
+- 将各个页面的核心业务数据（如配置列表、代理节点、规则、连接快照）收归全局 Pinia store 维护。组件重新挂载时无缝呈现历史快照，随后在后台静默发起 fetch 刷新数据（`silent = true` 参数）。
+
+### 4.2 WebSocket 引用计数生命周期管理
+所有实时数据流（流量、内存、连接、日志）均采用 **引用计数 + 防抖断开** 模式，而非在 `onUnmounted` 中直接关闭 WS：
+
+```
+subscribe() → subscriberCount++ → 首次订阅时建立连接
+unsubscribe() → subscriberCount-- → 归零后延迟 3 秒（防抖）→ 若无新订阅才真正断开
+```
+
+**优势**：
+- 同一组件可多次安全订阅（如 `Overview.vue` 中的流量、内存、状态三路数据各自独立计数）。
+- 组件快速切出/切回时不中断 WS 连接，实现无感过渡。
+- 连接断开时，若仍有订阅者，自动尝试重连：
+  - 流量/内存/连接 WS：5 秒后重连。
+  - 日志 WS：指数退避重连（1s → 2s → 4s → ... → 最大 30s）。
+
+**缓存留存**：
+- 流量历史（`overview.ts`）保留最近 60 个数据点。
+- 日志缓冲区（`logs.ts`）上限 2000 条。
+- 已关闭连接（`connections.ts`）上限 100 条，超限时从旧到新截断。
+
+### 4.3 连接瞬时速率计算
+`connections.ts` 通过 **快照差分法** 计算每条连接的瞬时速率：记录每次 WS 消息到时的 `(upload, download, timestamp)` 快照，下一帧按 `(uploadDiff + downloadDiff) / timeDiff` 得出速率。
+- 首帧（或暂停恢复后）跳过归档，防止陈旧快照误判。
+- 前后端断开瞬间自动归档为已关闭连接。
+
+### 4.4 批量测速并发控制规约
+- 无论是新版 Vue 3 还是旧版 Vanilla JS 前端，进行批量测速（全部测速或组测速）时，**必须强制实施并发控制（默认并发数限制为 10）**。绝对禁止一次性无限制发起数百个网络测速请求，防止浏览器连接队列拥堵与后端 Unix Socket 重试负载崩溃。
+
+### 4.5 弹窗与交互去原生化
+- 全站**绝对禁止使用**浏览器的阻塞式 `alert(...)`。如有提示需要，一律使用 `globalStore.showToast(text, 'success' | 'error' | 'warning' | 'info')` 发送非阻塞高颜值 Toast。
+- 确认操作使用 `globalStore.showConfirm({title, message, confirmText?, cancelText?})` 返回 Promise，在 `App.vue` 中以模态渲染。
+- 所有在页面上展示的图标**必须使用 `xicons` (@vicons/ionicons5)**，禁止在系统硬编码 SVG、Emoji 或颜文字符号（包括 `build/app/templates` 的内置配置模板中也绝对禁止在代理组和规则名中硬编码 Emoji），保持视觉绝对统一。
+
+### 4.6 乐观更新与回滚
+涉及高频用户操作的接口（如代理选择切换、规则启用/禁用、连接断开）采用**乐观更新**策略：
+1. 立即更新本地状态，呈现即时反馈。
+2. 并发发起 API 请求。
+3. 请求失败时自动回滚至更新前的状态。
