@@ -147,11 +147,11 @@ onMounted(() => {
 
       <div>
         <button v-if="activeTab === 'rules'" @click="handleRefreshRules" :disabled="isLoadingRules" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
-          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingRules }" />
+          <SyncOutline class="w-3.5 h-3.5 inline-block" :class="{ 'animate-spin': isLoadingRules }" />
           {{ t('common.refresh') }}
         </button>
         <button v-else-if="activeTab === 'providers'" @click="handleUpdateAllProviders" :disabled="isUpdatingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
-          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isUpdatingAll }" />
+          <SyncOutline class="w-3.5 h-3.5 inline-block" :class="{ 'animate-spin': isUpdatingAll }" />
           {{ t('rules.update_all') }}
         </button>
       </div>
@@ -203,7 +203,7 @@ onMounted(() => {
         <div v-for="p in filteredProviders" :key="p.name" class="p-5 flex items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors relative overflow-hidden">
           <!-- 规则更新局部加载遮罩 -->
           <div v-if="isUpdating[p.name] || isUpdatingAll" class="absolute inset-0 bg-white/75 dark:bg-[#1e293b]/75 backdrop-blur-[1px] z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
-            <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 border-t-accent rounded-full animate-spin"></div>
+            <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
             <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {{ t('rules.updating') }}
             </span>
@@ -221,7 +221,7 @@ onMounted(() => {
 
           <div class="shrink-0">
             <button @click="handleUpdateProvider(p.name)" :disabled="isUpdating[p.name]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all">
-              <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isUpdating[p.name] }" />
+              <SyncOutline class="w-4 h-4 inline-block" :class="{ 'animate-spin': isUpdating[p.name] }" />
             </button>
           </div>
         </div>
