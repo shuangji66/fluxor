@@ -32,7 +32,13 @@ const editForm = ref<SubscriptionItem>({
 const configStore = useConfigStore()
 const { currentConfig, savedSubNames, coreStatus } = storeToRefs(configStore)
 
-const loadConfig = configStore.loadConfig
+const loadConfig = async () => {
+  try {
+    await configStore.loadConfig()
+  } catch (e) {
+    console.error('加载订阅配置失败', e)
+  }
+}
 const fetchSubscriptionInfo = configStore.fetchSubscriptionInfo
 const enrichSubscriptions = configStore.enrichSubscriptions
 
@@ -162,7 +168,8 @@ const saveSubToList = () => {
 // 删除订阅
 const handleDeleteSub = async (index: number) => {
   const ok = await globalStore.showConfirm({
-    message: `${t('common.confirm')} ${t('common.delete')}?`
+    message: `${t('common.confirm')} ${t('common.delete')}?`,
+    type: 'danger'
   })
   if (ok) {
     currentConfig.value.subscriptions.splice(index, 1)
@@ -283,9 +290,9 @@ onMounted(() => {
         <div v-if="!currentConfig.subscriptions || currentConfig.subscriptions.length === 0" class="text-slate-400 dark:text-slate-600 text-sm py-4 text-center">
           {{ t('subscription.no_subscriptions') }}
         </div>
-        <div v-else-if="currentConfig.subscriptions" v-for="(sub, idx) in currentConfig.subscriptions" :key="sub.name" class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden">
+        <div v-else v-for="(sub, idx) in currentConfig.subscriptions" :key="sub.name" class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden">
           <!-- 正在更新/健康检查的卡片遮罩层 -->
-          <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 bg-white/75 dark:bg-[#1e293b]/75 backdrop-blur-[1px] z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
+          <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 glass-light z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
             <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
             <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {{ isUpdating[idx] ? t('rules.updating') : t('subscription.health_check') + '...' }}
@@ -339,7 +346,7 @@ onMounted(() => {
             </template>
           </div>
         </div>
-      </div>
+    </div>
 
       <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6 flex items-center gap-4">
         <button @click="saveAndApply" :disabled="isApplying" class="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -349,8 +356,8 @@ onMounted(() => {
       </div>
 
       <!-- 保存并应用全屏模糊加载浮层 -->
-      <div v-if="isApplying" class="fixed inset-0 bg-slate-900/10 dark:bg-slate-950/20 backdrop-blur-[1px] z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
-        <div class="bg-white/95 dark:bg-[#1e293b]/95 border border-slate-200/40 dark:border-slate-800/40 backdrop-blur-lg px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
+      <div v-if="isApplying" class="fixed inset-0 glass-mask z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
+        <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
           <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
         </div>
@@ -358,8 +365,8 @@ onMounted(() => {
     </div>
 
     <!-- Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white dark:bg-[#1e293b] w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
+    <div v-if="showModal" class="fixed inset-0 glass-mask z-50 flex items-center justify-center p-4">
+      <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
         <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
           <h2 class="text-lg font-bold">{{ modalTitle }}</h2>
           <button @click="closeSubModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">

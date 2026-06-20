@@ -234,14 +234,14 @@ export const useConfigStore = defineStore('config', () => {
   const enrichSubscriptions = async () => {
     const subs = currentConfig.value.subscriptions
     if (!subs) return
-    for (let i = 0; i < subs.length; i++) {
-      if (savedSubNames.value.has(subs[i].name)) {
-        const info = await fetchSubscriptionInfo(subs[i].name)
-        subs[i].info = info
+    const promises = subs.map(async (sub) => {
+      if (savedSubNames.value.has(sub.name)) {
+        sub.info = await fetchSubscriptionInfo(sub.name)
       } else {
-        subs[i].info = null
+        sub.info = null
       }
-    }
+    })
+    await Promise.all(promises)
   }
 
   return {

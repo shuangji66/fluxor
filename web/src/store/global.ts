@@ -12,6 +12,7 @@ export interface ConfirmOptions {
   message: string
   okText?: string
   cancelText?: string
+  type?: 'info' | 'warning' | 'danger' | 'success'
 }
 
 export interface ConfirmState {
@@ -20,6 +21,7 @@ export interface ConfirmState {
   message: string
   okText: string
   cancelText: string
+  type: 'info' | 'warning' | 'danger' | 'success'
   resolve: ((value: boolean) => void) | null
 }
 
@@ -46,13 +48,24 @@ export const useGlobalStore = defineStore('global', () => {
     }, 3000)
   }
 
+  const removeToast = (id: number) => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }
+
   // 触发全局模态确认框
   const showConfirm = (options: ConfirmOptions | string): Promise<boolean> => {
     return new Promise((resolve) => {
+      // 防重入处理，避免 Promise 覆盖泄露
+      if (confirmDialog.value && confirmDialog.value.visible) {
+        resolve(false);
+        return;
+      }
+
       let message = ''
       let title = ''
       let okText = ''
       let cancelText = ''
+      let type: 'info' | 'warning' | 'danger' | 'success' = 'warning'
 
       if (typeof options === 'string') {
         message = options
@@ -61,6 +74,7 @@ export const useGlobalStore = defineStore('global', () => {
         title = options.title || ''
         okText = options.okText || ''
         cancelText = options.cancelText || ''
+        type = options.type || 'warning'
       }
 
       confirmDialog.value = {
@@ -69,6 +83,7 @@ export const useGlobalStore = defineStore('global', () => {
         message,
         okText,
         cancelText,
+        type,
         resolve
       }
     })
@@ -102,6 +117,7 @@ export const useGlobalStore = defineStore('global', () => {
     toasts, 
     confirmDialog, 
     showToast, 
+    removeToast,
     showConfirm, 
     handleConfirmResult 
   }

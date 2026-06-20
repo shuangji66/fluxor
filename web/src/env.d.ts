@@ -9,3 +9,5 @@ declare module '*.vue' {
 interface Window {
   BASE_URL?: string;
 }
+
+declare const __APP_VERSION__: string;

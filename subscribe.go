@@ -248,7 +248,6 @@ external-controller: '0.0.0.0:%d'
     type: http
     url: "%s"
     interval: %d
-    proxy: 节点选择
     health-check:
       enable: true
       url: "https://www.gstatic.com/generate_204"

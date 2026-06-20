@@ -70,13 +70,27 @@ const handleUpdateAllProviders = async () => {
   if (providers.value.length === 0) return
   isUpdatingAll.value = true
   try {
-    const promises = providers.value.map(p => {
-      const encoded = encodeURIComponent(p.name)
-      return apiFetch(`/providers/rules/${encoded}`, { method: 'PUT' })
-        .then(resp => ({ name: p.name, ok: resp.ok }))
-        .catch(() => ({ name: p.name, ok: false }))
+    const queue = [...providers.value]
+    const results: { name: string; ok: boolean }[] = []
+
+    // 并发度为 3 的 Worker 机制
+    const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const next = queue.shift()
+        if (next) {
+          try {
+            const encoded = encodeURIComponent(next.name)
+            const resp = await apiFetch(`/providers/rules/${encoded}`, { method: 'PUT' })
+            results.push({ name: next.name, ok: resp.ok })
+          } catch (err) {
+            results.push({ name: next.name, ok: false })
+          }
+        }
+      }
     })
-    const results = await Promise.all(promises)
+
+    await Promise.all(workers)
+
     const successCount = results.filter(r => r.ok).length
     const failCount = results.length - successCount
     globalStore.showToast(t('rules.batch_update_partial', { success: successCount, fail: failCount }), failCount > 0 ? 'warning' : 'success')
@@ -131,7 +145,7 @@ onMounted(() => {
 
 <template>
   <div class="space-y-4">
-    <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-4 items-center justify-between transition-all">
+    <div class="sticky top-0 z-20 glass-medium shadow-sm p-4 rounded-xl border flex flex-wrap gap-4 items-center justify-between transition-all">
       <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
         <button @click="activeTab = 'rules'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all" :class="activeTab === 'rules' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'">
           {{ t('rules.rules_tab') }}
@@ -158,13 +172,14 @@ onMounted(() => {
     </div>
 
     <div v-if="activeTab === 'rules'" class="bg-white dark:bg-[#1e293b] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
-      <div v-if="isLoadingRules" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+      <div v-if="isLoadingRules && rules.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
         {{ t('common.loading') }}
       </div>
-      <div v-else-if="filteredRules.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
-        {{ t('rules.no_rules_found') }}
-      </div>
-      <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
+      <template v-else>
+        <div v-if="filteredRules.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+          {{ t('rules.no_rules_found') }}
+        </div>
+        <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
         <div v-for="(rule, idx) in filteredRules" :key="idx" class="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-center gap-2">
@@ -189,20 +204,22 @@ onMounted(() => {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </template>
     </div>
 
     <div v-if="activeTab === 'providers'" class="bg-white dark:bg-[#1e293b] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
-      <div v-if="isLoadingProviders" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+      <div v-if="isLoadingProviders && providers.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
         {{ t('common.loading') }}
       </div>
-      <div v-else-if="filteredProviders.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
-        {{ t('rules.no_providers') }}
-      </div>
-      <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
+      <template v-else>
+        <div v-if="filteredProviders.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+          {{ t('rules.no_providers') }}
+        </div>
+        <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
         <div v-for="p in filteredProviders" :key="p.name" class="p-5 flex items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors relative overflow-hidden">
           <!-- 规则更新局部加载遮罩 -->
-          <div v-if="isUpdating[p.name] || isUpdatingAll" class="absolute inset-0 bg-white/75 dark:bg-[#1e293b]/75 backdrop-blur-[1px] z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
+          <div v-if="isUpdating[p.name] || isUpdatingAll" class="absolute inset-0 glass-light z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
             <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
             <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {{ t('rules.updating') }}
@@ -225,7 +242,8 @@ onMounted(() => {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>

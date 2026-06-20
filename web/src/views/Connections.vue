@@ -4,14 +4,14 @@ import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
 import { ArrowDownOutline, ArrowUpOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
-import { useConnectionsStore, type ConnectionItem } from '../store/connections'
+import { useConnectionsStore } from '../store/connections'
 import { useGlobalStore } from '../store/global'
 
 const { t } = useI18n()
 const globalStore = useGlobalStore()
 
 const connStore = useConnectionsStore()
-const { activeConnections, closedConnections, isPaused } = storeToRefs(connStore)
+const { activeConnections, closedConnections, isPaused, isWsConnected } = storeToRefs(connStore)
 
 const activeTab = ref<'active' | 'closed'>('active')
 const searchText = ref('')
@@ -120,7 +120,10 @@ const handleCloseConnection = async (id: string) => {
 
 // 全部断开连接
 const handleCloseAll = async () => {
-  const ok = await globalStore.showConfirm(t('connections.confirm_close_all'))
+  const ok = await globalStore.showConfirm({
+    message: t('connections.confirm_close_all'),
+    type: 'danger'
+  })
   if (ok) {
     try {
       const resp = await apiFetch('/connections', { method: 'DELETE' })
@@ -150,7 +153,10 @@ const handleClearClosedItem = (id: string) => {
 
 // 清除全部已关闭记录
 const handleClearAllClosed = async () => {
-  const ok = await globalStore.showConfirm(t('connections.confirm_clear_closed'))
+  const ok = await globalStore.showConfirm({
+    message: t('connections.confirm_clear_closed'),
+    type: 'warning'
+  })
   if (ok) {
     connStore.clearClosedConnections()
   }
@@ -190,7 +196,7 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-4">
-    <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-4 items-center justify-between transition-all">
+    <div class="sticky top-0 z-20 glass-medium shadow-sm p-4 rounded-xl border flex flex-wrap gap-4 items-center justify-between transition-all">
       <div class="flex items-center gap-4 flex-wrap">
         <h3 class="text-base font-semibold flex items-center gap-2">
           {{ t('connections.title') }}
@@ -276,10 +282,45 @@ onUnmounted(() => {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-            <tr v-if="filteredConnections.length === 0" class="text-slate-400 dark:text-slate-600 text-center">
-              <td colspan="8" class="py-8 text-sm">{{ t('connections.empty') }}</td>
-            </tr>
-            <tr v-else v-for="c in filteredConnections" :key="c.id" class="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+            <!-- 桌面端表格骨架屏 -->
+            <template v-if="!isWsConnected && activeConnections.length === 0">
+              <tr v-for="i in 3" :key="i" class="animate-pulse select-none">
+                <td class="py-4.5 px-4">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <div class="w-10 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
+                    <div class="w-40 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                  </div>
+                  <div class="w-24 h-3 bg-slate-200 dark:bg-slate-800 rounded mt-1.5"></div>
+                </td>
+                <td class="py-4.5 px-4 text-center">
+                  <div class="w-8 h-4 bg-slate-200 dark:bg-slate-800 rounded mx-auto"></div>
+                </td>
+                <td class="hidden md:table-cell py-4.5 px-4">
+                  <div class="w-16 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                </td>
+                <td class="hidden lg:table-cell py-4.5 px-4">
+                  <div class="w-32 h-3 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                </td>
+                <td class="py-4.5 px-4">
+                  <div class="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                </td>
+                <td class="py-4.5 px-4">
+                  <div class="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                </td>
+                <td class="py-4.5 px-4">
+                  <div class="w-10 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                </td>
+                <td class="py-4.5 px-4 text-center">
+                  <div class="w-10 h-6 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto"></div>
+                </td>
+              </tr>
+            </template>
+            <!-- 真实列表 -->
+            <template v-else>
+              <tr v-if="filteredConnections.length === 0" class="text-slate-400 dark:text-slate-600 text-center">
+                <td colspan="8" class="py-8 text-sm">{{ t('connections.empty') }}</td>
+              </tr>
+            <tr v-else v-for="c in filteredConnections.slice(0, 150)" :key="c.id" class="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
               <td class="py-3 px-4">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span v-if="c.metadata?.type" class="px-1 py-0.5 text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded tracking-wide uppercase">
@@ -320,18 +361,52 @@ onUnmounted(() => {
                 </button>
               </td>
             </tr>
+          </template>
           </tbody>
         </table>
+      </div>
+      <!-- 桌面端渲染截断提示 -->
+      <div v-if="filteredConnections.length > 150" class="px-5 py-3 bg-slate-50 dark:bg-slate-800/10 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/50">
+        {{ t('connections.limit_hint') }}
       </div>
 
       <!-- 移动端卡片视图 -->
       <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-        <div v-if="filteredConnections.length === 0" class="py-8 text-center text-slate-400 dark:text-slate-600 text-sm">
-          {{ t('connections.empty') }}
-        </div>
+        <!-- 移动端连接骨架屏 -->
+        <template v-if="!isWsConnected && activeConnections.length === 0">
+          <div v-for="i in 3" :key="i" class="p-4 space-y-3.5 animate-pulse select-none">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 space-y-1.5">
+                <div class="w-3/4 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div class="w-1/2 h-3 bg-slate-200 dark:bg-slate-800 rounded"></div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <div class="w-10 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div class="w-8 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              <div class="w-1/3 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+              <div class="w-2/3 h-3 bg-slate-200 dark:bg-slate-800 rounded"></div>
+            </div>
+            <div class="flex items-center justify-between gap-3 pt-1">
+              <div class="flex gap-4">
+                <div class="w-10 h-5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div class="w-10 h-5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div class="w-10 h-5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+              </div>
+              <div class="w-12 h-6 bg-slate-200 dark:bg-slate-800 rounded-md"></div>
+            </div>
+          </div>
+        </template>
+        <!-- 真实卡片 -->
+        <template v-else>
+          <div v-if="filteredConnections.length === 0" class="py-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+            {{ t('connections.empty') }}
+          </div>
         <div
           v-else
-          v-for="c in filteredConnections"
+          v-for="c in filteredConnections.slice(0, 150)"
           :key="c.id"
           class="p-4 space-y-3 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-900/10"
         >
@@ -400,6 +475,11 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        <!-- 移动端渲染截断提示 -->
+        <div v-if="filteredConnections.length > 150" class="p-4 bg-slate-50 dark:bg-slate-800/10 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/50">
+          {{ t('connections.limit_hint') }}
+        </div>
+      </template>
       </div>
     </div>
   </div>

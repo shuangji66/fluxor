@@ -37,6 +37,7 @@ export const useConnectionsStore = defineStore('connections', () => {
 
   let ws: WebSocket | null = null
   const subscriberCount = ref(0)
+  const isWsConnected = ref(false)
   let debounceTimeout: any = null
   let isFirstFrame = true
   const prevSnapshot = new Map<string, { upload: number, download: number, timestamp: number }>()
@@ -120,19 +121,25 @@ export const useConnectionsStore = defineStore('connections', () => {
         console.warn('解析连接失败', err)
       }
     }, {
+      onOpen: () => {
+        isWsConnected.value = true
+      },
       onClose: () => {
         ws = null
+        isWsConnected.value = false
         prevSnapshot.clear()
-        activeConnections.value = []
-        connectionsCount.value = 0
         if (subscriberCount.value > 0) {
           setTimeout(() => {
             if (subscriberCount.value > 0) connect()
           }, 5000)
+        } else {
+          activeConnections.value = []
+          connectionsCount.value = 0
         }
       },
       onError: () => {
         ws = null
+        isWsConnected.value = false
       }
     })
   }
@@ -143,7 +150,10 @@ export const useConnectionsStore = defineStore('connections', () => {
       ws.close()
       ws = null
     }
+    isWsConnected.value = false
     prevSnapshot.clear()
+    activeConnections.value = []
+    connectionsCount.value = 0
   }
 
   // 增加引用订阅计数
@@ -187,6 +197,7 @@ export const useConnectionsStore = defineStore('connections', () => {
     uploadTotal,
     downloadTotal,
     isPaused,
+    isWsConnected,
     subscribe,
     unsubscribe,
     clearClosedConnections,

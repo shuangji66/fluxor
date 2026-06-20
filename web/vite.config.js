@@ -39,9 +39,14 @@ function fluxorBuildPlugin() {
   }
 }
 
+const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'))
+
 export default defineConfig({
   plugins: [vue(), fluxorBuildPlugin()],
   base: '/app/Fluxor/',
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version)
+  },
   build: {
     outDir: 'dist',
     assetsDir: 'static/assets',

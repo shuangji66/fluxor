@@ -2,8 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ========== 亮暗主题 CSS 变量全局定义 ========== */
+/* --- 1. 主题 CSS 变量定义 --- */
+
 :root {
+  /* 默认暗色主题变量 */
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-card: #1e293b;
@@ -20,12 +22,25 @@
   --sidebar-bg: #1e293b;
   --card-bg: #1e293b;
   --hover-bg: #334155;
-  --shadow: 0 4px 12px rgba(0,0,0,0.15);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --btn-secondary-bg: #2d3748;
   --btn-secondary-hover-bg: #3d4a5c;
+  
+  /* 默认磨砂玻璃变量 */
+  --bg-glass-heavy: rgba(23, 31, 48, 0.85);
+  --bg-glass-medium: rgba(23, 31, 48, 0.75);
+  --bg-glass-light: rgba(23, 31, 48, 0.55);
+  --bg-mask: rgba(15, 23, 42, 0.5);
+  --border-glass: rgba(255, 255, 255, 0.06);
+
+  /* 全局控件交互与滚动条变量 */
+  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.4);
+  --focus-ring: rgba(59, 130, 246, 0.2);
 }
 
 [data-theme="light"] {
+  /* 浅色主题变量 */
   --bg-primary: #f1f5f9;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
@@ -35,19 +50,32 @@
   --border-color: #cbd5e1;
   --accent: #3b82f6;
   --accent-hover: #2563eb;
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
-  --success: #10b981;
-  --warning: #f59e0b;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --success: #059669;
+  --warning: #d97706;
   --sidebar-bg: #f8fafc;
   --card-bg: #ffffff;
   --hover-bg: #e2e8f0;
-  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   --btn-secondary-bg: #e8ecf0;
   --btn-secondary-hover-bg: #d1d5db;
+  
+  /* 浅色磨砂玻璃变量 */
+  --bg-glass-heavy: rgba(255, 255, 255, 0.85);
+  --bg-glass-medium: rgba(255, 255, 255, 0.70);
+  --bg-glass-light: rgba(255, 255, 255, 0.50);
+  --bg-mask: rgba(15, 23, 42, 0.2);
+  --border-glass: rgba(15, 23, 42, 0.06);
+
+  /* 浅色控件交互与滚动条变量 */
+  --scrollbar-thumb: rgba(15, 23, 42, 0.15);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.3);
+  --focus-ring: rgba(59, 130, 246, 0.2);
 }
 
 [data-theme="purple"] {
+  /* 紫色主题变量 */
   --bg-primary: #0a0516;
   --bg-secondary: #120a24;
   --bg-card: #120a24;
@@ -67,33 +95,58 @@
   --shadow: 0 8px 30px rgba(147, 51, 234, 0.12);
   --btn-secondary-bg: #1e113a;
   --btn-secondary-hover-bg: #2e1a56;
+  
+  /* 紫色磨砂玻璃变量 */
+  --bg-glass-heavy: rgba(10, 5, 22, 0.85);
+  --bg-glass-medium: rgba(10, 5, 22, 0.70);
+  --bg-glass-light: rgba(18, 10, 36, 0.50);
+  --bg-mask: rgba(10, 5, 22, 0.5);
+  --border-glass: rgba(192, 132, 252, 0.15);
+
+  /* 紫色控件交互与滚动条变量 */
+  --scrollbar-thumb: rgba(168, 85, 247, 0.2);
+  --scrollbar-thumb-hover: rgba(168, 85, 247, 0.4);
+  --focus-ring: rgba(192, 132, 252, 0.25);
 }
 
 [data-theme="pink"] {
+  /* 粉色主题变量 */
   --bg-primary: #fff1f2;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-input: #fff5f5;
-  --text-primary: #9f1239;
-  --text-secondary: #fda4af;
+  --bg-input: #ffffff;
+  --text-primary: #881337;
+  --text-secondary: #e11d48;
   --border-color: #ffe4e6;
   --accent: #f43f5e;
   --accent-hover: #e11d48;
-  --danger: #f43f5e;
-  --danger-hover: #e11d48;
-  --success: #10b981;
-  --warning: #fbbf24;
+  --danger: #e11d48;
+  --danger-hover: #be123c;
+  --success: #059669;
+  --warning: #d97706;
   --sidebar-bg: #fff1f2;
   --card-bg: #ffffff;
   --hover-bg: #ffe4e6;
   --shadow: 0 8px 30px rgba(244, 63, 94, 0.08);
   --btn-secondary-bg: #fff1f2;
   --btn-secondary-hover-bg: #ffe4e6;
+  
+  /* 粉色磨砂玻璃变量 */
+  --bg-glass-heavy: rgba(255, 255, 255, 0.85);
+  --bg-glass-medium: rgba(255, 255, 255, 0.75);
+  --bg-glass-light: rgba(255, 241, 242, 0.55);
+  --bg-mask: rgba(136, 19, 55, 0.12);
+  --border-glass: rgba(244, 63, 94, 0.12);
+
+  /* 粉色控件交互与滚动条变量 */
+  --scrollbar-thumb: rgba(244, 63, 94, 0.2);
+  --scrollbar-thumb-hover: rgba(244, 63, 94, 0.4);
+  --focus-ring: rgba(244, 63, 94, 0.2);
 }
 
-/* ========== 主题强制覆盖 Tailwind 硬编码样式 ========== */
+/* --- 2. 主题防御性覆盖 (针对 TailwindCSS 硬编码样式的强制重写) --- */
 
-/* 1. 背景色覆盖 */
+/* 紫色主题覆盖规则 */
 [data-theme="purple"] .bg-white,
 [data-theme="purple"] .dark\:bg-\[\#1e293b\] {
   background-color: var(--bg-secondary) !important;
@@ -102,104 +155,182 @@
 [data-theme="purple"] .dark\:bg-\[\#0f172a\] {
   background-color: var(--bg-primary) !important;
 }
-
-[data-theme="pink"] .bg-white,
-[data-theme="pink"] .dark\:bg-\[\#1e293b\],
-[data-theme="pink"] .bg-\[\#f1f5f9\],
-[data-theme="pink"] .dark\:bg-\[\#0f172a\] {
-  background-color: var(--bg-secondary) !important;
+[data-theme="purple"] .bg-slate-50,
+[data-theme="purple"] .bg-slate-100,
+[data-theme="purple"] .dark\:bg-slate-800,
+[data-theme="purple"] .dark\:bg-slate-800\/40,
+[data-theme="purple"] .dark\:bg-slate-800\/50 {
+  background-color: var(--btn-secondary-bg) !important;
 }
-
-/* 2. 边框颜色覆盖 */
+[data-theme="purple"] .hover\:bg-slate-100:hover,
+[data-theme="purple"] .hover\:bg-slate-200:hover,
+[data-theme="purple"] .dark\:hover\:bg-slate-700:hover,
+[data-theme="purple"] .dark\:hover\:bg-slate-800:hover,
+[data-theme="purple"] .dark\:hover\:bg-slate-700\/60:hover,
+[data-theme="purple"] .dark\:hover\:bg-slate-700\/80:hover,
+[data-theme="purple"] .dark\:hover\:bg-slate-800\/80:hover {
+  background-color: var(--btn-secondary-hover-bg) !important;
+}
 [data-theme="purple"] .border-slate-100,
 [data-theme="purple"] .border-slate-200,
+[data-theme="purple"] .border-slate-100\/50,
+[data-theme="purple"] .border-slate-200\/80,
 [data-theme="purple"] .dark\:border-slate-800,
 [data-theme="purple"] .dark\:border-slate-800\/80,
 [data-theme="purple"] .dark\:border-slate-800\/60,
-[data-theme="purple"] .dark\:border-slate-800\/40 {
+[data-theme="purple"] .dark\:border-slate-800\/50,
+[data-theme="purple"] .dark\:border-slate-800\/40,
+[data-theme="purple"] .dark\:border-slate-800\/30 {
   border-color: var(--border-color) !important;
 }
-
-[data-theme="pink"] .border-slate-100,
-[data-theme="pink"] .border-slate-200,
-[data-theme="pink"] .dark\:border-slate-800,
-[data-theme="pink"] .dark\:border-slate-800\/80,
-[data-theme="pink"] .dark\:border-slate-800\/60,
-[data-theme="pink"] .dark\:border-slate-800\/40 {
-  border-color: var(--border-color) !important;
-}
-
-/* 3. 文字颜色覆盖 */
 [data-theme="purple"] .text-slate-800,
 [data-theme="purple"] .dark\:text-slate-100,
 [data-theme="purple"] .text-slate-700,
 [data-theme="purple"] .dark\:text-slate-200 {
   color: var(--text-primary) !important;
 }
+[data-theme="purple"] .text-slate-400,
 [data-theme="purple"] .text-slate-500,
 [data-theme="purple"] .text-slate-600,
 [data-theme="purple"] .dark\:text-slate-300,
-[data-theme="purple"] .dark\:text-slate-400 {
+[data-theme="purple"] .dark\:text-slate-400,
+[data-theme="purple"] .dark\:text-slate-500 {
   color: var(--text-secondary) !important;
 }
+[data-theme="purple"] .bg-slate-50\/50,
+[data-theme="purple"] .dark\:bg-slate-900\/30 {
+  background-color: rgba(27, 15, 53, 0.45) !important;
+}
+[data-theme="purple"] .hover\:bg-slate-50\/50:hover,
+[data-theme="purple"] .dark\:hover\:bg-slate-900\/10:hover {
+  background-color: rgba(168, 85, 247, 0.06) !important;
+}
+[data-theme="purple"] .bg-slate-200,
+[data-theme="purple"] .dark\:bg-slate-700 {
+  background-color: var(--btn-secondary-hover-bg) !important;
+}
+[data-theme="purple"] .bg-white.shadow-sm,
+[data-theme="purple"] .dark\:bg-slate-700.shadow-sm {
+  background-color: var(--hover-bg) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme="purple"] aside {
+  background-color: var(--sidebar-bg) !important;
+}
 
+/* 粉色主题覆盖规则 */
+[data-theme="pink"] .bg-white,
+[data-theme="pink"] .dark\:bg-\[\#1e293b\] {
+  background-color: var(--bg-secondary) !important;
+}
+[data-theme="pink"] .bg-\[\#f1f5f9\],
+[data-theme="pink"] .dark\:bg-\[\#0f172a\] {
+  background-color: var(--bg-primary) !important;
+}
+[data-theme="pink"] .bg-slate-50,
+[data-theme="pink"] .bg-slate-100,
+[data-theme="pink"] .dark\:bg-slate-800,
+[data-theme="pink"] .dark\:bg-slate-800\/40,
+[data-theme="pink"] .dark\:bg-slate-800\/50 {
+  background-color: var(--btn-secondary-bg) !important;
+}
+[data-theme="pink"] .hover\:bg-slate-100:hover,
+[data-theme="pink"] .hover\:bg-slate-200:hover,
+[data-theme="pink"] .dark\:hover\:bg-slate-700:hover,
+[data-theme="pink"] .dark\:hover\:bg-slate-800:hover,
+[data-theme="pink"] .dark\:hover\:bg-slate-700\/60:hover,
+[data-theme="pink"] .dark\:hover\:bg-slate-700\/80:hover,
+[data-theme="pink"] .dark\:hover\:bg-slate-800\/80:hover {
+  background-color: var(--btn-secondary-hover-bg) !important;
+}
+[data-theme="pink"] .border-slate-100,
+[data-theme="pink"] .border-slate-200,
+[data-theme="pink"] .border-slate-100\/50,
+[data-theme="pink"] .border-slate-200\/80,
+[data-theme="pink"] .dark\:border-slate-800,
+[data-theme="pink"] .dark\:border-slate-800\/80,
+[data-theme="pink"] .dark\:border-slate-800\/60,
+[data-theme="pink"] .dark\:border-slate-800\/50,
+[data-theme="pink"] .dark\:border-slate-800\/40,
+[data-theme="pink"] .dark\:border-slate-800\/30 {
+  border-color: var(--border-color) !important;
+}
 [data-theme="pink"] .text-slate-800,
 [data-theme="pink"] .dark\:text-slate-100,
 [data-theme="pink"] .text-slate-700,
 [data-theme="pink"] .dark\:text-slate-200 {
   color: var(--text-primary) !important;
 }
+[data-theme="pink"] .text-slate-400,
 [data-theme="pink"] .text-slate-500,
 [data-theme="pink"] .text-slate-600,
 [data-theme="pink"] .dark\:text-slate-300,
-[data-theme="pink"] .dark\:text-slate-400 {
+[data-theme="pink"] .dark\:text-slate-400,
+[data-theme="pink"] .dark\:text-slate-500 {
   color: var(--text-secondary) !important;
 }
-
-/* 4. 按钮与面板悬停及次要背景覆盖 */
-[data-theme="purple"] .bg-slate-50,
-[data-theme="purple"] .bg-slate-100,
-[data-theme="purple"] .dark\:bg-slate-800,
-[data-theme="purple"] .dark\:bg-slate-800\/40 {
-  background-color: var(--btn-secondary-bg) !important;
+[data-theme="pink"] .bg-slate-50\/50,
+[data-theme="pink"] .dark\:bg-slate-900\/30 {
+  background-color: rgba(255, 241, 242, 0.50) !important;
 }
-[data-theme="purple"] .hover\:bg-slate-100:hover,
-[data-theme="purple"] .hover\:bg-slate-200:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-700:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-800:hover {
+[data-theme="pink"] .hover\:bg-slate-50\/50:hover,
+[data-theme="pink"] .dark\:hover\:bg-slate-900\/10:hover {
+  background-color: rgba(244, 63, 94, 0.05) !important;
+}
+[data-theme="pink"] .bg-slate-200,
+[data-theme="pink"] .dark\:bg-slate-700 {
   background-color: var(--btn-secondary-hover-bg) !important;
 }
-
-[data-theme="pink"] .bg-slate-50,
-[data-theme="pink"] .bg-slate-100,
-[data-theme="pink"] .dark\:bg-slate-800,
-[data-theme="pink"] .dark\:bg-slate-800\/40 {
-  background-color: var(--btn-secondary-bg) !important;
-}
-[data-theme="pink"] .hover\:bg-slate-100:hover,
-[data-theme="pink"] .hover\:bg-slate-200:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-700:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-800:hover {
-  background-color: var(--btn-secondary-hover-bg) !important;
-}
-
-/* 5. 侧边栏和额外特殊卡片 */
-[data-theme="purple"] aside {
-  background-color: var(--sidebar-bg) !important;
+[data-theme="pink"] .bg-white.shadow-sm,
+[data-theme="pink"] .dark\:bg-slate-700.shadow-sm {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
 }
 [data-theme="pink"] aside {
   background-color: var(--sidebar-bg) !important;
 }
 
+/* --- 3. 全局基础样式与交互 --- */
+
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s, color 0.2s;
   overflow: hidden;
   font-variant-numeric: tabular-nums;
+}
+
+/* 全局输入控件交互聚焦样式与占位符 */
+input, select, textarea {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid transparent !important;
+  outline-offset: 2px !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--focus-ring) !important;
+}
+
+/* 输入控件占位符自适应色彩 */
+::-webkit-input-placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.45;
+}
+:-moz-placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.45;
+}
+::-moz-placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.45;
+}
+:-ms-input-placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.45;
 }
 
 /* 全局滚动条样式定义 */
@@ -213,20 +344,138 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
   transition: background 0.2s ease-in-out;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.55);
+  background: var(--scrollbar-thumb-hover);
 }
 
-/* Firefox 兼容性配置 */
+/* Firefox 滚动条兼容性配置 */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
+
+/* --- 4. 磨砂玻璃与遮罩类定义 --- */
+
+.glass-heavy, [data-theme] .glass-heavy {
+  background-color: var(--bg-glass-heavy) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: var(--border-glass) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 255, 255, 0.01);
+}
+
+.glass-medium, [data-theme] .glass-medium {
+  background-color: var(--bg-glass-medium) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: var(--border-glass) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.glass-light, [data-theme] .glass-light {
+  background-color: var(--bg-glass-light) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: var(--border-glass) !important;
+}
+
+.glass-mask {
+  background-color: var(--bg-mask) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* 磨砂玻璃在不同主题下的投影与发光微动效定义 */
+[data-theme="purple"] .glass-heavy {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 30px rgba(168, 85, 247, 0.12);
+}
+[data-theme="purple"] .glass-medium {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 15px rgba(168, 85, 247, 0.06);
+}
+
+[data-theme="pink"] .glass-heavy {
+  box-shadow: 0 20px 50px rgba(244, 63, 94, 0.04), 0 0 30px rgba(244, 63, 94, 0.08);
+}
+[data-theme="pink"] .glass-medium {
+  box-shadow: 0 8px 32px rgba(244, 63, 94, 0.02), 0 0 15px rgba(244, 63, 94, 0.04);
+}
+
+[data-theme="light"] .glass-heavy {
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
+}
+
+.dark .glass-heavy {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 25px rgba(59, 130, 246, 0.03);
+}
+
+/* --- 5. 磨砂玻璃内部文字可读性保障 --- */
+
+.glass-heavy,
+.glass-medium,
+.glass-light {
+  --text-secondary: #cbd5e1;
+}
+
+[data-theme="light"] .glass-heavy,
+[data-theme="light"] .glass-medium,
+[data-theme="light"] .glass-light {
+  --text-secondary: #334155;
+}
+
+[data-theme="pink"] .glass-heavy,
+[data-theme="pink"] .glass-medium,
+[data-theme="pink"] .glass-light {
+  --text-secondary: #be123c;
+}
+
+[data-theme="purple"] .glass-heavy,
+[data-theme="purple"] .glass-medium,
+[data-theme="purple"] .glass-light {
+  --text-secondary: #d8b4fe;
+}
+
+/* 覆盖 Tailwind 硬编码文本灰色类，确保磨砂玻璃背景上的文字清晰可读 */
+.glass-heavy .text-slate-400,
+.glass-heavy .text-slate-500,
+.glass-heavy .text-slate-600,
+.glass-heavy .dark\:text-slate-300,
+.glass-heavy .dark\:text-slate-400,
+.glass-heavy .dark\:text-slate-500,
+.glass-medium .text-slate-400,
+.glass-medium .text-slate-500,
+.glass-medium .text-slate-600,
+.glass-medium .dark\:text-slate-300,
+.glass-medium .dark\:text-slate-400,
+.glass-medium .dark\:text-slate-500,
+.glass-light .text-slate-400,
+.glass-light .text-slate-500,
+.glass-light .text-slate-600,
+.glass-light .dark\:text-slate-300,
+.glass-light .dark\:text-slate-400,
+.glass-light .dark\:text-slate-500 {
+  color: var(--text-secondary) !important;
+}
+
+/* --- 6. 移动端底栏交互对比度保障 --- */
+
+nav.md\:hidden button:not(.text-accent) {
+  color: var(--text-secondary) !important;
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+
+nav.md\:hidden button.text-accent {
+  color: var(--accent) !important;
+  opacity: 1 !important;
+  transition: opacity 0.2s ease;
+}
+
+/* --- 7. 动画预设 --- */
 
 @keyframes fadeIn {
   from {

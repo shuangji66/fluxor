@@ -57,7 +57,17 @@ export function wsConnect(
   const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + withBase(path);
   const ws = new WebSocket(wsUrl);
 
+  // 5秒握手超时计时器
+  let isOpened = false;
+  const timer = setTimeout(() => {
+    if (!isOpened && ws.readyState === WebSocket.CONNECTING) {
+      ws.close();
+    }
+  }, 5000);
+
   ws.onopen = () => {
+    isOpened = true;
+    clearTimeout(timer);
     if (handlers.onOpen) handlers.onOpen();
   };
 
@@ -70,10 +80,12 @@ export function wsConnect(
   };
 
   ws.onerror = (e) => {
+    clearTimeout(timer);
     if (handlers.onError) handlers.onError(e);
   };
 
   ws.onclose = (e) => {
+    clearTimeout(timer);
     if (handlers.onClose) handlers.onClose(e);
   };
 

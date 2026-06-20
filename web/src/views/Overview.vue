@@ -63,12 +63,12 @@ const formatBytes = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// 获取图表样式色彩
+// 动态获取当前主题的网格和文字颜色变量
 const getChartColors = () => {
-  const isDark = document.documentElement.classList.contains('dark')
+  const style = getComputedStyle(document.documentElement)
   return {
-    grid: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(15,23,42,0.04)',
-    text: isDark ? '#64748b' : '#94a3b8'
+    grid: style.getPropertyValue('--border-color').trim() || '#cbd5e1',
+    text: style.getPropertyValue('--text-secondary').trim() || '#94a3b8'
   }
 }
 
@@ -160,8 +160,10 @@ const drawChart = () => {
   const chartH = h - 35
   const offsetX = (maxPoints - totalLen) * stepX
 
-  // 1. 绘制网格线与 Y 轴刻度（精致虚线）
+  // 1. 绘制网格线与 Y 轴刻度（半透明精致虚线）
+  ctx.save()
   ctx.strokeStyle = colors.grid
+  ctx.globalAlpha = 0.3
   ctx.lineWidth = 1
   ctx.setLineDash([4, 4])
   ctx.font = '10px monospace'
@@ -175,13 +177,14 @@ const drawChart = () => {
     ctx.lineTo(w - 5, y)
     ctx.stroke()
     
-    // 实线画文本（清除虚线设置）
+    // 绘制坐标刻度文本（恢复不透明度并使用实线）
     ctx.save()
+    ctx.globalAlpha = 1.0
     ctx.setLineDash([])
     ctx.fillText(formatBytes(cachedMaxY * (1 - i / 4)), w - 8, y - 3)
     ctx.restore()
   }
-  ctx.setLineDash([]) // 清除虚线设置
+  ctx.restore()
 
   // 2. 绘制平滑渐变曲线
   // 上传：蓝色 #3b82f6；下载：绿色 #10b981
@@ -431,7 +434,7 @@ onUnmounted(() => {
         <div
           v-show="tooltip.show"
           :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
-          class="absolute pointer-events-none transform -translate-x-1/2 -translate-y-[100%] z-30 transition-[left,top] duration-75 min-w-[125px] rounded-xl px-3 py-2 text-[11px] font-medium backdrop-blur-md bg-white/90 dark:bg-slate-900/90 shadow-xl border border-slate-200/50 dark:border-slate-800/50 text-slate-800 dark:text-slate-200"
+          class="absolute pointer-events-none transform -translate-x-1/2 -translate-y-[100%] z-30 transition-[left,top] duration-75 min-w-[125px] rounded-xl px-3 py-2 text-[11px] font-medium glass-medium shadow-xl border text-slate-800 dark:text-slate-200"
         >
           <div class="font-bold border-b border-slate-200/30 dark:border-slate-700/30 pb-1 mb-1 text-slate-500 dark:text-slate-400 text-[10px] text-center">
             {{ tooltip.time }}

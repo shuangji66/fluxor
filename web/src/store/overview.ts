@@ -29,6 +29,8 @@ export const useOverviewStore = defineStore('overview', () => {
   const downloadHistory = ref<number[]>([])
   const timeHistory = ref<string[]>([])
   const uiPanel = ref('metacubexd')
+  const isTrafficConnected = ref(false)
+  const isMemoryConnected = ref(false)
 
   // === Traffic WS ===
   let wsTraffic: WebSocket | null = null
@@ -38,6 +40,7 @@ export const useOverviewStore = defineStore('overview', () => {
   const connectTraffic = () => {
     if (wsTraffic) return
     wsTraffic = wsConnect('/traffic', (e: MessageEvent) => {
+      isTrafficConnected.value = true
       let up = 0, down = 0
       if (typeof e.data === 'string') {
         const d = JSON.parse(e.data)
@@ -52,18 +55,24 @@ export const useOverviewStore = defineStore('overview', () => {
       stats.value.downloadSpeed = down
       pushHistory(up, down)
     }, {
+      onOpen: () => {
+        isTrafficConnected.value = true
+      },
       onClose: () => {
         wsTraffic = null
-        stats.value.uploadSpeed = 0
-        stats.value.downloadSpeed = 0
+        isTrafficConnected.value = false
         if (trafficSubscribers.value > 0) {
           setTimeout(() => {
             if (trafficSubscribers.value > 0) connectTraffic()
           }, 5000)
+        } else {
+          stats.value.uploadSpeed = 0
+          stats.value.downloadSpeed = 0
         }
       },
       onError: () => {
         wsTraffic = null
+        isTrafficConnected.value = false
       }
     })
   }
@@ -73,6 +82,9 @@ export const useOverviewStore = defineStore('overview', () => {
       wsTraffic.close()
       wsTraffic = null
     }
+    isTrafficConnected.value = false
+    stats.value.uploadSpeed = 0
+    stats.value.downloadSpeed = 0
   }
 
   const subscribeTraffic = () => {
@@ -105,6 +117,7 @@ export const useOverviewStore = defineStore('overview', () => {
   const connectMemory = () => {
     if (wsMemory) return
     wsMemory = wsConnect('/memory', (e: MessageEvent) => {
+      isMemoryConnected.value = true
       let mem = 0
       if (typeof e.data === 'string') {
         const d = JSON.parse(e.data)
@@ -116,17 +129,23 @@ export const useOverviewStore = defineStore('overview', () => {
         stats.value.memory = mem
       }
     }, {
+      onOpen: () => {
+        isMemoryConnected.value = true
+      },
       onClose: () => {
         wsMemory = null
-        stats.value.memory = 0
+        isMemoryConnected.value = false
         if (memorySubscribers.value > 0) {
           setTimeout(() => {
             if (memorySubscribers.value > 0) connectMemory()
           }, 5000)
+        } else {
+          stats.value.memory = 0
         }
       },
       onError: () => {
         wsMemory = null
+        isMemoryConnected.value = false
       }
     })
   }
@@ -136,6 +155,8 @@ export const useOverviewStore = defineStore('overview', () => {
       wsMemory.close()
       wsMemory = null
     }
+    isMemoryConnected.value = false
+    stats.value.memory = 0
   }
 
   const subscribeMemory = () => {
@@ -179,20 +200,20 @@ export const useOverviewStore = defineStore('overview', () => {
     return current
   }
 
+  // 防并发状态锁，避免重叠发起轮询请求
+  let isFetchingStatus = false
+
   const fetchVersionAndStatus = async () => {
+    if (isFetchingStatus) return
+    isFetchingStatus = true
     try {
+      // 优化：仅当未成功获取过版本号时才拉取，避免每次轮询重复发送静态请求
+      const hasVersion = stats.value.coreVersion !== '加载中...' && stats.value.coreVersion !== '未知'
       const [versionResp, statusResp, proxiesResp] = await Promise.all([
-        apiFetch('/version').catch(() => null),
+        hasVersion ? Promise.resolve(null) : apiFetch('/version').catch(() => null),
         apiFetch('/core/status').catch(() => null),
         apiFetch('/proxies').catch(() => null)
       ])
-
-      if (versionResp && versionResp.ok) {
-        const v = await versionResp.json()
-        stats.value.coreVersion = (v.version || '').replace(/^v/, '')
-      } else {
-        stats.value.coreVersion = '未知'
-      }
 
       let isRunning = false
       if (statusResp && statusResp.ok) {
@@ -205,14 +226,27 @@ export const useOverviewStore = defineStore('overview', () => {
         stats.value.uploadSpeed = 0
         stats.value.downloadSpeed = 0
         stats.value.memory = 0
-      } else if (proxiesResp && proxiesResp.ok) {
-        const data = await proxiesResp.json()
-        const entries = Object.entries(data.proxies || {}) as [string, any][]
-        const mainGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name.includes('节点选择'))
-        if (mainGroup) {
-          stats.value.currentNode = recursiveResolveNode(data.proxies, mainGroup[1].now || '-')
-        } else {
-          stats.value.currentNode = '暂无选择'
+        // 内核停止时，重置版本号为“加载中...”，以便下次启动时能重新请求
+        stats.value.coreVersion = '加载中...'
+      } else {
+        if (!hasVersion) {
+          if (versionResp && versionResp.ok) {
+            const v = await versionResp.json()
+            stats.value.coreVersion = (v.version || '').replace(/^v/, '')
+          } else {
+            stats.value.coreVersion = '未知'
+          }
+        }
+
+        if (proxiesResp && proxiesResp.ok) {
+          const data = await proxiesResp.json()
+          const entries = Object.entries(data.proxies || {}) as [string, any][]
+          const mainGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name.includes('节点选择'))
+          if (mainGroup) {
+            stats.value.currentNode = recursiveResolveNode(data.proxies, mainGroup[1].now || '-')
+          } else {
+            stats.value.currentNode = '暂无选择'
+          }
         }
       }
     } catch (e) {
@@ -221,6 +255,8 @@ export const useOverviewStore = defineStore('overview', () => {
       stats.value.uploadSpeed = 0
       stats.value.downloadSpeed = 0
       stats.value.memory = 0
+    } finally {
+      isFetchingStatus = false
     }
   }
 
@@ -262,6 +298,8 @@ export const useOverviewStore = defineStore('overview', () => {
     downloadHistory,
     timeHistory,
     uiPanel,
+    isTrafficConnected,
+    isMemoryConnected,
     pushHistory,
     subscribeTraffic,
     unsubscribeTraffic,

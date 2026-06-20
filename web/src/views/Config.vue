@@ -114,7 +114,13 @@ const saveInterface = () => {
   patchConfig({ 'interface-name': configs.value['interface-name'] })
 }
 
-const savePorts = () => {
+const savePorts = (e?: Event) => {
+  // 如果是按回车触发，让输入框失去焦点即可，这会触发 @blur 事件从而触发真正的保存逻辑，防止重复保存
+  if (e && e.type === 'keyup' && e.target instanceof HTMLElement) {
+    e.target.blur()
+    return
+  }
+
   const getPortVal = (val: string) => {
     const p = parseInt(val)
     return isNaN(p) ? 0 : p
@@ -163,7 +169,11 @@ const savePorts = () => {
   })
 }
 
-const saveTun = () => {
+const saveTun = (e?: Event) => {
+  if (e && e.type === 'keyup' && e.target instanceof HTMLElement) {
+    e.target.blur()
+    return
+  }
   patchConfig({ tun: configs.value.tun })
 }
 
@@ -191,7 +201,10 @@ const handleStartCore = async () => {
 }
 
 const handleStopCore = async () => {
-  const ok = await globalStore.showConfirm(t('config.confirm_stop_core'))
+  const ok = await globalStore.showConfirm({
+    message: t('config.confirm_stop_core'),
+    type: 'danger'
+  })
   if (!ok) return
   coreStatus.value.loading = true
   try {
@@ -225,7 +238,10 @@ const handleStopCore = async () => {
 }
 
 const handleRestartCore = async () => {
-  const ok = await globalStore.showConfirm(t('config.confirm_restart'))
+  const ok = await globalStore.showConfirm({
+    message: t('config.confirm_restart'),
+    type: 'warning'
+  })
   if (!ok) return
   coreStatus.value.loading = true
   try {
@@ -320,8 +336,14 @@ const handleUpgradeCore = async () => {
   }
 }
 
-const handleDNSQuery = async () => {
+const handleDNSQuery = async (e?: Event) => {
   if (!dnsQuery.value.name.trim()) return
+
+  // 主动释放焦点，在移动端自动收起虚拟键盘，以便用户看清下方的解析结果
+  if (e && e.target instanceof HTMLElement) {
+    e.target.blur()
+  }
+
   dnsQuery.value.loading = true
   dnsQuery.value.result = ''
   try {
@@ -369,18 +391,18 @@ onUnmounted(() => {
     </div>
 
     <!-- 加载完成后的内容区（渐入显示，消除高度闪现晃动） -->
-    <div v-else class="grid grid-cols-1 gap-6 items-start max-w-7xl mx-auto w-full animate-[fadeIn_0.25s_ease-out]"
+    <div v-else class="grid grid-cols-1 gap-6 items-start w-full animate-[fadeIn_0.25s_ease-out]"
       :class="[
         coreStatus.running 
           ? 'md:grid-cols-2 lg:grid-cols-3' 
-          : 'md:grid-cols-2 max-w-4xl py-4'
+          : 'md:grid-cols-2 max-w-4xl mx-auto'
       ]">
       <!-- 1. 配置参数面板区（常规参数，内核启动时显示） -->
       <div v-if="coreStatus.running"
         class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
         <!-- 同步配置遮罩屏 -->
         <div v-if="configsLoading"
-          class="absolute inset-0 bg-white/60 dark:bg-[#1e293b]/70 backdrop-blur-[1px] z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border border-slate-200/40 dark:border-slate-800/40 shadow-sm transition-all duration-300">
+          class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
           <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
           <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
         </div>
@@ -436,7 +458,7 @@ onUnmounted(() => {
         class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
         <!-- 同步配置遮罩屏 -->
         <div v-if="configsLoading"
-          class="absolute inset-0 bg-white/60 dark:bg-[#1e293b]/70 backdrop-blur-[1px] z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border border-slate-200/40 dark:border-slate-800/40 shadow-sm transition-all duration-300">
+          class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
           <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
           <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
         </div>
@@ -481,7 +503,7 @@ onUnmounted(() => {
         class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
         <!-- 同步配置遮罩屏 -->
         <div v-if="configsLoading"
-          class="absolute inset-0 bg-white/60 dark:bg-[#1e293b]/70 backdrop-blur-[1px] z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border border-slate-200/40 dark:border-slate-800/40 shadow-sm transition-all duration-300">
+          class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
           <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
           <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
         </div>
@@ -532,26 +554,30 @@ onUnmounted(() => {
       <!-- 4. 运维控制（始终显示） -->
       <div
         class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div class="border-b border-slate-100 dark:border-slate-800 pb-4">
           <h4 class="font-bold text-sm flex items-center gap-2">
             <BuildOutline class="w-4 h-4 text-accent" />
             {{ t('config.advanced_maintenance') }}
           </h4>
-          
-          <div class="flex items-center gap-3 text-xs">
-            <span class="w-2.5 h-2.5 rounded-full flex shrink-0"
-              :class="coreStatus.loading ? 'bg-slate-400 animate-pulse' : (coreStatus.running ? 'bg-success shadow-lg shadow-success/30' : 'bg-red-500 shadow-lg shadow-red-500/30')"></span>
-            <span class="font-bold text-slate-700 dark:text-slate-300">
-              {{ coreStatus.running ? t('config.core_running') : t('config.core_stopped') }}
-            </span>
-            <span v-if="coreStatus.running && stats.coreVersion !== '未知' && stats.coreVersion !== '加载中...'"
-              class="px-2 py-0.5 font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-md">
-              {{ coreVersion }}
-            </span>
-          </div>
         </div>
 
         <div class="space-y-4 flex-1 flex flex-col justify-between">
+          <!-- 内核状态 -->
+          <div class="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/80">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('config.core_status') }}</span>
+            <div class="flex items-center gap-2.5 text-xs">
+              <span class="w-2 h-2 rounded-full flex shrink-0"
+                :class="coreStatus.loading ? 'bg-slate-400 animate-pulse' : (coreStatus.running ? 'bg-success' : 'bg-red-500')"></span>
+              <span class="font-bold text-slate-700 dark:text-slate-200">
+                {{ coreStatus.loading ? t('config.core_checking') : (coreStatus.running ? t('config.core_running') : t('config.core_stopped')) }}
+              </span>
+              <span v-if="coreStatus.running && stats.coreVersion !== '未知' && stats.coreVersion !== '加载中...'"
+                class="px-1.5 py-0.5 font-mono text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded">
+                {{ coreVersion }}
+              </span>
+            </div>
+          </div>
+
           <!-- 内核核心控制 -->
           <div class="grid gap-3 w-full"
             :class="coreStatus.running ? 'grid-cols-3' : 'grid-cols-2'">
