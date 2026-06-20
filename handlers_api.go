@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -220,7 +222,7 @@ func handleProxyDelay(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	trimmed := strings.TrimPrefix(path, baseURL+"/proxies/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 2 || parts[1] != "delay" {
@@ -245,7 +247,7 @@ func handleProxySwitch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	trimmed := strings.TrimPrefix(path, baseURL+"/proxies/")
 	if trimmed == "" || strings.Contains(trimmed, "/") {
 		writeJSONError(w, http.StatusBadRequest, "无效的代理名称")
@@ -302,7 +304,7 @@ func handleUpdateRuleProvider(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	// 使用 baseURL + "/providers/rules/" 作为前缀
 	trimmed := strings.TrimPrefix(path, baseURL+"/providers/rules/")
 	if trimmed == "" || strings.Contains(trimmed, "/") {
@@ -342,7 +344,7 @@ func handleRulesDisable(w http.ResponseWriter, r *http.Request) {
 // handleProviderProxies 处理订阅信息获取（GET）和更新（PUT）
 func handleProviderProxies(w http.ResponseWriter, r *http.Request) {
 	// 提取路径 /providers/proxies/{name}
-	path := r.URL.Path
+	path := r.URL.EscapedPath()
 	trimmed := strings.TrimPrefix(path, baseURL+"/providers/proxies/")
 	if trimmed == "" {
 		writeJSONError(w, http.StatusBadRequest, "缺少代理名称")
@@ -392,4 +394,33 @@ func handleUpgrade(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// handleInterfaces 返回系统所有的物理网络接口名称（GET /interfaces）
+func handleInterfaces(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "获取网络接口失败: "+err.Error())
+		return
+	}
+
+	var names []string
+	for _, iface := range ifaces {
+		// 过滤回环接口和未启用的接口
+		if (iface.Flags & net.FlagLoopback) != 0 {
+			continue
+		}
+		if (iface.Flags & net.FlagUp) == 0 {
+			continue
+		}
+		names = append(names, iface.Name)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(names)
 }

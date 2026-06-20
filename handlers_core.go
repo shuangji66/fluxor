@@ -51,26 +51,45 @@ var coreHTTPClient = &http.Client{
 					time.Sleep(time.Millisecond * 100)
 				}
 			}
-			// 连接失败时不记录日志（由调用方决定如何处理）
 			return nil, lastErr
 		},
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 2,
 		IdleConnTimeout:     60 * time.Second,
 	},
-	Timeout: 5 * time.Second,
+	Timeout: 90 * time.Second,
 }
 
-// coreRequest 向内核发送 HTTP 请求，自动添加 Authorization 头（使用当前 PanelSecret）
+// cancelableReadCloser 在 Close 时释放 Context
+type cancelableReadCloser struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (c *cancelableReadCloser) Close() error {
+	err := c.ReadCloser.Close()
+	c.cancel()
+	return err
+}
+
+// coreRequest 向内核发送 HTTP 请求，自动添加 Authorization 头
 func coreRequest(method, path string, body io.Reader) (*http.Response, error) {
-	// 从订阅配置中读取当前 PanelSecret（加读锁）
 	subscribeMu.RLock()
 	secret := subscribeConfig.PanelSecret
 	subscribeMu.RUnlock()
 
+	// 动态超时：测速与提供商拉取为 90s，其余普通请求 10s
+	timeout := 10 * time.Second
+	if strings.Contains(path, "/healthcheck") || strings.Contains(path, "/providers/") {
+		timeout = 90 * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
 	url := "http://localhost" + path
-	req, err := http.NewRequestWithContext(context.Background(), method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -80,10 +99,18 @@ func coreRequest(method, path string, body io.Reader) (*http.Response, error) {
 
 	resp, err := coreHTTPClient.Do(req)
 	if err != nil {
+		cancel()
 		return nil, err
+	}
+
+	// 包装 Body 保证读取完毕后再释放 Context，防止流截断
+	resp.Body = &cancelableReadCloser{
+		ReadCloser: resp.Body,
+		cancel:     cancel,
 	}
 	return resp, nil
 }
+
 
 // reloadCore 通过 Unix socket 重载内核配置（热重启）
 func reloadCore() error {
@@ -206,7 +233,24 @@ func stopCore() error {
 		}
 		return fmt.Errorf("停止进程失败: %v", err)
 	}
-	process.Wait()
+
+	// 轮询检查进程是否退出（最大 5 秒超时，每 100ms 一次）
+	killed := false
+	for i := 0; i < 50; i++ {
+		err := process.Signal(syscall.Signal(0))
+		if err != nil {
+			killed = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !killed {
+		// 超时则发送 SIGKILL 强杀
+		process.Signal(syscall.SIGKILL)
+		time.Sleep(200 * time.Millisecond)
+	}
+
 	os.Remove(corePidFile)
 	return nil
 }
