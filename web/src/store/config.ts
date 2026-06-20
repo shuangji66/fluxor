@@ -66,7 +66,7 @@ export const useConfigStore = defineStore('config', () => {
     mode: 'Rule',
     'log-level': 'silent',
     'interface-name': '',
-    tun: { enable: false, stack: 'System', device: 'utun' },
+    tun: { enable: false, stack: 'System', device: '' },
     port: 0,
     'socks-port': 0,
     'redir-port': 0,
@@ -138,7 +138,7 @@ export const useConfigStore = defineStore('config', () => {
           tun: {
             enable: tunData.enable || false,
             stack: normalizedStack,
-            device: tunData.device || 'utun'
+            device: tunData.device || ''
           },
           port: data.port || 0,
           'socks-port': data['socks-port'] || 0,

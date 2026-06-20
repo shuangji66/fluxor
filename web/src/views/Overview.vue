@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { OpenOutline, RadioOutline } from '@vicons/ionicons5'
+import { OpenOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useOverviewStore } from '../store/overview'
 import { useConnectionsStore } from '../store/connections'
@@ -32,8 +32,8 @@ const currentNodeDisplay = computed(() => {
 
 const base = window.BASE_URL || ''
 
-// 流量数据点 (最多60个)
-const maxPoints = 60
+// 流量数据点 (最多65个)
+const maxPoints = 65
 let cachedMaxY = 1024
 
 // Canvas 引用与上下文
@@ -65,7 +65,7 @@ const formatBytes = (bytes: number): string => {
 
 // 获取图表样式色彩
 const getChartColors = () => {
-  const isDark = document.documentElement.getAttribute('data-theme') !== 'light'
+  const isDark = document.documentElement.classList.contains('dark')
   return {
     grid: isDark ? 'rgba(148,163,184,0.08)' : 'rgba(15,23,42,0.04)',
     text: isDark ? '#64748b' : '#94a3b8'
@@ -188,17 +188,18 @@ const drawChart = () => {
   drawSmoothArea(uploadHistory.value, '#3b82f6', 'rgba(59, 130, 246, 0.18)', 'rgba(59, 130, 246, 0.0)', offsetX, stepX, h, chartH)
   drawSmoothArea(downloadHistory.value, '#10b981', 'rgba(16, 185, 129, 0.18)', 'rgba(16, 185, 129, 0.0)', offsetX, stepX, h, chartH)
 
-  // 3. 绘制 X 轴动态时间刻度
+  // 3. 绘制 X 轴动态时间刻度（相对时间）
   ctx.font = '10px monospace'
   ctx.fillStyle = colors.text
   ctx.textAlign = 'center'
   
-  // 每隔 15 个点绘制一个绝对时间刻度
-  for (let i = totalLen - 1; i >= 0; i -= 15) {
-    const x = offsetX + i * stepX
-    const tVal = timeHistory.value[i]
-    if (tVal) {
-      ctx.fillText(tVal, x, h - 6)
+  const timeLabels = [60, 45, 30, 15, 0]
+  const lastIdx = totalLen - 1
+  for (const sec of timeLabels) {
+    const idx = lastIdx - sec
+    if (idx >= 0 && idx < totalLen) {
+      const x = offsetX + idx * stepX
+      ctx.fillText(sec + 's', x, h - 6)
     }
   }
 
@@ -400,10 +401,7 @@ onUnmounted(() => {
     </div>
 
     <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all flex items-center justify-between gap-4">
-      <div class="flex items-center gap-2">
-        <RadioOutline class="w-5 h-5 text-accent" />
-        <span class="text-sm font-extrabold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
-      </div>
+      <span class="text-sm font-extrabold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
       <div class="text-base font-bold text-accent break-all select-all">{{ currentNodeDisplay }}</div>
     </div>
 

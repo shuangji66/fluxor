@@ -159,6 +159,29 @@ const handleTestAll = async () => {
   }
 }
 
+// 自动测速（无 Toast，仅对没有有效延迟记录的节点）
+const autoTestMissingNodes = async () => {
+  const allNodes = new Set<string>()
+  proxyGroups.value.forEach(g => {
+    if (['Selector', 'URLTest', 'Fallback'].includes(g.type)) {
+      g.all.forEach(name => allNodes.add(name))
+    }
+  })
+
+  const needTest: string[] = []
+  allNodes.forEach(name => {
+    const d = delays.value[name]
+    if (d === undefined || d === -1) {
+      needTest.push(name)
+    }
+  })
+
+  if (needTest.length === 0) return
+
+  await proxyStore.testProxiesWithConcurrency(needTest)
+  proxyStore.fetchProxies(true)
+}
+
 // 延迟着色
 const getDelayClass = (delay?: number) => {
   if (delay === undefined) {
@@ -186,9 +209,12 @@ const getDelayText = (delay?: number) => {
   return `${delay}ms`
 }
 
-onMounted(() => {
+onMounted(async () => {
   const hasData = proxyGroups.value.length > 0
-  proxyStore.fetchProxies(hasData)
+  await proxyStore.fetchProxies(hasData)
+
+  // 触发自动测速（后台静默）
+  autoTestMissingNodes().catch(e => console.warn('[Proxies] 自动测速失败:', e))
 
   // 每10秒后台静默更新一次代理状态
   refreshTimer = window.setInterval(() => {

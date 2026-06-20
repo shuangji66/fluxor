@@ -25,6 +25,7 @@ window.Config = (function() {
     let isSaving = false;
     let abortController = null;
     let container = null;
+    let systemInterfaces = [];
 
     let coreRunning = false;
     let coreStatusTimer = null;
@@ -49,6 +50,15 @@ window.Config = (function() {
 
     async function fetchConfig() {
         try {
+            try {
+                const ifacesResp = await api.apiFetch('/interfaces');
+                if (ifacesResp.ok) {
+                    systemInterfaces = await ifacesResp.json();
+                }
+            } catch (err) {
+                console.error('获取网卡列表失败:', err);
+            }
+
             const resp = await api.apiFetch('/configs');
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
@@ -99,8 +109,7 @@ window.Config = (function() {
                 return isNaN(v) ? undefined : v;
             }
             if (type === 'string') {
-                const v = el.value.trim();
-                return v === '' ? undefined : v;
+                return el.value.trim();
             }
             return el.value;
         };
@@ -409,10 +418,6 @@ window.Config = (function() {
                         <option value="silent">silent</option>
                     </select>
                 </div>
-                <div class="config-row">
-                    <label>${t('config.interface_name')}</label>
-                    <input type="text" id="cfg-interface-name" placeholder="${t('config.interface_name_placeholder')}">
-                </div>
                 <div class="config-row" style="margin-top:12px;">
                     <label style="font-weight:600;">${t('config.tun_settings') || 'TUN设置'}</label>
                 </div>
@@ -433,7 +438,14 @@ window.Config = (function() {
                 </div>
                 <div class="config-row">
                     <label>${t('config.tun_device')}</label>
-                    <input type="text" id="cfg-tun-device" placeholder="${t('config.tun_device_auto')}">
+                    <input type="text" id="cfg-tun-device" placeholder="${t('config.interface_name_placeholder')}">
+                </div>
+                <div style="height:1px; background:var(--border-color, #e2e8f0); margin:12px 0; opacity: 0.6;"></div>
+                <div class="config-row">
+                    <label>${t('config.interface_name')}</label>
+                    <select id="cfg-interface-name">
+                        <option value="">${t('config.interface_name_auto')}</option>
+                    </select>
                 </div>
                 <h4>${t('config.port_settings')}</h4>
                 <div class="config-row">
@@ -498,19 +510,34 @@ window.Config = (function() {
 
             <div class="card">
                 <h3>${t('config.dns_query')}</h3>
-                <div class="dns-query-box">
-                    <input type="text" id="dns-domain" placeholder="${t('config.dns_placeholder')}" class="dns-input">
-                    <select id="dns-type">
-                        <option value="A">A</option>
-                        <option value="AAAA">AAAA</option>
-                        <option value="MX">MX</option>
-                        <option value="TXT">TXT</option>
-                    </select>
-                    <button id="dns-query" class="btn">${t('config.dns_query_btn')}</button>
+                <div class="dns-query-box" style="display:flex; flex-direction:column; gap:8px;">
+                    <input type="text" id="dns-domain" placeholder="${t('config.dns_placeholder')}" class="dns-input" style="width:100%; box-sizing:border-box;">
+                    <div style="display:flex; gap:8px; width:100%;">
+                        <select id="dns-type" style="flex:1;">
+                            <option value="A">A</option>
+                            <option value="AAAA">AAAA</option>
+                            <option value="MX">MX</option>
+                            <option value="TXT">TXT</option>
+                        </select>
+                        <button id="dns-query" class="btn" style="flex:2; margin:0;">${t('config.dns_query_btn')}</button>
+                    </div>
                 </div>
                 <pre id="dns-result" class="dns-result-pre">${t('config.dns_result_default')}</pre>
             </div>
         `;
+
+        const ifaceSelect = document.getElementById('cfg-interface-name');
+        if (ifaceSelect && systemInterfaces && systemInterfaces.length > 0) {
+            while (ifaceSelect.options.length > 1) {
+                ifaceSelect.remove(1);
+            }
+            systemInterfaces.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                ifaceSelect.appendChild(opt);
+            });
+        }
 
         bindEvents();
         populateForm();

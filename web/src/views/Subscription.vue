@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { MailOutline, EyeOutline, EyeOffOutline, HeartOutline, RefreshOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline } from '@vicons/ionicons5'
+import { MailOutline, EyeOutline, EyeOffOutline, RefreshOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type SubscriptionInfo, type SubscriptionItem } from '../store/config'
@@ -285,9 +285,6 @@ onMounted(() => {
               </div>
             </div>
             <div class="flex gap-1.5">
-              <button v-if="savedSubNames.has(sub.name)" @click="handleHealthCheckSub(idx)" :disabled="isCheckingHealth[idx] || isUpdating[idx]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('subscription.health_check')">
-                <HeartOutline class="w-4 h-4" :class="{ 'animate-pulse text-accent': isCheckingHealth[idx] }" />
-              </button>
               <button v-if="savedSubNames.has(sub.name)" @click="handleUpdateSub(idx)" :disabled="isUpdating[idx] || isCheckingHealth[idx]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('rules.update')">
                 <RefreshOutline class="w-4 h-4" :class="{ 'animate-spin': isUpdating[idx] }" />
               </button>
@@ -313,12 +310,6 @@ onMounted(() => {
             </div>
             <div class="flex justify-between text-[11px] text-slate-400 dark:text-slate-500 mt-1">
               <span>{{ t('subscription.updated_at_label') }}{{ formatUpdateTime(sub.info.updatedAt) || t('common.unknown') }}</span>
-              <span v-if="sub.info.totalCount !== undefined && sub.info.aliveCount !== undefined">
-                {{ t('subscription.health') }}: 
-                <span class="font-bold" :class="getHealthClass(sub.info)">
-                  {{ sub.info.aliveCount ?? 0 }} / {{ (sub.info.totalCount ?? 0) - (sub.info.aliveCount ?? 0) }}
-                </span>
-              </span>
             </div>
           </div>
           <div v-else class="text-xs text-slate-400 dark:text-slate-500">

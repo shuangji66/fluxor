@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -392,4 +394,33 @@ func handleUpgrade(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// handleInterfaces 返回系统所有的物理网络接口名称（GET /interfaces）
+func handleInterfaces(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "获取网络接口失败: "+err.Error())
+		return
+	}
+
+	var names []string
+	for _, iface := range ifaces {
+		// 过滤回环接口和未启用的接口
+		if (iface.Flags & net.FlagLoopback) != 0 {
+			continue
+		}
+		if (iface.Flags & net.FlagUp) == 0 {
+			continue
+		}
+		names = append(names, iface.Name)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(names)
 }

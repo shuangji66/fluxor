@@ -231,8 +231,8 @@ export const useOverviewStore = defineStore('overview', () => {
     }
   }
 
-  // 将数据压入历史队列（最长为60个点）
-  const pushHistory = (up: number, down: number, maxPoints = 60) => {
+  // 将数据压入历史队列（最长为65个点）
+  const pushHistory = (up: number, down: number, maxPoints = 65) => {
     uploadHistory.value.push(up)
     downloadHistory.value.push(down)
     

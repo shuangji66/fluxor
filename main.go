@@ -118,6 +118,7 @@ func main() {
 	// ===== HTTP 代理（版本、配置、DNS、其他） =====
 	mux.HandleFunc(baseURL+"/version", handleVersion)
 	mux.HandleFunc(baseURL+"/configs", handleConfigsAPI)
+	mux.HandleFunc(baseURL+"/interfaces", handleInterfaces)
 	mux.HandleFunc(baseURL+"/configs/geo", handleConfigsGeo)
 	mux.HandleFunc(baseURL+"/providers/geo", handleProvidersGeo)
 	mux.HandleFunc(baseURL+"/cache/fakeip/flush", handleFlushFakeIP)

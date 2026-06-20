@@ -45,7 +45,7 @@ const applyTheme = (themeName: string) => {
     effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
   document.documentElement.setAttribute('data-theme', effectiveTheme)
-  if (effectiveTheme === 'dark') {
+  if (effectiveTheme === 'dark' || effectiveTheme === 'purple') {
     document.documentElement.classList.add('dark')
   } else {
     document.documentElement.classList.remove('dark')
@@ -73,8 +73,14 @@ const initTheme = () => {
 
 const switchThemeCycle = () => {
   const current = globalStore.theme
-  const cycle: Record<string, string> = { light: 'dark', dark: 'system', system: 'light' }
-  globalStore.theme = cycle[current]
+  const cycle: Record<string, string> = {
+    light: 'dark',
+    dark: 'purple',
+    purple: 'pink',
+    pink: 'system',
+    system: 'light'
+  }
+  globalStore.theme = cycle[current] || 'system'
 }
 
 // === 语言管理 ===
@@ -280,6 +286,13 @@ onUnmounted(() => {
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
           </svg>
+          <svg v-else-if="globalStore.theme === 'purple'" class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+          <svg v-else-if="globalStore.theme === 'pink'" class="w-5 h-5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            <path d="M12 13.5l-1.5-1.5a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0L12 10.33l.67-.66a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83L14 12z"/>
+          </svg>
           <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <text x="12" y="16" font-size="14" text-anchor="middle" fill="currentColor" stroke="none">A</text>
@@ -316,6 +329,13 @@ onUnmounted(() => {
               <line x1="21" y1="12" x2="23" y2="12"/>
               <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
               <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <svg v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              <path d="M12 13.5l-1.5-1.5a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0L12 10.33l.67-.66a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83L14 12z"/>
             </svg>
             <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"/>
