@@ -96,6 +96,13 @@ const handleSelectProxy = async (groupName: string, proxyName: string) => {
     globalStore.showToast(t('proxies.testing'), 'warning')
     return
   }
+  const group = proxyGroups.value.find(g => g.name === groupName)
+  if (!group) return
+
+  const originalNow = group.now
+  // 乐观更新：即时修改本地选中项状态
+  group.now = proxyName
+
   try {
     const encodedGroup = encodeURIComponent(groupName)
     const resp = await apiFetch(`/proxies/${encodedGroup}`, {
@@ -104,13 +111,15 @@ const handleSelectProxy = async (groupName: string, proxyName: string) => {
       body: JSON.stringify({ name: proxyName })
     })
     if (resp.ok) {
-      const group = proxyGroups.value.find(g => g.name === groupName)
-      if (group) group.now = proxyName
       globalStore.showToast(`${t('proxies.switched')}: ${groupName} → ${proxyName}`, 'success')
     } else {
+      // 失败回滚
+      group.now = originalNow
       globalStore.showToast(t('proxies.switch_failed'), 'error')
     }
   } catch (e: any) {
+    // 异常回滚
+    group.now = originalNow
     console.error('切换代理失败', e)
     globalStore.showToast(t('proxies.switch_failed') + ': ' + e.message, 'error')
   }
@@ -120,6 +129,8 @@ const handleSelectProxy = async (groupName: string, proxyName: string) => {
 const handleTestSingle = async (proxyName: string) => {
   if (delays.value[proxyName] === 0) return
   await proxyStore.testDelay(proxyName)
+  // 静默刷新数据，以更新最近 5 次历史测速的色块状态
+  proxyStore.fetchProxies(true)
 }
 
 // 测速代理组
@@ -171,7 +182,8 @@ const autoTestMissingNodes = async () => {
   const needTest: string[] = []
   allNodes.forEach(name => {
     const d = delays.value[name]
-    if (d === undefined || d === -1) {
+    // 优化：仅对从未测速过（undefined）的节点自动测速，排除已超时或有结果的节点以节约开销
+    if (d === undefined) {
       needTest.push(name)
     }
   })
