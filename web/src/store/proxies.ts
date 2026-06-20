@@ -32,14 +32,21 @@ export const useProxyStore = defineStore('proxies', () => {
         groups.sort((a, b) => {
           const getPriority = (name: string) => {
             if (name.includes('节点选择')) return 0
-            if (name.includes('手动选择')) return 1
-            if (name.includes('自动选择')) return 2
-            if (name.includes('香港')) return 3
-            if (name.includes('新加坡')) return 4
-            if (name.includes('日本')) return 5
-            if (name.includes('美国')) return 6
-            if (name.includes('台湾')) return 7
-            return 8
+            if (name.includes('谷歌')) return 1
+            if (name.includes('手动选择')) return 2
+            if (name.includes('电报')) return 3
+            if (name.includes('自动选择')) return 4
+            if (name.includes('微软')) return 5
+            if (name.includes('香港')) return 6
+            if (name.includes('苹果')) return 7
+            if (name.includes('新加坡')) return 8
+            if (name.includes('哔哩')) return 9
+            if (name.includes('日本')) return 10
+            if (name.includes('游戏服务')) return 11
+            if (name.includes('美国')) return 12
+            if (name.includes('Trackerslist')) return 13
+            if (name.includes('台湾')) return 14
+            return 15
           }
           const aPriority = getPriority(a.name)
           const bPriority = getPriority(b.name)
