@@ -288,7 +288,7 @@ const messages = {
     'about.features': '技术特性',
     'about.feature_1': '纯净高效：使用 Go 标准库与 Unix Socket 通信',
     'about.feature_2': '现代前端：基于 Vue 3 + Tailwind CSS + Pinia 构建',
-    'about.feature_3': 'xxx：xxxx'
+    'about.feature_3': '鸣谢：感谢@yuexps帮助重建Vue前端'
   },
   en: {
     'common.loading': 'Loading...',
@@ -577,7 +577,7 @@ const messages = {
     'about.features': 'Technical Features',
     'about.feature_1': 'Pure & Fast: Go Standard Library & Unix Socket communication',
     'about.feature_2': 'Modern UI: Powered by Vue 3, Tailwind CSS & Pinia',
-    'about.feature_3': 'xxx: xxxx'
+    'about.feature_3': 'Thank @yuexps for helping me to rebuild with Vue'
   }
 }
 
