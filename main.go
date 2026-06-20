@@ -226,7 +226,11 @@ func wsProxyHandler(targetPath string) http.HandlerFunc {
 		if secret != "" {
 			header.Set("Authorization", "Bearer "+secret)
 		}
-		coreConn, _, err := dialer.Dial("ws://localhost"+targetPath, header)
+		path := targetPath
+		if r.URL.RawQuery != "" {
+			path += "?" + r.URL.RawQuery
+		}
+		coreConn, _, err := dialer.Dial("ws://localhost"+path, header)
 		if err != nil {
 			// 内核未运行或连接失败是预期情况，不记录日志
 			return

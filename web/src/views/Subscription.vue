@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { MailOutline, EyeOutline, EyeOffOutline, RefreshOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline } from '@vicons/ionicons5'
+import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type SubscriptionInfo, type SubscriptionItem } from '../store/config'
@@ -17,13 +17,14 @@ const showModal = ref(false)
 const showUrls = ref<Record<number, boolean>>({})
 const modalTitle = ref('')
 const isUpdating = ref<Record<number, boolean>>({})
+const isApplying = ref(false)
 
 // 弹窗编辑项
 const editingIndex = ref(-1)
 const editForm = ref<SubscriptionItem>({
   name: '',
   url: '',
-  update_interval: 3600,
+  update_interval: 86400,
   health_interval: 300,
   prefix: ''
 })
@@ -110,7 +111,7 @@ const openSubModal = (index: number = -1) => {
     editForm.value = {
       name: sub.name || '',
       url: sub.url || '',
-      update_interval: sub.update_interval || 3600,
+      update_interval: sub.update_interval || 86400,
       health_interval: sub.health_interval || 300,
       prefix: sub.prefix || ''
     }
@@ -119,7 +120,7 @@ const openSubModal = (index: number = -1) => {
     editForm.value = {
       name: '',
       url: '',
-      update_interval: 3600,
+      update_interval: 86400,
       health_interval: 300,
       prefix: ''
     }
@@ -136,6 +137,13 @@ const saveSubToList = () => {
   const { name, url } = editForm.value
   if (!name.trim() || !url.trim()) {
     globalStore.showToast(t('common.name_required'), 'error')
+    return
+  }
+  const isDuplicate = (currentConfig.value.subscriptions || []).some((sub, idx) => {
+    return sub.name.trim() === name.trim() && idx !== editingIndex.value
+  })
+  if (isDuplicate) {
+    globalStore.showToast(t('subscription.duplicate_name'), 'error')
     return
   }
   const subData = { ...editForm.value }
@@ -171,6 +179,7 @@ const saveAndApply = async () => {
     globalStore.showToast(t('subscription.rule_group') + ' ' + t('common.required'), 'error')
     return
   }
+  isApplying.value = true
   try {
     const resp = await apiFetch('/subscribe/generate', {
       method: 'POST',
@@ -186,6 +195,8 @@ const saveAndApply = async () => {
     }
   } catch (e) {
     globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
+  } finally {
+    isApplying.value = false
   }
 }
 
@@ -215,7 +226,7 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <div class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+    <div class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1px] duration-300 transition-all">
       <h3 class="text-lg font-semibold mb-6 flex items-center gap-2">
         <MailOutline class="w-5 h-5 text-accent" />
         {{ t('subscription.title') }}
@@ -272,7 +283,14 @@ onMounted(() => {
         <div v-if="!currentConfig.subscriptions || currentConfig.subscriptions.length === 0" class="text-slate-400 dark:text-slate-600 text-sm py-4 text-center">
           {{ t('subscription.no_subscriptions') }}
         </div>
-        <div v-else-if="currentConfig.subscriptions" v-for="(sub, idx) in currentConfig.subscriptions" :key="sub.name" class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3">
+        <div v-else-if="currentConfig.subscriptions" v-for="(sub, idx) in currentConfig.subscriptions" :key="sub.name" class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden">
+          <!-- 正在更新/健康检查的卡片遮罩层 -->
+          <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 bg-white/75 dark:bg-[#1e293b]/75 backdrop-blur-[1px] z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
+            <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 border-t-accent rounded-full animate-spin"></div>
+            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              {{ isUpdating[idx] ? t('rules.updating') : t('subscription.health_check') + '...' }}
+            </span>
+          </div>
           <div class="flex justify-between items-start gap-4">
             <div class="min-width-0 flex-1">
               <span class="font-semibold text-slate-800 dark:text-slate-100 break-all">{{ sub.name }}</span>
@@ -286,7 +304,7 @@ onMounted(() => {
             </div>
             <div class="flex gap-1.5">
               <button v-if="savedSubNames.has(sub.name)" @click="handleUpdateSub(idx)" :disabled="isUpdating[idx] || isCheckingHealth[idx]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('rules.update')">
-                <RefreshOutline class="w-4 h-4" :class="{ 'animate-spin': isUpdating[idx] }" />
+                <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isUpdating[idx] }" />
               </button>
               <button @click="openSubModal(idx)" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('common.edit')">
                 <CreateOutline class="w-4 h-4" />
@@ -313,15 +331,29 @@ onMounted(() => {
             </div>
           </div>
           <div v-else class="text-xs text-slate-400 dark:text-slate-500">
-            {{ !coreStatus.running ? `${t('config.core_stopped')}，${t('subscription.traffic_unavailable')}` : t('subscription.traffic_unavailable') }}
+            <template v-if="!savedSubNames.has(sub.name)">
+              {{ t('subscription.save_to_show_info') }}
+            </template>
+            <template v-else>
+              {{ !coreStatus.running ? `${t('config.core_stopped')}，${t('subscription.traffic_unavailable')}` : t('subscription.traffic_unavailable') }}
+            </template>
           </div>
         </div>
       </div>
 
-      <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
-        <button @click="saveAndApply" class="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all">
-          {{ t('subscription.save_and_apply') }}
+      <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6 flex items-center gap-4">
+        <button @click="saveAndApply" :disabled="isApplying" class="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <SyncOutline v-if="isApplying" class="w-4 h-4 animate-spin" />
+          {{ isApplying ? '正在保存并应用...' : t('subscription.save_and_apply') }}
         </button>
+      </div>
+
+      <!-- 保存并应用全屏模糊加载浮层 -->
+      <div v-if="isApplying" class="fixed inset-0 bg-slate-900/10 dark:bg-slate-950/20 backdrop-blur-[1px] z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
+        <div class="bg-white/95 dark:bg-[#1e293b]/95 border border-slate-200/40 dark:border-slate-800/40 backdrop-blur-lg px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
+          <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 border-t-accent rounded-full animate-spin"></div>
+          <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
+        </div>
       </div>
     </div>
 
@@ -346,7 +378,7 @@ onMounted(() => {
           </div>
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.update_interval') }}</label>
-            <input type="number" v-model="editForm.update_interval" placeholder="3600" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            <input type="number" v-model="editForm.update_interval" placeholder="86400" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
           </div>
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.health_interval') }}</label>
@@ -354,7 +386,7 @@ onMounted(() => {
           </div>
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.prefix') }}</label>
-            <input type="text" v-model="editForm.prefix" placeholder="[Proxy]" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            <input type="text" v-model="editForm.prefix" :placeholder="t('subscription.prefix_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
           </div>
         </div>
 

@@ -42,7 +42,7 @@ func loadSubscribeConfig() {
 	defer subscribeMu.Unlock()
 
 	defaultCfg := SubscribeConfig{
-		ProxyPort:      7790,
+		ProxyPort:      7890,
 		PanelPort:      9090,
 		PanelSecret:    "",
 		RuleGroup:      "base",
@@ -117,6 +117,10 @@ func handleSubscribeConfigAPI(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusBadRequest, "无效的请求格式: "+err.Error())
 			return
 		}
+		if newConfig.MetaBackendURL != "" && !backendURLRegex.MatchString(newConfig.MetaBackendURL) {
+			writeJSONError(w, http.StatusBadRequest, "外部面板后端地址格式不正确")
+			return
+		}
 		subscribeMu.Lock()
 		subscribeConfig = newConfig
 		subscribeMu.Unlock()
@@ -146,6 +150,11 @@ func handleGenerateConfig(w http.ResponseWriter, r *http.Request) {
 	var cfg SubscribeConfig
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "无效的请求格式: "+err.Error())
+		return
+	}
+
+	if cfg.MetaBackendURL != "" && !backendURLRegex.MatchString(cfg.MetaBackendURL) {
+		writeJSONError(w, http.StatusBadRequest, "外部面板后端地址格式不正确")
 		return
 	}
 
@@ -227,7 +236,7 @@ external-controller: '0.0.0.0:%d'
 	for i, sub := range cfg.Subscriptions {
 		interval := sub.UpdateInterval
 		if interval <= 0 {
-			interval = 3600
+			interval = 86400
 		}
 		health := sub.HealthInterval
 		if health <= 0 {
@@ -239,6 +248,7 @@ external-controller: '0.0.0.0:%d'
     type: http
     url: "%s"
     interval: %d
+    proxy: 节点选择
     health-check:
       enable: true
       url: "https://www.gstatic.com/generate_204"

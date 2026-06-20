@@ -9,6 +9,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 function fluxorBuildPlugin() {
   return {
     name: 'fluxor-build-plugin',
+    buildStart() {
+      const assetsDir = path.resolve(__dirname, 'dist/static/assets')
+      if (fs.existsSync(assetsDir)) {
+        const files = fs.readdirSync(assetsDir)
+        for (const file of files) {
+          const filePath = path.join(assetsDir, file)
+          if (fs.statSync(filePath).isFile()) {
+            fs.unlinkSync(filePath)
+          }
+        }
+        console.log('[Fluxor] Cleared old assets in dist/static/assets')
+      }
+    },
     closeBundle() {
       const distDir = path.resolve(__dirname, 'dist')
       const indexHtml = path.resolve(distDir, 'index.html')

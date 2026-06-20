@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { GlobeOutline, RefreshOutline, ChevronForwardOutline } from '@vicons/ionicons5'
+import { GlobeOutline, SyncOutline, ChevronForwardOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useProxyStore, type ProxyGroup } from '../store/proxies'
 import { useGlobalStore } from '../store/global'
@@ -250,7 +250,7 @@ onUnmounted(() => {
       </h3>
 
       <button @click="handleTestAll" :disabled="isTestingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
-        <RefreshOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
+        <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
         {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
       </button>
     </div>
@@ -283,7 +283,7 @@ onUnmounted(() => {
             </div>
             
             <button @click.stop="handleTestGroup(group)" :disabled="isTestingGroup[group.name]" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0" :title="t('proxies.test')">
-              <RefreshOutline class="w-4 h-4" :class="{ 'animate-spin': isTestingGroup[group.name] }" />
+              <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isTestingGroup[group.name] }" />
             </button>
           </div>
 
@@ -319,42 +319,40 @@ onUnmounted(() => {
             v-for="name in group.all"
             :key="name"
             @click="handleSelectProxy(group.name, name)"
-            class="flex flex-col justify-between p-2.5 text-xs rounded-xl border transition-all duration-200 cursor-pointer min-h-[75px]"
+            class="flex flex-col justify-between p-2.5 text-xs rounded-xl border transition-all duration-300 cursor-pointer min-h-[75px] relative"
             :class="group.now === name
-              ? 'bg-accent/5 border-accent text-accent shadow-sm ring-1 ring-accent/30'
-              : 'border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300'"
+              ? 'bg-accent/5 border-accent text-accent shadow-sm ring-1 ring-accent/30 hover:-translate-y-[1.5px] hover:shadow-md'
+              : 'border-slate-200/60 dark:border-slate-800 hover:-translate-y-[1.5px] hover:shadow-sm hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300 hover:bg-slate-100/40 dark:hover:bg-slate-800/10'"
           >
-            <!-- 节点名称 & 单独测速按钮 -->
-            <div class="flex justify-between items-start gap-2 w-full">
-              <span class="truncate text-xs font-bold text-slate-800 dark:text-slate-100 flex-1 leading-snug" :class="{ '!text-accent': group.now === name }" :title="name">{{ name }}</span>
+            <!-- 第一行：节点名称 -->
+            <div class="w-full text-left">
+              <span class="block truncate text-xs font-bold text-slate-800 dark:text-slate-100 leading-snug" :class="{ '!text-accent': group.now === name }" :title="name">
+                {{ name }}
+              </span>
+            </div>
+
+            <!-- 第二行：协议类型名称 & 测速按钮 -->
+            <div
+              v-if="allProxiesRaw[name]"
+              class="flex justify-between items-center gap-1.5 mt-2.5 w-full select-none"
+            >
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="bg-slate-200/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono uppercase text-[9px] font-bold leading-none truncate">
+                  {{ allProxiesRaw[name].type || 'DIRECT' }}
+                </span>
+                <span v-if="allProxiesRaw[name].xudp" class="bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="XUDP">
+                  X
+                </span>
+                <span v-else-if="allProxiesRaw[name].udp" class="bg-blue-500/10 text-blue-500 dark:text-blue-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="UDP">
+                  U
+                </span>
+              </div>
               <span
                 class="text-[10px] font-mono shrink-0 select-none px-1.5 py-0.5 rounded-md leading-none text-center min-w-[32px] transition-all hover:scale-105 active:scale-95 border cursor-pointer"
                 :class="getDelayClass(delays[name])"
                 @click.stop="handleTestSingle(name)"
               >
                 {{ getDelayText(delays[name]) }}
-              </span>
-            </div>
-
-            <!-- 协议类型名称 & UDP / XUDP 标签徽章 -->
-            <div
-              v-if="allProxiesRaw[name]"
-              class="flex gap-1 font-bold text-[10px] mt-2 flex-wrap select-none"
-            >
-              <span class="bg-slate-200/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono uppercase">
-                {{ allProxiesRaw[name].type || 'DIRECT' }}
-              </span>
-              <span
-                v-if="allProxiesRaw[name].udp"
-                class="bg-blue-500/15 text-blue-500 dark:text-blue-400 px-1.5 py-0.5 rounded"
-              >
-                UDP
-              </span>
-              <span
-                v-if="allProxiesRaw[name].xudp"
-                class="bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 px-1.5 py-0.5 rounded"
-              >
-                XUDP
               </span>
             </div>
 

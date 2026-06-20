@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { apiFetch } from '../utils/api'
-import { RefreshOutline } from '@vicons/ionicons5'
+import { SyncOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { useRulesStore, type RuleItem } from '../store/rules'
 
@@ -147,11 +147,11 @@ onMounted(() => {
 
       <div>
         <button v-if="activeTab === 'rules'" @click="handleRefreshRules" :disabled="isLoadingRules" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
-          <RefreshOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingRules }" />
+          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingRules }" />
           {{ t('common.refresh') }}
         </button>
         <button v-else-if="activeTab === 'providers'" @click="handleUpdateAllProviders" :disabled="isUpdatingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
-          <RefreshOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isUpdatingAll }" />
+          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isUpdatingAll }" />
           {{ t('rules.update_all') }}
         </button>
       </div>
@@ -200,7 +200,14 @@ onMounted(() => {
         {{ t('rules.no_providers') }}
       </div>
       <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
-        <div v-for="p in filteredProviders" :key="p.name" class="p-5 flex items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+        <div v-for="p in filteredProviders" :key="p.name" class="p-5 flex items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors relative overflow-hidden">
+          <!-- 规则更新局部加载遮罩 -->
+          <div v-if="isUpdating[p.name] || isUpdatingAll" class="absolute inset-0 bg-white/75 dark:bg-[#1e293b]/75 backdrop-blur-[1px] z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
+            <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 border-t-accent rounded-full animate-spin"></div>
+            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              {{ t('rules.updating') }}
+            </span>
+          </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <strong class="text-sm font-bold text-slate-800 dark:text-slate-100 break-all">{{ p.name }}</strong>
@@ -214,7 +221,7 @@ onMounted(() => {
 
           <div class="shrink-0">
             <button @click="handleUpdateProvider(p.name)" :disabled="isUpdating[p.name]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all">
-              <RefreshOutline class="w-4 h-4" :class="{ 'animate-spin': isUpdating[p.name] }" />
+              <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isUpdating[p.name] }" />
             </button>
           </div>
         </div>

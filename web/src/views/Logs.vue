@@ -74,17 +74,19 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-160px)] md:h-[calc(100vh-140px)] flex flex-col gap-4">
+  <div class="h-[calc(100vh-160px)] md:h-[calc(100vh-140px)] flex flex-col gap-4 relative">
     <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-4 items-center justify-between transition-all">
-      <h3 class="text-base font-semibold flex items-center gap-2">
+      <!-- 标题和状态 -->
+      <h3 class="text-base font-semibold flex items-center gap-2 shrink-0">
         <DocumentTextOutline class="w-5 h-5 text-accent" />
         {{ t('logs.title') }}
         <span class="w-2 h-2 rounded-full bg-success animate-pulse ml-1"></span>
       </h3>
 
-      <div class="flex flex-wrap items-center gap-3 flex-1 sm:flex-initial">
-        <!-- 日志级别过滤 -->
-        <div class="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700/50">
+      <!-- 搜索、级别过滤区域 -->
+      <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0">
+        <!-- 桌面端日志级别过滤（4按钮并排） -->
+        <div class="hidden sm:flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700/50 shrink-0">
           <button
             v-for="level in LEVELS"
             :key="level"
@@ -98,22 +100,31 @@ onUnmounted(() => {
           </button>
         </div>
 
+        <!-- 移动端日志级别过滤（下拉 select，极致精简空间） -->
+        <select
+          v-model="currentLevel"
+          class="sm:hidden px-2 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none shrink-0"
+        >
+          <option v-for="level in LEVELS" :key="level" :value="level">{{ level.toUpperCase() }}</option>
+        </select>
+
         <!-- 搜索输入框 -->
-        <div class="relative w-full sm:w-64">
-          <SearchOutline class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div class="relative flex-1 sm:flex-initial sm:w-60">
+          <SearchOutline class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             v-model="searchText"
             :placeholder="t('logs.search')"
-            class="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
+            class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
           />
         </div>
       </div>
 
-      <div class="flex gap-2">
+      <!-- 操作按钮（暂停、清空） -->
+      <div class="flex gap-2 shrink-0">
         <button
           @click="isPaused = !isPaused"
-          class="px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5"
+          class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 whitespace-nowrap"
           :class="isPaused
             ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20'
             : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-transparent text-slate-700 dark:text-slate-300'"
@@ -124,7 +135,7 @@ onUnmounted(() => {
         </button>
         <button
           @click="handleClear"
-          class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10 flex items-center gap-1.5"
+          class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10 flex items-center gap-1.5 whitespace-nowrap"
         >
           <TrashOutline class="w-3.5 h-3.5" />
           {{ t('logs.clear') }}
@@ -136,7 +147,7 @@ onUnmounted(() => {
     <div
       ref="terminalRef"
       @scroll.passive="handleScroll"
-      class="flex-1 bg-slate-950 text-slate-300 font-mono text-xs p-5 rounded-2xl overflow-y-auto leading-relaxed border border-slate-800 shadow-2xl relative select-text"
+      class="flex-1 bg-slate-950 text-slate-300 font-mono text-xs p-3 sm:p-5 rounded-2xl overflow-y-auto leading-relaxed border border-slate-800 shadow-2xl relative select-text"
     >
       <div v-if="filteredLogs.length === 0" class="text-slate-600 flex items-center justify-center h-full">
         {{ t('logs.waiting') }}
@@ -145,11 +156,15 @@ onUnmounted(() => {
         <div
           v-for="log in filteredLogs"
           :key="log.id"
-          class="flex items-start gap-2 break-all hover:bg-slate-900/60 py-0.5 px-1 rounded transition-colors"
+          class="flex items-start gap-1.5 sm:gap-2 break-all hover:bg-slate-900/60 py-0.5 px-1 rounded transition-colors"
         >
-          <span class="text-slate-500 shrink-0 select-none">[{{ log.time }}]</span>
+          <!-- 桌面端显示完整毫秒 -->
+          <span class="text-slate-500 shrink-0 select-none hidden sm:inline">[{{ log.time }}]</span>
+          <!-- 移动端隐藏毫秒以节省极窄的空间 -->
+          <span class="text-slate-500 shrink-0 select-none sm:hidden">[{{ log.time.split('.')[0] }}]</span>
+          
           <span
-            class="shrink-0 font-bold uppercase text-[10px] px-1.5 py-0.5 rounded tracking-wider text-center min-w-[56px] select-none"
+            class="shrink-0 font-bold uppercase text-[9px] sm:text-[10px] px-1 py-0.5 rounded tracking-wider text-center min-w-[45px] sm:min-w-[56px] select-none"
             :class="{
               'bg-blue-500/20 text-blue-400': log.type === 'info' || log.type === 'debug',
               'bg-amber-500/20 text-amber-400': log.type === 'warning',
@@ -167,15 +182,16 @@ onUnmounted(() => {
           >{{ log.payload }}</span>
         </div>
       </div>
-      
-      <!-- 智能自动滚动控制悬浮钮 -->
-      <button
-        @click="autoScroll = !autoScroll"
-        class="absolute bottom-4 right-4 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-[10px] px-2 py-1.5 rounded-lg text-slate-400 flex items-center gap-1.5 transition-all shadow-lg"
-      >
-        <ArrowDownOutline class="w-3 h-3 transition-transform duration-200" :class="{ 'translate-y-0.5 animate-bounce text-success': autoScroll }" />
-        {{ t('logs.auto_scroll') }}
-      </button>
     </div>
+
+    <!-- 智能自动滚动控制悬浮钮（提升至滚动区外层以实现固定定位） -->
+    <button
+      v-if="filteredLogs.length > 0"
+      @click="autoScroll = !autoScroll"
+      class="absolute bottom-4 right-4 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-[10px] px-2.5 py-1.5 rounded-lg text-slate-400 flex items-center gap-1.5 transition-all shadow-lg z-40 select-none"
+    >
+      <ArrowDownOutline class="w-3 h-3 transition-transform duration-200" :class="{ 'translate-y-0.5 animate-bounce text-success': autoScroll }" />
+      {{ t('logs.auto_scroll') }}
+    </button>
   </div>
 </template>

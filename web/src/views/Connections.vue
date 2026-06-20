@@ -205,25 +205,27 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="flex gap-2 items-center flex-1 sm:flex-initial min-w-[200px] sm:min-w-0">
+      <!-- 右侧：搜索框与控制按钮合并容器（在大屏下横向右对齐，绝不换行） -->
+      <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0 flex-nowrap">
         <input type="text" v-model="searchText" :placeholder="t('connections.search_placeholder')" class="w-full sm:w-60 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
-      </div>
-
-      <div class="flex gap-2">
-        <button v-if="activeTab === 'active'" @click="isPaused = !isPaused" class="px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all" :class="isPaused ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-transparent'">
-          {{ isPaused ? t('connections.resume') : t('connections.pause') }}
-        </button>
-        <button v-if="activeTab === 'active'" @click="handleCloseAll" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10">
-          {{ t('connections.close_all') }}
-        </button>
-        <button v-if="activeTab === 'closed'" @click="handleClearAllClosed" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10">
-          {{ t('connections.clear_all_closed') }}
-        </button>
+        
+        <div class="flex gap-2 shrink-0">
+          <button v-if="activeTab === 'active'" @click="isPaused = !isPaused" class="px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all whitespace-nowrap" :class="isPaused ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-transparent'">
+            {{ isPaused ? t('connections.resume') : t('connections.pause') }}
+          </button>
+          <button v-if="activeTab === 'active'" @click="handleCloseAll" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10 whitespace-nowrap">
+            {{ t('connections.close_all') }}
+          </button>
+          <button v-if="activeTab === 'closed'" @click="handleClearAllClosed" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10 whitespace-nowrap">
+            {{ t('connections.clear_all_closed') }}
+          </button>
+        </div>
       </div>
     </div>
 
     <div class="bg-white dark:bg-[#1e293b] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
-      <div class="overflow-x-auto">
+      <!-- 桌面端表格视图 -->
+      <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
             <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold select-none">
@@ -270,7 +272,7 @@ onUnmounted(() => {
                   <ArrowUpOutline v-else class="w-3.5 h-3.5" />
                 </span>
               </th>
-              <th class="py-3 px-4 shrink-0 w-16 text-center">{{ t('connections.action') }}</th>
+              <th class="py-3 px-4 shrink-0 w-20 text-center whitespace-nowrap">{{ t('connections.action') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -287,7 +289,7 @@ onUnmounted(() => {
                     {{ c.metadata?.host || c.metadata?.destinationIP }}
                   </div>
                 </div>
-                <div class="text-[10px] text-slate-400 dark:text-slate-500 select-all">{{ c.metadata?.destinationIP }}:{{ c.metadata?.destinationPort }}</div>
+                <div v-if="c.metadata?.destinationIP" class="text-[10px] text-slate-400 dark:text-slate-500 select-all">{{ c.metadata.destinationIP }}{{ c.metadata.destinationPort ? ':' + c.metadata.destinationPort : '' }}</div>
               </td>
               <td class="py-3 px-4 text-center shrink-0">
                 <span class="px-1.5 py-0.5 text-[10px] font-bold rounded tracking-wide uppercase" :class="(c.metadata?.network || 'tcp').toUpperCase() === 'UDP' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'">
@@ -309,17 +311,95 @@ onUnmounted(() => {
               <td class="py-3 px-4 font-mono text-slate-500">
                 {{ activeTab === 'active' ? formatDuration(c.start) : c.closedAt }}
               </td>
-              <td class="py-3 px-4 text-center shrink-0">
-                <button v-if="activeTab === 'active'" @click="handleCloseConnection(c.id)" class="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded font-semibold text-[10px] transition-all">
+              <td class="py-3 px-4 text-center shrink-0 whitespace-nowrap">
+                <button v-if="activeTab === 'active'" @click="handleCloseConnection(c.id)" class="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded font-semibold text-[10px] transition-all whitespace-nowrap">
                   {{ t('connections.close') }}
                 </button>
-                <button v-else @click="handleClearClosedItem(c.id)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold text-[10px] transition-all">
+                <button v-else @click="handleClearClosedItem(c.id)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold text-[10px] transition-all whitespace-nowrap">
                   {{ t('connections.clear') }}
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- 移动端卡片视图 -->
+      <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+        <div v-if="filteredConnections.length === 0" class="py-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+          {{ t('connections.empty') }}
+        </div>
+        <div
+          v-else
+          v-for="c in filteredConnections"
+          :key="c.id"
+          class="p-4 space-y-3 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-900/10"
+        >
+          <!-- 第一行：名称 + 网络类型 & 协议 -->
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="font-bold text-slate-800 dark:text-slate-200 select-all break-all text-xs leading-snug">
+                {{ c.metadata?.host || c.metadata?.destinationIP }}
+              </div>
+              <div v-if="c.metadata?.destinationIP" class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 select-all">
+                {{ c.metadata.destinationIP }}{{ c.metadata.destinationPort ? ':' + c.metadata.destinationPort : '' }}
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0 select-none">
+              <span v-if="c.metadata?.type" class="px-1.5 py-0.5 text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded uppercase">
+                {{ c.metadata.type }}
+              </span>
+              <span class="px-1.5 py-0.5 text-[9px] font-bold rounded uppercase" :class="(c.metadata?.network || 'tcp').toUpperCase() === 'UDP' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'">
+                {{ c.metadata?.network || 'tcp' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 第二行：分流规则 & 链路 -->
+          <div class="text-[10px] space-y-1.5">
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400">{{ t('connections.rule') }}:</span>
+              <span class="font-medium text-slate-600 dark:text-slate-300 bg-slate-100/50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded">{{ c.rule }}</span>
+            </div>
+            <div v-if="c.chains && c.chains.length > 0" class="flex items-start gap-1">
+              <span class="text-slate-400 shrink-0">{{ t('connections.chain') }}:</span>
+              <span class="font-mono text-slate-500 dark:text-slate-400 leading-tight break-all">{{ c.chains.join(' → ') }}</span>
+            </div>
+          </div>
+
+          <!-- 第三行：实时流量/总量 + 时间 + 断开操作 -->
+          <div class="flex items-center justify-between gap-3 pt-1">
+            <div class="flex gap-4 text-[10px]">
+              <div class="flex flex-col">
+                <span class="text-slate-400">{{ activeTab === 'active' ? t('connections.upload_speed') : t('connections.total_upload') }}</span>
+                <span class="font-mono font-bold text-blue-500 mt-0.5">
+                  {{ activeTab === 'active' ? formatSpeed(c.speedUp || 0) : formatBytes(c.upload) }}
+                </span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-slate-400">{{ activeTab === 'active' ? t('connections.download_speed') : t('connections.total_download') }}</span>
+                <span class="font-mono font-bold text-success mt-0.5">
+                  {{ activeTab === 'active' ? formatSpeed(c.speedDown || 0) : formatBytes(c.download) }}
+                </span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-slate-400">{{ activeTab === 'active' ? t('connections.duration') : t('connections.closed_at') }}</span>
+                <span class="font-mono text-slate-500 mt-0.5">
+                  {{ activeTab === 'active' ? formatDuration(c.start) : c.closedAt }}
+                </span>
+              </div>
+            </div>
+
+            <div class="shrink-0 select-none">
+              <button v-if="activeTab === 'active'" @click="handleCloseConnection(c.id)" class="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-md font-semibold text-[10px] transition-all">
+                {{ t('connections.close') }}
+              </button>
+              <button v-else @click="handleClearClosedItem(c.id)" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-md font-semibold text-[10px] transition-all">
+                {{ t('connections.clear') }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

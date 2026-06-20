@@ -233,7 +233,24 @@ func stopCore() error {
 		}
 		return fmt.Errorf("停止进程失败: %v", err)
 	}
-	process.Wait()
+
+	// 轮询检查进程是否退出（最大 5 秒超时，每 100ms 一次）
+	killed := false
+	for i := 0; i < 50; i++ {
+		err := process.Signal(syscall.Signal(0))
+		if err != nil {
+			killed = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !killed {
+		// 超时则发送 SIGKILL 强杀
+		process.Signal(syscall.SIGKILL)
+		time.Sleep(200 * time.Millisecond)
+	}
+
 	os.Remove(corePidFile)
 	return nil
 }

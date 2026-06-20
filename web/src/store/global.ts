@@ -24,7 +24,14 @@ export interface ConfirmState {
 }
 
 export const useGlobalStore = defineStore('global', () => {
-  const activeTab = ref<string>(localStorage.getItem('fluxor-active-tab') || 'overview')
+  const startPage = ref<string>(localStorage.getItem('fluxor-start-page') || 'last')
+
+  const getInitialTab = () => {
+    const sp = startPage.value
+    return sp === 'last' ? (localStorage.getItem('fluxor-active-tab') || 'overview') : sp
+  }
+
+  const activeTab = ref<string>(getInitialTab())
   const isSidebarCollapsed = ref<boolean>(localStorage.getItem('fluxor-sidebar-collapsed') === 'true')
   const theme = ref<string>(localStorage.getItem('fluxor-theme') || 'system')
   
@@ -83,7 +90,12 @@ export const useGlobalStore = defineStore('global', () => {
     localStorage.setItem('fluxor-sidebar-collapsed', val ? 'true' : 'false')
   })
 
+  watch(startPage, (newVal) => {
+    localStorage.setItem('fluxor-start-page', newVal)
+  })
+
   return { 
+    startPage,
     activeTab, 
     isSidebarCollapsed, 
     theme, 

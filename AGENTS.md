@@ -52,7 +52,8 @@ fluxor/
         ├── i18n.ts         # 全站国际化（zh/en），从 localStorage 读取语言偏好，禁止硬编码中文
         ├── index.css       # Tailwind 基础指令 + CSS 变量亮暗主题（data-theme 选择器）+ 自定义滚动条
         ├── utils/
-        │   └── api.ts      # withBase() 拼接 BASE_URL、apiFetch() HTTP 封装、wsConnect() WebSocket 封装（自动 ws/wss 协议选择）
+        │   ├── api.ts      # withBase() 拼接 BASE_URL、apiFetch() HTTP 封装、wsConnect() WebSocket 封装（自动 ws/wss 协议选择）
+        │   └── mock.ts     # 前端离线开发模拟器：拦截 HTTP/WS 请求提供 mock 数据，支持脱离后端独立测试
         ├── store/
         │   ├── global.ts   # 标签页激活状态、侧边栏折叠、亮暗/跟随系统主题、Toast 队列（3s 自动消失）、Promise 驱动确认框
         │   ├── config.ts   # 内核运行状态、内核配置参数（allow-lan/ipv6/mode/log-level/tun/端口等）、订阅配置 CRUD
@@ -68,7 +69,7 @@ fluxor/
             ├── Connections.vue  # 连接：活跃/已关闭双标签、多列排序、搜索过滤、单条/全部断开（乐观更新移入 closed）、清空已关闭
             ├── Logs.vue         # 日志：暗色终端风格、级别过滤（Debug/Info/Warning/Error）、搜索、暂停/继续、智能自动滚动
             ├── Config.vue       # 配置：内核状态卡（启动/停止/升级）、常规参数、端口校验（1025-65535+重复检测）、TUN（gVisor/System/Mixed）、高级运维（重载/清缓存/GEO）、内置 DNS 查询
-            └── Subscription.vue # 订阅：代理/面板端口、密钥显隐切换、规则集（lite/base/full）、UI 面板选择、订阅 CRUD 模态框（zoomIn 动画）、流量/健康度/有效期卡片、「保存并应用」
+            └── Subscription.vue # 订阅：代理/面板端口、密钥显隐切换、规则集（lite/base/full）、UI 面板选择、订阅 CRUD 模态框（zoomIn 动画，支持订阅名称、链接、检测间隔、节点前缀）、流量/健康度/有效期卡片、「保存并应用」
 ```
 
 > **页面路由机制**：未使用 vue-router，通过 `globalStore.activeTab` 与 `<component :is="..." />`　动态组件切换视图。
@@ -117,8 +118,9 @@ func (c *cancelableReadCloser) Close() error {
 | `/configs` | GET/PATCH/PUT | `handleConfigsAPI` | 获取/修改/重载内核配置 |
 | `/configs/geo` | POST | `handleConfigsGeo` | 更新 GEO 数据库 |
 | `/providers/geo` | POST | `handleProvidersGeo` | 回退 GEO 更新接口 |
-| `/providers/rules` | GET | `handleRuleProviders` | 获取规则提供商列表 |
-| `/providers/rules/{name}` | PUT | `handleUpdateRuleProvider` | 更新单个规则提供商 |
+| /providers/rules | GET | handleRuleProviders | 获取规则提供商列表 |
+| /providers/rules/{name} | PUT | handleUpdateRuleProvider | 更新单个规则提供商 |
+| /interfaces | GET | handleInterfaces | 返回系统所有的物理网络接口名称（过滤回环及未启用接口） |
 | `/providers/proxies/{name}` | GET/PUT | `handleProviderProxies` | 获取/更新订阅代理信息 |
 | `/rules` | GET | `handleRules` | 获取所有规则 |
 | `/rules/disable` | PATCH | `handleRulesDisable` | 启用/禁用规则 |
@@ -179,6 +181,13 @@ unsubscribe() → subscriberCount-- → 归零后延迟 3 秒（防抖）→ 若
 
 ### 4.6 乐观更新与回滚
 涉及高频用户操作的接口（如代理选择切换、规则启用/禁用、连接断开）采用**乐观更新**策略：
-1. 立即更新本地状态，呈现即时反馈。
+1. 立即更新本地状态，呈现即时反馈.
 2. 并发发起 API 请求。
 3. 请求失败时自动回滚至更新前的状态。
+
+### 4.7 前端离线 Mock 联调机制
+为了方便前端脱离 Go 后端独立运行与联调，`web/src/utils/mock.ts` 实现了完整的 HTTP API 与 WebSocket 数据流模拟器。
+- **启用机制**：在 Vite 开发模式（`import.meta.env.DEV`）下默认开启，拦截网络请求并导入模拟数据。
+- **手动控制**：可通过在控制台修改 `localStorage` 的键 `MOCK_BACKEND` 来强制覆盖：
+  - 强制启用 Mock 模式：`localStorage.setItem('MOCK_BACKEND', 'true')`
+  - 强制关闭 Mock（直接连接真实后端）：`localStorage.setItem('MOCK_BACKEND', 'false')`

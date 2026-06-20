@@ -1,4 +1,4 @@
-# Fluxor 工程技术手册
+# Fluxor 技术手册
 
 本文件面向技术维护人员，主要用于指导 Fluxor 项目的工程结构图谱、开发环境联调、跨平台构建打包与部署运维。
 
@@ -20,7 +20,9 @@ fluxor/
     ├── package.json, vite.config.js, tailwind.config.js, ...
     └── src/
         ├── main.ts, App.vue, i18n.ts
-        ├── utils/api.ts                         # HTTP/WS 网络工具
+        ├── utils/
+        │   ├── api.ts                           # HTTP/WS 网络工具
+        │   └── mock.ts                          # 离线开发模拟器（Mock 数据与 Mock WS 连接）
         ├── store/  (global / config / overview / proxies / connections / rules / logs)
         └── views/  (Overview / Proxies / Rules / Connections / Logs / Config / Subscription)
 ```
@@ -34,9 +36,9 @@ fluxor/
 ### 2.1 前端运行脚本
 | 命令 | 说明 |
 |------|------|
+| `npm ci` | 安装依赖 |
 | `npm run dev` | 启动 Vite 开发服务器，默认端口 5173，热更新 |
-| `npm run build` | 生产构建，产物输出到 `web/dist/`，自动将 index.html 移至 `static/html/` |
-| `npm run preview` | 预览生产构建产物 |
+| `npm run build` | 生产构建，产物输出到 `web/dist/`|
 
 ### 2.2 编译标签（Build Tags）控制
 系统通过 Go 条件标签实现前端双版本并存嵌入：

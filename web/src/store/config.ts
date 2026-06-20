@@ -107,8 +107,11 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   // 获取内核详细配置
-  const fetchConfigs = async () => {
-    configsLoading.value = true
+  const fetchConfigs = async (forceLoading = false) => {
+    const hasData = configs.value.port !== 0 || configs.value['mixed-port'] !== 0
+    if (forceLoading || !hasData) {
+      configsLoading.value = true
+    }
     try {
       const resp = await apiFetch('/configs')
       if (resp.ok) {

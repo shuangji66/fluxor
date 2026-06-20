@@ -199,6 +199,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s, color 0.2s;
   overflow: hidden;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 全局滚动条样式定义 */
@@ -225,4 +226,15 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

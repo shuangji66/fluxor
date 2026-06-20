@@ -1,9 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalStore } from './store/global'
 import { useConfigStore } from './store/config'
 import { useOverviewStore } from './store/overview'
+import {
+  LanguageOutline,
+  SunnyOutline,
+  MoonOutline,
+  ColorPaletteOutline,
+  HeartOutline,
+  DesktopOutline,
+  ChevronBackOutline,
+  ChevronForwardOutline,
+  InformationCircleOutline,
+  LogoGithub
+} from '@vicons/ionicons5'
 
 // 视图组件导入
 import Overview from './views/Overview.vue'
@@ -18,6 +30,8 @@ const { t, locale } = useI18n()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 const overviewStore = useOverviewStore()
+
+const showAbout = ref(false)
 
 const components: Record<string, any> = {
   overview: Overview,
@@ -163,18 +177,18 @@ onUnmounted(() => {
         :class="globalStore.isSidebarCollapsed ? 'justify-center' : 'justify-between'">
         <span class="font-bold text-accent tracking-wider text-base select-none transition-all duration-200 whitespace-nowrap overflow-hidden"
           :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">Fluxor</span>
-        <button @click="toggleSidebar" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded transition-all flex items-center justify-center">
-          <svg v-if="!globalStore.isSidebarCollapsed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+        <button @click="toggleSidebar" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded transition-all flex items-center justify-center" aria-label="Toggle Sidebar">
+          <ChevronBackOutline v-if="!globalStore.isSidebarCollapsed" class="w-5 h-5 transition-all duration-200 hover:scale-110" />
+          <ChevronForwardOutline v-else class="w-5 h-5 transition-all duration-200 hover:scale-110" />
         </button>
       </div>
 
       <!-- 导航项目 -->
       <nav class="flex-1 px-3 py-4 space-y-1">
         <!-- 概览 -->
-        <button @click="selectTab('overview')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200"
+        <button @click="selectTab('overview')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
           :class="[
-            globalStore.activeTab === 'overview' ? 'bg-accent/10 text-accent' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'overview' ? 'bg-accent/10 text-accent font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
           ]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -185,9 +199,9 @@ onUnmounted(() => {
         </button>
 
         <!-- 代理 -->
-        <button @click="selectTab('proxies')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200"
+        <button @click="selectTab('proxies')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
           :class="[
-            globalStore.activeTab === 'proxies' ? 'bg-accent/10 text-accent' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'proxies' ? 'bg-accent/10 text-accent font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
           ]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -198,9 +212,9 @@ onUnmounted(() => {
         </button>
 
         <!-- 订阅 -->
-        <button @click="selectTab('subscription')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200"
+        <button @click="selectTab('subscription')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
           :class="[
-            globalStore.activeTab === 'subscription' ? 'bg-accent/10 text-accent' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'subscription' ? 'bg-accent/10 text-accent font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
           ]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 8 12 14 22 8"/></svg>
@@ -211,9 +225,9 @@ onUnmounted(() => {
         </button>
 
         <!-- 规则 -->
-        <button @click="selectTab('rules')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200"
+        <button @click="selectTab('rules')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
           :class="[
-            globalStore.activeTab === 'rules' ? 'bg-accent/10 text-accent' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'rules' ? 'bg-accent/10 text-accent font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
           ]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
@@ -224,9 +238,9 @@ onUnmounted(() => {
         </button>
 
         <!-- 连接 -->
-        <button @click="selectTab('connections')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200"
+        <button @click="selectTab('connections')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
           :class="[
-            globalStore.activeTab === 'connections' ? 'bg-accent/10 text-accent' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'connections' ? 'bg-accent/10 text-accent font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
           ]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -237,9 +251,9 @@ onUnmounted(() => {
         </button>
 
         <!-- 日志 -->
-        <button @click="selectTab('logs')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200"
+        <button @click="selectTab('logs')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
           :class="[
-            globalStore.activeTab === 'logs' ? 'bg-accent/10 text-accent' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'logs' ? 'bg-accent/10 text-accent font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
           ]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -250,9 +264,9 @@ onUnmounted(() => {
         </button>
 
         <!-- 配置 -->
-        <button @click="selectTab('config')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200"
+        <button @click="selectTab('config')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
           :class="[
-            globalStore.activeTab === 'config' ? 'bg-accent/10 text-accent' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'config' ? 'bg-accent/10 text-accent font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
           ]">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -263,40 +277,47 @@ onUnmounted(() => {
         </button>
       </nav>
 
-      <!-- 底部操作：中英文与亮暗主题 -->
-      <div class="p-3 border-t border-slate-100 dark:border-slate-800/60 flex gap-2 transition-all duration-200"
-        :class="globalStore.isSidebarCollapsed ? 'flex-col' : 'flex-col md:flex-row'">
-        <!-- 切换语言 -->
-        <button @click="toggleLanguage" class="flex-1 flex items-center justify-center py-2 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all text-slate-500 dark:text-slate-400">
-          <span>{{ currentLangDisplay }}</span>
-        </button>
-        <!-- 切换主题 -->
-        <button @click="switchThemeCycle" class="flex-1 flex items-center justify-center py-2 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800 transition-all text-slate-500 dark:text-slate-400" aria-label="Toggle Theme">
-          <svg v-if="globalStore.theme === 'dark'" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-          <svg v-else-if="globalStore.theme === 'light'" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-          <svg v-else-if="globalStore.theme === 'purple'" class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
-          <svg v-else-if="globalStore.theme === 'pink'" class="w-5 h-5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            <path d="M12 13.5l-1.5-1.5a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0L12 10.33l.67-.66a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83L14 12z"/>
-          </svg>
-          <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <text x="12" y="16" font-size="14" text-anchor="middle" fill="currentColor" stroke="none">A</text>
-          </svg>
+      <!-- 底部操作：关于、中英文与主题 -->
+      <div class="p-3 border-t border-slate-100 dark:border-slate-800/60 flex flex-col gap-2 transition-all duration-200">
+        <!-- 语言与主题 -->
+        <div class="flex gap-2 w-full transition-all duration-200"
+          :class="globalStore.isSidebarCollapsed ? 'flex-col items-center' : 'flex-row'">
+          <!-- 切换语言 -->
+          <button @click="toggleLanguage" 
+            class="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group"
+            :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+            :title="locale === 'zh' ? '切换语言' : 'Switch Language'">
+            <LanguageOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:rotate-12" />
+            <span v-if="!globalStore.isSidebarCollapsed" class="ml-1.5 whitespace-nowrap overflow-hidden transition-all duration-200">
+              {{ currentLangDisplay }}
+            </span>
+          </button>
+          <!-- 切换主题 -->
+          <button @click="switchThemeCycle" 
+            class="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group"
+            :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+            aria-label="Toggle Theme"
+            :title="t('config.theme')">
+            <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 transition-all text-amber-500 group-hover:rotate-45 duration-300" />
+            <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 shrink-0 transition-all text-indigo-400 group-hover:-rotate-12 duration-300" />
+            <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 transition-all text-purple-500 dark:text-purple-400 group-hover:scale-110 duration-300" />
+            <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 shrink-0 transition-all text-rose-500 group-hover:scale-110 duration-300" />
+            <DesktopOutline v-else class="w-4 h-4 shrink-0 transition-all text-slate-500 dark:text-slate-400 group-hover:scale-110 duration-300" />
+            <span v-if="!globalStore.isSidebarCollapsed" class="ml-1.5 whitespace-nowrap overflow-hidden transition-all duration-200">
+              {{ t('config.theme_' + globalStore.theme) }}
+            </span>
+          </button>
+        </div>
+
+        <!-- 关于 Fluxor -->
+        <button @click="showAbout = true" 
+          class="flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group"
+          :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+          :title="t('about.title')">
+          <InformationCircleOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
+          <span v-if="!globalStore.isSidebarCollapsed" class="ml-1.5 whitespace-nowrap overflow-hidden transition-all duration-200">
+            {{ t('about.title') }}
+          </span>
         </button>
       </div>
     </aside>
@@ -311,36 +332,25 @@ onUnmounted(() => {
         <!-- 移动端快捷设置 -->
         <div class="flex gap-2 items-center">
           <!-- 语言 -->
-          <button @click="toggleLanguage" class="px-2 py-1.5 text-xs font-semibold rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 min-w-8">
-            {{ currentLangDisplay }}
+          <button @click="toggleLanguage" 
+            class="flex items-center justify-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
+            <span>{{ currentLangDisplay }}</span>
           </button>
           <!-- 主题 -->
-          <button @click="switchThemeCycle" class="p-1.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center" aria-label="Toggle Theme">
-            <svg v-if="globalStore.theme === 'dark'" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            <svg v-else-if="globalStore.theme === 'light'" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1" x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1" y1="12" x2="3" y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-            <svg v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-            <svg v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              <path d="M12 13.5l-1.5-1.5a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0L12 10.33l.67-.66a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83L14 12z"/>
-            </svg>
-            <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <text x="12" y="16" font-size="14" text-anchor="middle" fill="currentColor" stroke="none">A</text>
-            </svg>
+          <button @click="switchThemeCycle" 
+            class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all active:scale-95 group" 
+            aria-label="Toggle Theme">
+            <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 text-amber-500 transition-all group-hover:rotate-45 duration-300" />
+            <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 text-indigo-400 transition-all group-hover:-rotate-12 duration-300" />
+            <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 text-purple-500 dark:text-purple-400 transition-all group-hover:scale-110 duration-300" />
+            <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 text-rose-500 transition-all group-hover:scale-110 duration-300" />
+            <DesktopOutline v-else class="w-4 h-4 text-slate-500 dark:text-slate-400 transition-all group-hover:scale-110 duration-300" />
+          </button>
+          <!-- 关于 -->
+          <button @click="showAbout = true" 
+            class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all active:scale-95 group"
+            :title="t('about.title')">
+            <InformationCircleOutline class="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
           </button>
         </div>
       </header>
@@ -388,6 +398,77 @@ onUnmounted(() => {
           <span class="text-[9px] font-medium">{{ t('nav.config') }}</span>
         </button>
       </nav>
+    </div>
+
+    <!-- 关于 Fluxor 模态弹窗 -->
+    <div v-if="showAbout" class="fixed inset-0 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" @click.self="showAbout = false">
+      <div class="bg-white/90 dark:bg-[#1e293b]/90 border border-slate-200/80 dark:border-slate-800/80 backdrop-blur-lg w-full max-w-[92vw] sm:max-w-md rounded-3xl shadow-2xl p-6 flex flex-col gap-6 animate-[zoomIn_0.15s_ease-out] relative overflow-hidden">
+        <!-- 装饰渐变光晕背景 -->
+        <div class="absolute -top-24 -right-24 w-48 h-48 bg-accent/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <!-- 头部信息 -->
+        <div class="flex flex-col items-center text-center gap-2 pt-2">
+          <h3 class="text-xl font-extrabold bg-gradient-to-r from-accent to-purple-600 dark:from-accent dark:to-purple-400 bg-clip-text text-transparent tracking-wide select-none">
+            Fluxor
+          </h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-semibold px-4">
+            {{ t('about.description') }}
+          </p>
+        </div>
+
+        <!-- 详细信息面板 -->
+        <div class="bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/50 rounded-2xl p-4 flex flex-col gap-3.5">
+          <!-- 面板版本 -->
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-400 dark:text-slate-500">{{ t('about.version') }}</span>
+            <span class="font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">v1.0.0 (Vue3)</span>
+          </div>
+          <!-- 内核版本 -->
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-400 dark:text-slate-500">{{ t('about.core_version') }}</span>
+            <span class="font-bold px-2 py-0.5 rounded bg-accent/10 text-accent dark:text-accent/90">
+              Mihomo {{ overviewStore.stats.coreVersion || 'Unknown' }}
+            </span>
+          </div>
+          <!-- 开源仓库 -->
+          <div class="flex items-center justify-between text-xs border-t border-slate-100 dark:border-slate-800/40 pt-3">
+            <span class="font-bold text-slate-400 dark:text-slate-500">{{ t('about.github') }}</span>
+            <a href="https://github.com/shuangji66/fluxor" target="_blank" class="flex items-center gap-1 text-slate-600 dark:text-slate-300 hover:text-accent dark:hover:text-accent font-bold transition-colors">
+              <LogoGithub class="w-3.5 h-3.5" />
+              <span>shuangji66/fluxor</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- 技术特性 -->
+        <div class="flex flex-col gap-2">
+          <h4 class="text-xs font-extrabold text-slate-400 dark:text-slate-500 tracking-wider">
+            {{ t('about.features') }}
+          </h4>
+          <ul class="flex flex-col gap-1.5 pl-1">
+            <li class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-accent mt-1 shrink-0"></span>
+              <span>{{ t('about.feature_1') }}</span>
+            </li>
+            <li class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1 shrink-0"></span>
+              <span>{{ t('about.feature_2') }}</span>
+            </li>
+            <li class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-pink-500 mt-1 shrink-0"></span>
+              <span>{{ t('about.feature_3') }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 底部关闭按钮 -->
+        <div class="flex justify-center pt-2">
+          <button @click="showAbout = false" class="w-full py-2.5 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all duration-200 active:scale-95 shadow-inner">
+            {{ t('common.close') }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 全局 Confirm 确认框 -->
