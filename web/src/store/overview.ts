@@ -54,6 +54,8 @@ export const useOverviewStore = defineStore('overview', () => {
     }, {
       onClose: () => {
         wsTraffic = null
+        stats.value.uploadSpeed = 0
+        stats.value.downloadSpeed = 0
         if (trafficSubscribers.value > 0) {
           setTimeout(() => {
             if (trafficSubscribers.value > 0) connectTraffic()
@@ -116,6 +118,7 @@ export const useOverviewStore = defineStore('overview', () => {
     }, {
       onClose: () => {
         wsMemory = null
+        stats.value.memory = 0
         if (memorySubscribers.value > 0) {
           setTimeout(() => {
             if (memorySubscribers.value > 0) connectMemory()
@@ -191,14 +194,18 @@ export const useOverviewStore = defineStore('overview', () => {
         stats.value.coreVersion = '未知'
       }
 
+      let isRunning = false
       if (statusResp && statusResp.ok) {
         const s = await statusResp.json()
-        if (!s.running) {
-          stats.value.currentNode = '内核未启动'
-        }
+        isRunning = s.running
       }
 
-      if (proxiesResp && proxiesResp.ok) {
+      if (!isRunning) {
+        stats.value.currentNode = '内核未启动'
+        stats.value.uploadSpeed = 0
+        stats.value.downloadSpeed = 0
+        stats.value.memory = 0
+      } else if (proxiesResp && proxiesResp.ok) {
         const data = await proxiesResp.json()
         const entries = Object.entries(data.proxies || {}) as [string, any][]
         const mainGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name.includes('节点选择'))
@@ -210,6 +217,10 @@ export const useOverviewStore = defineStore('overview', () => {
       }
     } catch (e) {
       console.warn('定时获取状态异常', e)
+      stats.value.currentNode = '内核未启动'
+      stats.value.uploadSpeed = 0
+      stats.value.downloadSpeed = 0
+      stats.value.memory = 0
     }
   }
 

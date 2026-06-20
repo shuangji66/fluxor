@@ -123,6 +123,8 @@ export const useConnectionsStore = defineStore('connections', () => {
       onClose: () => {
         ws = null
         prevSnapshot.clear()
+        activeConnections.value = []
+        connectionsCount.value = 0
         if (subscriberCount.value > 0) {
           setTimeout(() => {
             if (subscriberCount.value > 0) connect()

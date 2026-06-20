@@ -59,6 +59,8 @@ export const useProxyStore = defineStore('proxies', () => {
       }
     } catch (e) {
       console.error('获取代理失败', e)
+      proxyGroups.value = []
+      delays.value = {}
     } finally {
       if (!silent) isLoading.value = false
     }
