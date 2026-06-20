@@ -7,6 +7,8 @@ window.Proxies = (function() {
     let delayCache = {};
 
     let testingSet = new Set();
+    // 移除 autoTestTimer
+
     const CONCURRENCY = 10;
     const TEST_URL = 'http://www.gstatic.com/generate_204';
     const TIMEOUT = 5000;
@@ -44,20 +46,20 @@ window.Proxies = (function() {
         return barKeywords.some(kw => groupName.includes(kw)) || groupName === 'GLOBAL';
     }
 
-    // 测速按钮颜色类（阈值与健康度一致）
+    // 测速按钮颜色类（阈值与健康度一致，0/无记录为未知）
     function getDelayClass(delay) {
-        if (delay === undefined || delay === null) return 'delay-unknown';
-        if (delay === 0) return 'delay-zero';
+        if (delay === undefined || delay === null || delay === 0) return 'delay-unknown';
         if (delay < 500) return 'delay-good';
         if (delay < 1500) return 'delay-ok';
         return 'delay-bad';
     }
 
+    // 格式化测速显示：无记录或0显示 ---，否则显示 delayms
     function formatDelay(cacheEntry) {
-        if (!cacheEntry) return t('proxies.test');
-        if (cacheEntry.delay === null) return t('proxies.timeout');
-        if (cacheEntry.delay < 0) return t('proxies.error');
-        return `${cacheEntry.delay}ms`;
+        if (!cacheEntry) return '---';
+        const delay = cacheEntry.delay;
+        if (delay === null || delay === undefined || delay === 0) return '---';
+        return `${delay}ms`;
     }
 
     // ==================== 健康度渲染 ====================
@@ -140,7 +142,7 @@ window.Proxies = (function() {
         return blocks.join('');
     }
 
-    // ==================== 组测速功能 ====================
+    // ==================== 组测速功能（手动，显示 Toast） ====================
     async function testGroupDelays(groupName) {
         const group = currentProxies[groupName];
         if (!group || !group.all || group.all.length === 0) {
@@ -157,6 +159,38 @@ window.Proxies = (function() {
         });
         await Promise.all(workers);
         showToast(`${groupName} ${t('proxies.test_complete')}`, 'success');
+    }
+
+    // ==================== 自动测速（无 Toast，仅对无记录的节点） ====================
+    async function autoTestMissingNodes() {
+        // 收集所有需要测速的节点（从各组中获取）
+        const allNodes = new Set();
+        const groups = Object.entries(currentProxies)
+            .filter(([, g]) => ['Selector', 'URLTest', 'Fallback'].includes(g.type));
+        groups.forEach(([, g]) => {
+            if (g.all) g.all.forEach(node => allNodes.add(node));
+        });
+
+        // 过滤出无有效延迟记录的节点
+        const needTest = [];
+        for (const name of allNodes) {
+            const cached = delayCache[name];
+            if (!cached || cached.delay === null || cached.delay === 0) {
+                needTest.push(name);
+            }
+        }
+
+        if (needTest.length === 0) return;
+
+        // 并发测速，不显示 Toast
+        const queue = [...needTest];
+        const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+            while (queue.length > 0) {
+                const proxy = queue.shift();
+                await testDelay(proxy);
+            }
+        });
+        await Promise.all(workers);
     }
 
     // ==================== 增量 DOM 更新 ====================
@@ -233,6 +267,10 @@ window.Proxies = (function() {
 
             if (fullRender || !container.querySelector('.proxy-grid')) {
                 renderFull();
+                // 首次加载完成后，触发自动测速（无 Toast）
+                if (fullRender) {
+                    autoTestMissingNodes().catch(e => console.warn('[Proxies] 自动测速出错:', e));
+                }
             } else {
                 updateDOM();
             }
@@ -271,7 +309,7 @@ window.Proxies = (function() {
         }
     }
 
-    // ==================== 全部测速 ====================
+    // ==================== 全部测速（显示 Toast） ====================
     async function testAllDelays() {
         const groups = Object.entries(currentProxies)
             .filter(([, g]) => ['Selector', 'URLTest', 'Fallback'].includes(g.type));
@@ -326,7 +364,6 @@ window.Proxies = (function() {
             toast.style.cssText = 'position:fixed;right:20px;z-index:9999;padding:12px 20px;border-radius:8px;font-size:14px;color:#fff;transition:opacity 0.3s;pointer-events:none;';
             document.body.appendChild(toast);
         }
-        // 移动端避开顶栏（顶栏高度 50px + 间距）
         const isMobile = window.innerWidth <= 768;
         toast.style.top = isMobile ? '70px' : '20px';
         toast.textContent = msg;
@@ -485,7 +522,6 @@ window.Proxies = (function() {
                 .delay-good{background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0}
                 .delay-ok{background:#fef9c3;color:#ca8a04;border:1px solid #feef08}
                 .delay-bad{background:#fee2e2;color:#dc2626;border:1px solid #fecaca}
-                .delay-zero{background:#1a1a1a;color:#fff;border:1px solid #333}
                 .delay-unknown{background:var(--bg-secondary,#f1f5f9);color:var(--text-secondary,#94a3b8);border:1px solid var(--border-color,#e2e8f0)}
                 .delay-testing{background:var(--bg-secondary,#f1f5f9);color:var(--accent,#3b82f6);border:1px solid var(--accent,#3b82f6);animation:pulse 1s infinite}
                 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}

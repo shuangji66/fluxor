@@ -3,7 +3,7 @@ window.Overview = (function() {
     const BASE = window.BASE_URL || '';
     let uploadSpeeds = [], downloadSpeeds = [];
     let totalUpload = 0, totalDownload = 0;
-    const maxPoints = 60;
+    const maxPoints = 65; // 改为 65
     let canvas, ctx;
     let themeObserver = null, resizeObserver = null;
     let dpr = window.devicePixelRatio || 1;
@@ -75,36 +75,41 @@ window.Overview = (function() {
 
         const stepX = w / (maxPoints - 1);
         const colors = getChartColors();
-        const chartH = h * 0.9;
+        const paddingBottom = 18; // 底部留白
+        const chartH = h - paddingBottom;
 
-        const offsetX = (maxPoints - uploadSpeeds.length) * stepX;
+        const length = uploadSpeeds.length;
+        const offsetX = (maxPoints - length) * stepX;
 
+        // 绘制网格和刻度（y轴）
         ctx.strokeStyle = colors.grid; ctx.lineWidth = 1;
         ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.fillStyle = colors.text;
         for (let i = 0; i <= 4; i++) {
-            const y = (i / 4) * h;
+            const y = (i / 4) * chartH;
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
             ctx.fillText(formatBytes(cachedMaxY * (1 - i / 4)), w - 4, y - 3);
         }
 
+        // 绘制面积图
         function drawArea(data, stroke, fill) {
             if (data.length < 2) return;
             ctx.beginPath();
             for (let i = 0; i < data.length; i++) {
                 const x = offsetX + i * stepX;
-                const y = h - (data[i] / cachedMaxY) * chartH;
+                const y = chartH - (data[i] / cachedMaxY) * chartH;
                 i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
             }
             ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke();
             const lastX = offsetX + (data.length - 1) * stepX;
-            ctx.lineTo(lastX, h);
-            ctx.lineTo(offsetX, h);
+            ctx.lineTo(lastX, chartH);
+            ctx.lineTo(offsetX, chartH);
             ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
         }
 
         drawArea(uploadSpeeds, colors.upload, colors.uploadFill);
         drawArea(downloadSpeeds, colors.download, colors.downloadFill);
 
+        // 图例
         ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
         ctx.fillStyle = colors.upload; ctx.fillRect(10, 10, 12, 12);
         const uploadText = t('overview.upload');
@@ -112,6 +117,21 @@ window.Overview = (function() {
         ctx.fillText(uploadText, 28, 21);
         ctx.fillStyle = colors.download; ctx.fillRect(10, 28, 12, 12);
         ctx.fillText(downloadText, 28, 39);
+
+        // ===== X 轴时间标签（与数据点位置对齐） =====
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = colors.text;
+        const timeLabels = [60, 45, 30, 15, 0];
+        const lastIdx = length - 1;
+        timeLabels.forEach(sec => {
+            const idx = lastIdx - sec;
+            if (idx >= 0 && idx < length) {
+                const x = offsetX + idx * stepX;
+                ctx.fillText(sec + 's', x, chartH + 12);
+            }
+        });
+
         ctx.restore();
     }
 
