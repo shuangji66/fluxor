@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { apiFetch } from '../utils/api'
@@ -18,6 +18,14 @@ const searchText = ref('')
 const isUpdatingAll = ref(false)
 const isUpdating = ref<Record<string, boolean>>({})
 
+// 滚动加载显示的最大条数
+const displayLimit = ref(100)
+
+// 用户输入搜索词时重置显示条数，保障过滤秒开
+watch(searchText, () => {
+  displayLimit.value = 100
+})
+
 // 过滤规则
 const filteredRules = computed(() => {
   const query = searchText.value.trim().toLowerCase()
@@ -27,6 +35,11 @@ const filteredRules = computed(() => {
     rule.payload.toLowerCase().includes(query) || 
     rule.proxy.toLowerCase().includes(query)
   )
+})
+
+// 最终在 DOM 中渲染的截断规则列表
+const visibleRules = computed(() => {
+  return filteredRules.value.slice(0, displayLimit.value)
 })
 
 // 过滤提供商
@@ -136,10 +149,31 @@ const formatDate = (dateStr: string) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+const loadMoreTrigger = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+
 onMounted(() => {
   const hasData = rules.value.length > 0
   rulesStore.fetchRules(hasData)
   rulesStore.fetchProviders(hasData)
+
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      if (displayLimit.value < filteredRules.value.length) {
+        displayLimit.value += 100
+      }
+    }
+  }, { rootMargin: '150px' })
+
+  if (loadMoreTrigger.value) {
+    observer.observe(loadMoreTrigger.value)
+  }
+})
+
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect()
+  }
 })
 </script>
 
@@ -180,7 +214,7 @@ onMounted(() => {
           {{ t('rules.no_rules_found') }}
         </div>
         <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
-        <div v-for="(rule, idx) in filteredRules" :key="idx" class="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+        <div v-for="(rule, idx) in visibleRules" :key="idx" class="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-center gap-2">
               <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded tracking-wide shrink-0" :class="{
@@ -204,6 +238,11 @@ onMounted(() => {
             </button>
           </div>
         </div>
+        <div v-if="filteredRules.length > displayLimit" class="py-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-900/5">
+          <div class="w-3.5 h-3.5 border border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
+          <span>{{ t('common.loading') }}</span>
+        </div>
+        <div ref="loadMoreTrigger" class="h-2"></div>
         </div>
       </template>
     </div>

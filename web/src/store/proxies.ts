@@ -56,17 +56,37 @@ export const useProxyStore = defineStore('proxies', () => {
 
         proxyGroups.value = groups
 
-        // 解析代理节点历史延迟
-        groups.forEach(g => {
-          g.all.forEach(name => {
-            if (data.proxies[name] && data.proxies[name].history) {
-              const hist = data.proxies[name].history
-              if (hist.length > 0) {
-                const last = hist[hist.length - 1]
-                delays.value[name] = last.delay > 0 ? last.delay : -1
-              }
+        // 解析代理节点最新延迟与近5次历史色块，避免在模板中高频调用 sort 导致性能开销
+        Object.keys(data.proxies || {}).forEach(name => {
+          const node = data.proxies[name]
+          if (node) {
+            let latest: number | null = null
+            let sortedHist: any[] = []
+            if (node.history && node.history.length > 0) {
+              sortedHist = [...node.history].sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime())
+              const last = sortedHist[sortedHist.length - 1]
+              latest = last.delay > 0 ? last.delay : -1
             }
-          })
+            node.latestDelay = latest
+            
+            node.recentColors = sortedHist.slice(-5).map((h: any) => {
+              const d = h.delay
+              let colorClass = 'bg-slate-200 dark:bg-slate-800'
+              if (d === 0) colorClass = 'bg-[#1a1a1a]'
+              else if (d === -1) colorClass = 'bg-red-500'
+              else if (d <= 150) colorClass = 'bg-success'
+              else if (d <= 300) colorClass = 'bg-amber-500'
+              else colorClass = 'bg-red-400'
+              return {
+                colorClass,
+                title: `${h.time}: ${d > 0 ? d + 'ms' : 'Timeout'}`
+              }
+            })
+
+            if (latest !== null) {
+              delays.value[name] = latest
+            }
+          }
         })
       }
     } catch (e) {

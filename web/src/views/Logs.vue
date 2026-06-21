@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick, watch, onActivated, onDeactivated } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useLogStore } from '../store/logs'
@@ -29,9 +29,20 @@ const scrollToBottom = () => {
   })
 }
 
-// 监听日志数量增加自动滚动底部
+const isActive = ref(true)
+onActivated(() => {
+  isActive.value = true
+  if (logs.value.length > 0 && autoScroll.value) {
+    scrollToBottom()
+  }
+})
+onDeactivated(() => {
+  isActive.value = false
+})
+
+// 监听日志数量增加自动滚动底部，当组件处于后台时，静默冻结滚动计算
 watch(() => logs.value.length, () => {
-  if (autoScroll.value) {
+  if (isActive.value && autoScroll.value) {
     scrollToBottom()
   }
 })

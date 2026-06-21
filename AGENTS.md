@@ -51,6 +51,8 @@ fluxor/
         ├── env.d.ts        # .vue 类型声明 & Window.BASE_URL 接口扩展
         ├── i18n.ts         # 全站国际化（zh/en），从 localStorage 读取语言偏好，禁止硬编码中文
         ├── index.css       # Tailwind 基础指令 + CSS 变量亮暗主题（data-theme 选择器）+ 自定义滚动条
+        ├── components/     # 公共及细粒度组件 (ProxyGroupCard, FormSwitch)
+        ├── composables/    # 全局解耦组合式函数 (useTheme, useLanguage)
         ├── utils/
         │   ├── api.ts      # withBase() 拼接 BASE_URL、apiFetch() HTTP 封装、wsConnect() WebSocket 封装（自动 ws/wss 协议选择）
         │   └── mock.ts     # 前端离线开发模拟器：拦截 HTTP/WS 请求提供 mock 数据，支持脱离后端独立测试
@@ -72,7 +74,7 @@ fluxor/
             └── Subscription.vue # 订阅：代理/面板端口、密钥显隐切换、规则集（lite/base/full）、UI 面板选择、订阅 CRUD 模态框（zoomIn 动画，支持订阅名称、链接、检测间隔、节点前缀）、流量/健康度/有效期卡片、「保存并应用」
 ```
 
-> **页面路由机制**：未使用 vue-router，通过 `globalStore.activeTab` 与 `<component :is="..." />`　动态组件切换视图。
+> **页面路由机制**：未使用 vue-router，通过 `globalStore.activeTab` 与 `<component :is="..." />` 动态组件切换视图。在此基础上，外层包裹了 `<KeepAlive :max="6">` 进行视图缓存，以长效留存页面各交互状态（如滚动进度与折叠状态）并规避切页时的网络闪连。
 
 ---
 
@@ -191,3 +193,12 @@ unsubscribe() → subscriberCount-- → 归零后延迟 3 秒（防抖）→ 若
 - **手动控制**：可通过在控制台修改 `localStorage` 的键 `MOCK_BACKEND` 来强制覆盖：
   - 强制启用 Mock 模式：`localStorage.setItem('MOCK_BACKEND', 'true')`
   - 强制关闭 Mock（直接连接真实后端）：`localStorage.setItem('MOCK_BACKEND', 'false')`
+
+### 4.8 缓存视图下的生命周期管理与滚动能效控制
+在 KeepAlive 缓存组件后台化时，为了防止后台页面（如 `Logs.vue`）继续对增长的日志流进行无效的 DOM 渲染和滚动条计算，必须绑定 `onActivated` / `onDeactivated` 生命周期钩子来冻结/激活这些滚动计算（如 logs watcher），有效控制挂机闲置能耗。
+
+### 4.9 复杂数据预解析与计算缓存
+严禁在组件渲染周期内，或者在模板中高频调用包含重度计算或复制排序的操作（如 `sort` 历史延迟记录）。所有这类解析操作应收归至 Store 中，在拉取到最新数据的第一时间完成一轮预解析，并直接挂载为节点的响应式扁平字段（如 `latestDelay`、`recentColors`），组件仅负责以 O(1) 效率读取。
+
+### 4.10 表单直连与双向绑定规范
+表单交互输入（如端口设定）应直接通过 `v-model` 或 `v-model.number` 直连 Pinia Store 托管的数据对象。严禁声明冗余的局部 ref 变量并配合 watch-deep 进行繁重的手动双向映射赋值。当表单输入非法导致校验不通过时，可通过 Store 的 fetch 行为从后端重新拉取真实数据完成本地强制回滚。
