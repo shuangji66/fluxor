@@ -49,6 +49,8 @@ export interface SubscriptionConfigData {
   rule_group: string
   ui_panel: string
   meta_backend_url: string
+  mode: string
+  active_subscription: string
   subscriptions: SubscriptionItem[]
 }
 
@@ -85,6 +87,8 @@ export const useConfigStore = defineStore('config', () => {
     rule_group: 'base',
     ui_panel: 'metacubexd',
     meta_backend_url: '',
+    mode: 'merge',
+    active_subscription: '', 
     subscriptions: []
   })
 
@@ -171,12 +175,26 @@ export const useConfigStore = defineStore('config', () => {
           rule_group: cfg.rule_group || 'base',
           ui_panel: cfg.ui_panel || 'metacubexd',
           meta_backend_url: cfg.meta_backend_url || '',
-          subscriptions: subs
+          mode: cfg.mode || 'merge',
+          active_subscription: cfg.active_subscription || '',
+          subscriptions: subs.map((s: any) => {
+            // 将后端存储的 subscription_info 映射为前端的 info 对象
+            const info = s.subscription_info ? {
+              upload: s.subscription_info.Upload || 0,
+              download: s.subscription_info.Download || 0,
+              total: s.subscription_info.Total || 0,
+              expire: s.subscription_info.Expire || 0,
+              updatedAt: s.updated_at || null,
+            } : null
+            return {
+              ...s, // 保留所有原始字段（name, url, update_interval, health_interval, prefix）
+              info: info
+            }
+          })
         }
-        await enrichSubscriptions()
       }
     } catch (e) {
-      console.error('加载订阅配置失败', e)
+    console.error('加载订阅配置失败', e)
     }
   }
 

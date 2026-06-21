@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -309,4 +310,117 @@ func handleCoreRestart(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "内核已热重启（重载配置）"})
+}
+// DownloadSubscriptionFile 使用临时内核下载单个订阅的节点文件，并返回元数据（updatedAt 和 subscriptionInfo）
+func DownloadSubscriptionFile(sub Subscription, index int, targetFile string) (updatedAt string, subInfo map[string]interface{}, err error) {
+    listener, err := net.Listen("tcp", ":0")
+    if err != nil {
+        return "", nil, fmt.Errorf("获取随机端口失败: %w", err)
+    }
+    port := listener.Addr().(*net.TCPAddr).Port
+    listener.Close()
+
+    tmpDir := filepath.Dir(corePidFile)
+    tmpConfig := filepath.Join(tmpDir, fmt.Sprintf("tmp%d.yaml", index))
+    tmpPidFile := filepath.Join(tmpDir, fmt.Sprintf("tmp%d.pid", index))
+
+    content := fmt.Sprintf(`mixed-port: 0
+log-level: silent
+external-controller: '0.0.0.0:%d'
+proxy-providers:
+  %s:
+    type: http
+    url: "%s"
+    path: "%s"
+`, port, sub.Name, sub.URL, targetFile)
+
+    if err := os.WriteFile(tmpConfig, []byte(content), 0644); err != nil {
+        return "", nil, fmt.Errorf("写入临时配置失败: %w", err)
+    }
+    defer os.Remove(tmpConfig)
+
+    cmd := exec.Command(coreBin, "-f", tmpConfig, "-d", coreWorkDir)
+    var stderr bytes.Buffer
+    cmd.Stderr = &stderr
+
+    if err := cmd.Start(); err != nil {
+        return "", nil, fmt.Errorf("启动临时内核失败: %w, stderr: %s", err, stderr.String())
+    }
+
+    if err := os.WriteFile(tmpPidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0644); err != nil {
+        // ignore
+    }
+    defer os.Remove(tmpPidFile)
+
+    defer func() {
+        if cmd.Process != nil {
+            cmd.Process.Signal(syscall.SIGTERM)
+            time.Sleep(1 * time.Second)
+            cmd.Process.Kill()
+            cmd.Wait()
+        }
+    }()
+
+    // 轮询等待目标文件生成（60秒），同时检查进程存活
+    timeout := time.After(60 * time.Second)
+    ticker := time.NewTicker(500 * time.Millisecond)
+    defer ticker.Stop()
+    for {
+        select {
+        case <-timeout:
+            return "", nil, fmt.Errorf("下载超时（60秒），文件未生成")
+        case <-ticker.C:
+            // 检查进程是否存活
+            if cmd.Process == nil || cmd.Process.Signal(syscall.Signal(0)) != nil {
+                stderrContent := stderr.String()
+                return "", nil, fmt.Errorf("临时内核进程意外退出，stderr: %s", stderrContent)
+            }
+            info, err := os.Stat(targetFile)
+            if err == nil && info.Size() > 0 {
+                log.Printf("[DOWNLOAD] 文件 %s 已生成，大小 %d 字节", targetFile, info.Size())
+                goto FetchMetadata
+            }
+        }
+    }
+
+FetchMetadata:
+    client := &http.Client{Timeout: 5 * time.Second}
+    urlPath := fmt.Sprintf("http://127.0.0.1:%d/providers/proxies/%s", port, url.QueryEscape(sub.Name))
+    var resp *http.Response
+    var lastErr error
+    for attempt := 0; attempt < 30; attempt++ {
+        log.Printf("[DOWNLOAD] 尝试获取元数据 (第 %d 次): %s", attempt+1, urlPath)
+        resp, lastErr = client.Get(urlPath)
+        if lastErr == nil {
+            break
+        }
+        log.Printf("[DOWNLOAD] 获取元数据失败 (尝试 %d): %v", attempt+1, lastErr)
+        time.Sleep(500 * time.Millisecond)
+    }
+    if lastErr != nil {
+        return "", nil, fmt.Errorf("获取订阅元数据失败: %w", lastErr)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        bodyBytes, _ := io.ReadAll(resp.Body)
+        log.Printf("[DOWNLOAD] 获取元数据返回非200状态: %d, body: %s", resp.StatusCode, string(bodyBytes))
+        return "", nil, fmt.Errorf("获取元数据返回非200状态: %d, body: %s", resp.StatusCode, string(bodyBytes))
+    }
+
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return "", nil, fmt.Errorf("读取响应失败: %w", err)
+    }
+
+    var data map[string]interface{}
+    if err := json.Unmarshal(body, &data); err != nil {
+        return "", nil, fmt.Errorf("解析JSON失败: %w", err)
+    }
+
+    updatedAtVal, _ := data["updatedAt"].(string)
+    subInfoVal, _ := data["subscriptionInfo"].(map[string]interface{})
+
+    log.Printf("[DOWNLOAD] 成功获取元数据: updatedAt=%s, subInfo=%v", updatedAtVal, subInfoVal)
+    return updatedAtVal, subInfoVal, nil
 }

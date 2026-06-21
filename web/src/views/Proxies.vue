@@ -21,10 +21,9 @@ const isTestingAll = ref(false)
 let refreshTimer: number | null = null
 
 // 判断代理组是否应使用长条混合比例健康度
-const shouldUseBar = (groupName: string): boolean => {
-  if (!groupName) return false
-  const barKeywords = ['自动选择', '手动选择', '地区选择', '美国', '日本', '香港', '新加坡', '台湾']
-  return barKeywords.some(kw => groupName.includes(kw)) || groupName === 'GLOBAL'
+const shouldUseBar = (group: ProxyGroup): boolean => {
+  if (!group || !group.all) return false
+  return group.all.length > 10
 }
 
 // 获取节点最新延迟数值
@@ -338,9 +337,9 @@ onUnmounted(() => {
 
             <!-- 组健康度指示器 -->
             <div class="group-health flex gap-1 items-center flex-wrap w-full mt-1"
-              :class="shouldUseBar(group.name) ? 'h-1.5 overflow-hidden' : 'h-2'">
+              :class="shouldUseBar(group) ? 'h-1.5 overflow-hidden' : 'h-2'">
               <!-- 比例线段条 (Bar) -->
-              <template v-if="shouldUseBar(group.name)">
+              <template v-if="shouldUseBar(group)">
                 <span
                   v-for="(seg, sIdx) in getGroupBarSegments(group)"
                   :key="sIdx"
@@ -454,9 +453,9 @@ onUnmounted(() => {
 
             <!-- 组健康度指示器 -->
             <div class="group-health flex gap-1 items-center flex-wrap w-full mt-1"
-              :class="shouldUseBar(group.name) ? 'h-1.5 overflow-hidden' : 'h-2'">
+              :class="shouldUseBar(group) ? 'h-1.5 overflow-hidden' : 'h-2'">
               <!-- 比例线段条 (Bar) -->
-              <template v-if="shouldUseBar(group.name)">
+              <template v-if="shouldUseBar(group)">
                 <span
                   v-for="(seg, sIdx) in getGroupBarSegments(group)"
                   :key="sIdx"

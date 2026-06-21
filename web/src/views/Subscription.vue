@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
 import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline } from '@vicons/ionicons5'
@@ -29,6 +29,19 @@ const editForm = ref<SubscriptionItem>({
   prefix: ''
 })
 
+// 新增选中状态（绑定到 currentConfig.active_subscription）
+const activeSub = computed({
+    get: () => currentConfig.value.active_subscription || '',
+    set: (val: string) => { currentConfig.value.active_subscription = val; }
+})
+
+// 点击卡片选中
+const selectSubscription = (name: string) => {
+    if (currentConfig.value.mode === 'switch') {
+        activeSub.value = activeSub.value === name ? '' : name; // 点击已选中的可取消选中（单选切换）
+    }
+}
+
 const configStore = useConfigStore()
 const { currentConfig, savedSubNames, coreStatus } = storeToRefs(configStore)
 
@@ -40,7 +53,7 @@ const loadConfig = async () => {
   }
 }
 const fetchSubscriptionInfo = configStore.fetchSubscriptionInfo
-const enrichSubscriptions = configStore.enrichSubscriptions
+//const enrichSubscriptions = configStore.enrichSubscriptions
 
 const getHealthClass = (info?: SubscriptionInfo | null) => {
   if (!info || info.aliveCount === 0) return 'text-red-500'
@@ -52,10 +65,6 @@ const getHealthClass = (info?: SubscriptionInfo | null) => {
 
 // 手动更新单个订阅
 const handleUpdateSub = async (index: number) => {
-  if (!coreStatus.value.running) {
-    globalStore.showToast(t('config.core_stopped') + '，' + t('common.operation_failed'), 'warning')
-    return
-  }
   const sub = currentConfig.value.subscriptions[index]
   if (!sub) return
   if (isUpdating.value[index]) return
@@ -63,13 +72,38 @@ const handleUpdateSub = async (index: number) => {
   globalStore.showToast(t('rules.updating'), 'info')
   try {
     const encoded = encodeURIComponent(sub.name)
-    const resp = await apiFetch(`/providers/proxies/${encoded}`, { method: 'PUT' })
-    if (resp.ok) {
-      globalStore.showToast(t('subscription.update_success', { name: sub.name }), 'success')
-      const info = await fetchSubscriptionInfo(sub.name)
-      currentConfig.value.subscriptions[index].info = info
+    let resp
+    if (currentConfig.value.mode === 'merge') {
+      // 融合模式：调用内核 provider 更新
+      resp = await apiFetch(`/providers/proxies/${encoded}`, { method: 'PUT' })
+      if (resp.ok) {
+        const info = await fetchSubscriptionInfo(sub.name)
+        currentConfig.value.subscriptions[index].info = info
+        // 持久化到后端
+        try {
+          await apiFetch(`/subscribe/update-info/${encoded}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(info)
+          })
+        } catch (e) {
+          console.warn('持久化订阅信息失败', e)
+        }
+        globalStore.showToast(t('subscription.update_success', { name: sub.name }), 'success')
+      } else {
+        globalStore.showToast(`${t('common.operation_failed')}: ${resp.status}`, 'error')
+      }
     } else {
-      globalStore.showToast(`${t('common.operation_failed')}: ${resp.status}`, 'error')
+      // 切换模式：调用自定义更新 API
+      resp = await apiFetch(`/subscribe/update/${encoded}`, { method: 'POST' })
+      const result = await resp.json()
+      if (resp.ok && result.status === 'ok') {
+        globalStore.showToast(result.message || t('subscription.update_success', { name: sub.name }), 'success')
+        // 重新加载配置以获取新元数据
+        await loadConfig()
+      } else {
+        globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
+      }
     }
   } catch (e) {
     globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
@@ -77,7 +111,6 @@ const handleUpdateSub = async (index: number) => {
     isUpdating.value[index] = false
   }
 }
-
 const isCheckingHealth = ref<Record<number, boolean>>({})
 
 // 触发单个订阅的健康检查（测速）
@@ -153,6 +186,7 @@ const saveSubToList = () => {
     return
   }
   const subData = { ...editForm.value }
+  const wasEmpty = (currentConfig.value.subscriptions || []).length === 0
   if (editingIndex.value >= 0) {
     currentConfig.value.subscriptions[editingIndex.value] = subData
   } else {
@@ -162,7 +196,11 @@ const saveSubToList = () => {
     currentConfig.value.subscriptions.push(subData)
   }
   showModal.value = false
-  enrichSubscriptions()
+
+  // 如果是切换模式且原列表为空（即第一个订阅），自动选中该订阅
+  if (currentConfig.value.mode === 'switch' && wasEmpty) {
+    currentConfig.value.active_subscription = name
+  }
 }
 
 // 删除订阅
@@ -178,6 +216,10 @@ const handleDeleteSub = async (index: number) => {
 
 // 保存并应用
 const saveAndApply = async () => {
+  if (currentConfig.value.mode === 'switch' && !currentConfig.value.active_subscription) {
+    globalStore.showToast(t('subscription.switch_no_selection'), 'error')
+    return
+  }
   if (!currentConfig.value.proxy_port || !currentConfig.value.panel_port) {
     globalStore.showToast(t('subscription.proxy_port') + ' / ' + t('subscription.panel_port') + ' ' + t('common.required'), 'error')
     return
@@ -281,16 +323,53 @@ onMounted(() => {
 
       <div class="flex justify-between items-center mt-8 mb-4">
         <h4 class="font-semibold text-base">{{ t('subscription.subscription_list') }}</h4>
-        <button @click="openSubModal(-1)" class="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg shadow-sm transition-all flex items-center gap-1">
-          <AddOutline class="w-4 h-4" /> {{ t('subscription.add_subscription') }}
-        </button>
+        <div class="flex items-center gap-3">
+          <!-- 模式切换滑块 -->
+          <div class="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+            <button
+              @click="currentConfig.mode = 'merge'"
+              :class="[
+                'px-3 py-1 text-sm transition-colors',
+                currentConfig.mode === 'merge'
+                  ? 'bg-accent text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              ]"
+            >
+              {{ t('subscription.mode_merge') }}
+            </button>
+            <button
+              @click="currentConfig.mode = 'switch'"
+              :class="[
+                'px-3 py-1 text-sm transition-colors',
+                currentConfig.mode === 'switch'
+                  ? 'bg-accent text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              ]"
+            >
+              {{ t('subscription.mode_switch') }}
+            </button>
+          </div>
+          <button @click="openSubModal(-1)" class="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg shadow-sm transition-all flex items-center gap-1">
+            <AddOutline class="w-4 h-4" /> {{ t('subscription.add_subscription') }}
+          </button>
+        </div>
       </div>
 
       <div id="subList" class="space-y-4">
         <div v-if="!currentConfig.subscriptions || currentConfig.subscriptions.length === 0" class="text-slate-400 dark:text-slate-600 text-sm py-4 text-center">
           {{ t('subscription.no_subscriptions') }}
         </div>
-        <div v-else v-for="(sub, idx) in currentConfig.subscriptions" :key="sub.name" class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden">
+        <!-- 卡片循环（已修改：支持点击选中和高亮） -->
+        <div 
+          v-else 
+          v-for="(sub, idx) in currentConfig.subscriptions" 
+          :key="sub.name" 
+          @click="selectSubscription(sub.name)"
+          class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden cursor-pointer"
+          :class="{
+            'border-accent ring-2 ring-accent/30': currentConfig.mode === 'switch' && currentConfig.active_subscription === sub.name
+          }"
+        >
           <!-- 正在更新/健康检查的卡片遮罩层 -->
           <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 glass-light z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
             <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
@@ -302,14 +381,14 @@ onMounted(() => {
             <div class="min-width-0 flex-1">
               <span class="font-semibold text-slate-800 dark:text-slate-100 break-all">{{ sub.name }}</span>
               <div class="text-xs text-slate-400 dark:text-slate-500 mt-1 select-all break-all flex items-center gap-1.5">
-                <button @click="showUrls[idx] = !showUrls[idx]" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showUrls[idx] ? t('subscription.hide_url') : t('subscription.show_url')">
+                <button @click.stop="showUrls[idx] = !showUrls[idx]" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showUrls[idx] ? t('subscription.hide_url') : t('subscription.show_url')">
                   <EyeOffOutline v-if="showUrls[idx]" class="w-3.5 h-3.5" />
                   <EyeOutline v-else class="w-3.5 h-3.5" />
                 </button>
                 <span>{{ showUrls[idx] ? sub.url : '••••••••' }}</span>
               </div>
             </div>
-            <div class="flex gap-1.5">
+            <div class="flex gap-1.5" @click.stop>
               <button v-if="savedSubNames.has(sub.name)" @click="handleUpdateSub(idx)" :disabled="isUpdating[idx] || isCheckingHealth[idx]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('rules.update')">
                 <SyncOutline class="w-4 h-4 inline-block" :class="{ 'animate-spin': isUpdating[idx] }" />
               </button>
@@ -322,6 +401,7 @@ onMounted(() => {
             </div>
           </div>
 
+          <!-- 信息展示 -->
           <div v-if="sub.info" class="space-y-2">
             <div class="flex items-center gap-3">
               <div class="flex-1 bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -346,7 +426,7 @@ onMounted(() => {
             </template>
           </div>
         </div>
-    </div>
+      </div>
 
       <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6 flex items-center gap-4">
         <button @click="saveAndApply" :disabled="isApplying" class="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">

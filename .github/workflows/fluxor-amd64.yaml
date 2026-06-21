@@ -34,11 +34,11 @@ jobs:
       - name: 构建 Go 后端（amd64）
         working-directory: ./fluxor-src
         run: |
-          GOOS=linux GOARCH=amd64 go build -tags vue -ldflags="-s -w" -o fluxor-amd64
+          GOOS=linux GOARCH=amd64 go build -tags vue -ldflags="-s -w" -o fluxor
           
-      - name: 上传 fluxor-amd64 二进制作为 Artifact
+      - name: 上传 fluxor 二进制作为 Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: fluxor-amd64
-          path: fluxor-src/fluxor-amd64
+          name: fluxor
+          path: fluxor-src/fluxor
           compression-level: 0

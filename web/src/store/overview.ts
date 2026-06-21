@@ -238,12 +238,19 @@ export const useOverviewStore = defineStore('overview', () => {
           }
         }
 
+        // 在 fetchVersionAndStatus 中，替换查找主组的逻辑
         if (proxiesResp && proxiesResp.ok) {
           const data = await proxiesResp.json()
           const entries = Object.entries(data.proxies || {}) as [string, any][]
-          const mainGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name.includes('节点选择'))
-          if (mainGroup) {
-            stats.value.currentNode = recursiveResolveNode(data.proxies, mainGroup[1].now || '-')
+          // 优先查找名称包含"节点选择"的 Selector 组
+          let targetGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name.includes('节点选择'))
+          // 若没有，则取第一个非 GLOBAL 的 Selector 组
+          if (!targetGroup) {
+            targetGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name !== 'GLOBAL')
+          }
+          if (targetGroup) {
+            const selected = targetGroup[1].now || '-'
+            stats.value.currentNode = recursiveResolveNode(data.proxies, selected)
           } else {
             stats.value.currentNode = '暂无选择'
           }

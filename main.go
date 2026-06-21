@@ -51,6 +51,7 @@ var (
 func main() {
 	loadSubscribeConfig()
 	initCoreLogger()
+	startAllTimers()
 
 	if _, err := os.Stat(configTarget); os.IsNotExist(err) {
 		if err := generateConfig(subscribeConfig); err != nil {
@@ -108,6 +109,9 @@ func main() {
 	// 订阅中心 API
 	mux.HandleFunc(baseURL+"/subscribe/config", handleSubscribeConfigAPI)
 	mux.HandleFunc(baseURL+"/subscribe/generate", handleGenerateConfig)
+	mux.HandleFunc(baseURL+"/subscribe/update/", handleSubscribeUpdate)
+	mux.HandleFunc(baseURL+"/subscribe/update-info/", handleUpdateSubscriptionInfo)
+	
 	// 订阅信息（含流量、有效期）
     mux.HandleFunc(baseURL+"/providers/proxies/", handleProviderProxies)
 
@@ -188,6 +192,7 @@ func main() {
 	<-quit
 
 	fmt.Println("\n收到退出信号，正在关闭 Fluxor...")
+	stopAllTimers()
 	if isCoreRunning() {
 		fmt.Println("正在停止内核...")
 		if err := stopCore(); err != nil {
