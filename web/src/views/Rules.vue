@@ -19,11 +19,11 @@ const isUpdatingAll = ref(false)
 const isUpdating = ref<Record<string, boolean>>({})
 
 // 滚动加载显示的最大条数
-const displayLimit = ref(100)
+const displayLimit = ref(1000)
 
 // 用户输入搜索词时重置显示条数，保障过滤秒开
 watch(searchText, () => {
-  displayLimit.value = 100
+  displayLimit.value = 1000
 })
 
 // 过滤规则
@@ -51,12 +51,6 @@ const filteredProviders = computed(() => {
     p.type.toLowerCase().includes(query)
   )
 })
-
-// 刷新规则数据
-const handleRefreshRules = async () => {
-  await rulesStore.fetchRules()
-  globalStore.showToast(t('rules.updated'), 'success')
-}
 
 // 单个更新提供商
 const handleUpdateProvider = async (name: string) => {
@@ -125,7 +119,7 @@ const handleToggleRule = async (rule: RuleItem) => {
   rule.enabled = !originalEnabled
 
   try {
-    const payload = { [originalIdx]: !originalEnabled }
+    const payload = { [originalIdx]: originalEnabled }
     const resp = await apiFetch('/rules/disable', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -152,22 +146,33 @@ const formatDate = (dateStr: string) => {
 const loadMoreTrigger = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
+// 监听 Trigger 元素的挂载与销毁，动态绑定/解绑观察器
+watch(loadMoreTrigger, (newEl, oldEl) => {
+  if (oldEl && observer) {
+    observer.unobserve(oldEl)
+  }
+  if (newEl) {
+    if (!observer) {
+      const scrollContainer = document.querySelector('main')
+      observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          if (displayLimit.value < filteredRules.value.length) {
+            displayLimit.value += 1000
+          }
+        }
+      }, { 
+        root: scrollContainer,
+        rootMargin: '150px' 
+      })
+    }
+    observer.observe(newEl)
+  }
+})
+
 onMounted(() => {
   const hasData = rules.value.length > 0
   rulesStore.fetchRules(hasData)
   rulesStore.fetchProviders(hasData)
-
-  observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting) {
-      if (displayLimit.value < filteredRules.value.length) {
-        displayLimit.value += 100
-      }
-    }
-  }, { rootMargin: '150px' })
-
-  if (loadMoreTrigger.value) {
-    observer.observe(loadMoreTrigger.value)
-  }
 })
 
 onUnmounted(() => {
@@ -180,11 +185,11 @@ onUnmounted(() => {
 <template>
   <div class="space-y-4">
     <div class="sticky top-0 z-20 glass-medium shadow-sm p-4 rounded-xl border flex flex-wrap gap-4 items-center justify-between transition-all">
-      <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-        <button @click="activeTab = 'rules'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all" :class="activeTab === 'rules' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'">
+      <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
+        <button @click="activeTab = 'rules'" class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'rules' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
           {{ t('rules.rules_tab') }}
         </button>
-        <button @click="activeTab = 'providers'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all" :class="activeTab === 'providers' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'">
+        <button @click="activeTab = 'providers'" class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'providers' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
           {{ t('rules.providers_tab') }}
         </button>
       </div>
@@ -193,12 +198,8 @@ onUnmounted(() => {
         <input type="text" v-model="searchText" :placeholder="t('rules.search_placeholder')" class="w-full sm:w-60 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
       </div>
 
-      <div>
-        <button v-if="activeTab === 'rules'" @click="handleRefreshRules" :disabled="isLoadingRules" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
-          <SyncOutline class="w-3.5 h-3.5 inline-block" :class="{ 'animate-spin': isLoadingRules }" />
-          {{ t('common.refresh') }}
-        </button>
-        <button v-else-if="activeTab === 'providers'" @click="handleUpdateAllProviders" :disabled="isUpdatingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
+      <div v-if="activeTab === 'providers'">
+        <button @click="handleUpdateAllProviders" :disabled="isUpdatingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
           <SyncOutline class="w-3.5 h-3.5 inline-block" :class="{ 'animate-spin': isUpdatingAll }" />
           {{ t('rules.update_all') }}
         </button>

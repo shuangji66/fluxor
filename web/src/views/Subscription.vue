@@ -382,35 +382,27 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="flex justify-between items-center mt-8 mb-4">
-        <h4 class="font-semibold text-base">{{ t('subscription.subscription_list') }}</h4>
-        <div class="flex items-center gap-3">
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-8 mb-4">
+        <h4 class="font-semibold text-base shrink-0">{{ t('subscription.subscription_list') }}</h4>
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
           <!-- 模式切换滑块 -->
-          <div class="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
             <button
               @click="currentConfig.mode = 'merge'"
-              :class="[
-                'px-3 py-1 text-sm transition-colors',
-                currentConfig.mode === 'merge'
-                  ? 'bg-accent text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              ]"
+              class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+              :class="currentConfig.mode === 'merge' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
             >
               {{ t('subscription.mode_merge') }}
             </button>
             <button
               @click="currentConfig.mode = 'switch'"
-              :class="[
-                'px-3 py-1 text-sm transition-colors',
-                currentConfig.mode === 'switch'
-                  ? 'bg-accent text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              ]"
+              class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+              :class="currentConfig.mode === 'switch' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
             >
               {{ t('subscription.mode_switch') }}
             </button>
           </div>
-          <button @click="openSubModal(-1)" class="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg shadow-sm transition-all flex items-center gap-1">
+          <button @click="openSubModal(-1)" class="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0">
             <AddOutline class="w-4 h-4" /> {{ t('subscription.add_subscription') }}
           </button>
         </div>

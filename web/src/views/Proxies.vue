@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, onActivated, onDeactivated, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, onActivated, onDeactivated, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { GlobeOutline, SyncOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
@@ -18,9 +18,31 @@ const configStore = useConfigStore()
 const { proxyGroups, delays, isLoading } = storeToRefs(proxyStore)
 const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
 
+// 延迟更新实际渲染列表的模式，避开滑块动画的高频帧，确保视觉过渡丝滑
+const renderedMode = ref(configs.value.mode || 'Rule')
+let modeSwitchTimer: number | null = null
+
+// 监听 configs.value.mode 的变化，延迟 180ms 更新渲染
+watch(
+  () => configs.value.mode,
+  (newMode) => {
+    if (modeSwitchTimer) {
+      clearTimeout(modeSwitchTimer)
+      modeSwitchTimer = null
+    }
+    if (renderedMode.value === newMode) return
+
+    modeSwitchTimer = window.setTimeout(() => {
+      renderedMode.value = newMode
+      modeSwitchTimer = null
+    }, 180)
+  },
+  { immediate: true }
+)
+
 // 根据内核模式与订阅模式过滤代理组
 const filteredGroups = computed(() => {
-  const mode = configs.value.mode
+  const mode = renderedMode.value
   const subMode = currentConfig.value.mode // 'merge' 或 'switch'
 
   if (mode === 'Direct') return []
@@ -48,13 +70,17 @@ const isSingleColumn = computed(() => filteredGroups.value.length <= 6)
 const isTestingAll = ref(false)
 let refreshTimer: number | null = null
 
-// 切换运行模式
+// 切换运行模式（乐观更新及失败回滚）
 const changeMode = async (mode: string) => {
   if (!coreStatus.value.running) {
     globalStore.showToast(t('config.core_not_running'), 'warning')
     return
   }
   if (mode === configs.value.mode) return
+
+  const originalMode = configs.value.mode
+  configs.value.mode = mode // 乐观更新，滑块立即响应
+
   try {
     const resp = await apiFetch('/configs', {
       method: 'PATCH',
@@ -62,12 +88,13 @@ const changeMode = async (mode: string) => {
       body: JSON.stringify({ mode })
     })
     if (resp.ok) {
-      configs.value.mode = mode
       globalStore.showToast(t('config.mode_switched'), 'success')
     } else {
+      configs.value.mode = originalMode // 失败回滚
       globalStore.showToast(t('common.operation_failed'), 'error')
     }
   } catch (e) {
+    configs.value.mode = originalMode // 异常回滚
     globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
   }
 }
@@ -126,6 +153,10 @@ const stopRefreshTimer = () => {
     clearInterval(refreshTimer)
     refreshTimer = null
   }
+  if (modeSwitchTimer) {
+    clearTimeout(modeSwitchTimer)
+    modeSwitchTimer = null
+  }
 }
 
 onMounted(async () => {
@@ -174,13 +205,13 @@ onUnmounted(() => {
 
         <!-- 第二行：模式切换滑块（移动端占满，桌面端正常） -->
         <div class="flex items-center w-full md:w-auto">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full md:w-auto">
+          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full md:w-auto transition-all">
             <button
               v-for="modeOption in ['Rule', 'Global', 'Direct']"
               :key="modeOption"
               @click="changeMode(modeOption)"
               :disabled="!coreStatus.running"
-              class="flex-1 md:flex-none px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="flex-1 md:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
             >
               {{ t(`config.mode_${modeOption.toLowerCase()}`) }}

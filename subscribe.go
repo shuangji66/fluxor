@@ -627,10 +627,13 @@ func modifyMetaConfig(backendURL string) error {
 	if err != nil {
 		return err
 	}
-	re := regexp.MustCompile(`defaultBackendURL:\s*''`)
+	re := regexp.MustCompile(`defaultBackendURL:\s*['"][^'"]*['"]`)
+	if !re.MatchString(string(content)) {
+		return fmt.Errorf("未找到 defaultBackendURL 配置项或格式不匹配")
+	}
 	newContent := re.ReplaceAllString(string(content), fmt.Sprintf("defaultBackendURL: '%s'", backendURL))
 	if string(content) == newContent {
-		return fmt.Errorf("未找到 defaultBackendURL 配置项或格式不匹配")
+		return nil // 无需重复写入
 	}
 	return os.WriteFile(configPath, []byte(newContent), 0644)
 }

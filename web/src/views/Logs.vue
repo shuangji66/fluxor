@@ -97,15 +97,15 @@ onUnmounted(() => {
       <!-- 搜索、级别过滤区域 -->
       <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0">
         <!-- 桌面端日志级别过滤（4按钮并排） -->
-        <div class="hidden sm:flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700/50 shrink-0">
+        <div class="hidden sm:flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700/50 shrink-0 transition-all">
           <button
             v-for="level in LEVELS"
             :key="level"
             @click="currentLevel = level"
-            class="px-3 py-1 text-xs font-semibold rounded-md transition-all uppercase"
+            class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 uppercase"
             :class="currentLevel === level
-              ? 'bg-white dark:bg-slate-700 text-accent shadow-sm'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'"
+              ? 'bg-accent text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
           >
             {{ level }}
           </button>

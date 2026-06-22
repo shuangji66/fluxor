@@ -201,11 +201,11 @@ onUnmounted(() => {
         <h3 class="text-base font-semibold flex items-center gap-2">
           {{ t('connections.title') }}
         </h3>
-        <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-          <button @click="activeTab = 'active'" class="px-4 py-1 text-xs font-semibold rounded-md transition-all" :class="activeTab === 'active' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'">
+        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
+          <button @click="activeTab = 'active'" class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'active' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
             {{ t('connections.active') }} ({{ activeConnections.length }})
           </button>
-          <button @click="activeTab = 'closed'" class="px-4 py-1 text-xs font-semibold rounded-md transition-all" :class="activeTab === 'closed' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'">
+          <button @click="activeTab = 'closed'" class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'closed' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
             {{ t('connections.closed') }} ({{ closedConnections.length }})
           </button>
         </div>

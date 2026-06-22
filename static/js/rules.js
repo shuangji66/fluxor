@@ -314,7 +314,7 @@ window.Rules = (function() {
         renderRules();
 
         try {
-            const payload = { [index]: !currentEnabled };
+            const payload = { [index]: currentEnabled };
             const resp = await window.API.apiFetch('/rules/disable', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
