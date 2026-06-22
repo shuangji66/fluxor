@@ -9,6 +9,7 @@ import (
 	"strings"
 	"fmt"
 	"time"
+	"strconv"
 )
 
 // ---------- 仪表盘数据 API ----------
@@ -577,4 +578,78 @@ func fetchPublicIPWithFallback(primaryURL, fallbackURL, proxyAddr string) (strin
 		return ip, nil
 	}
 	return "", fmt.Errorf("所有尝试均失败: %v", err)
+}
+// testDelayThroughProxy 通过代理测试目标URL的延迟（HEAD请求），返回毫秒
+func testDelayThroughProxy(targetURL string, timeout time.Duration) (int, error) {
+    proxyPort := getProxyPortFromConfig()
+    if proxyPort == 0 {
+        return 0, fmt.Errorf("no proxy port available")
+    }
+    proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
+    proxyURL, err := url.Parse(proxyAddr)
+    if err != nil {
+        return 0, err
+    }
+    transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+    client := &http.Client{
+        Transport: transport,
+        Timeout:   timeout,
+        // 禁止重定向，因为HEAD请求不需要
+        CheckRedirect: func(req *http.Request, via []*http.Request) error {
+            return http.ErrUseLastResponse
+        },
+    }
+    start := time.Now()
+    resp, err := client.Head(targetURL)
+    if err != nil {
+        return 0, err
+    }
+    defer resp.Body.Close()
+    // 即使状态码不是200，也认为连接成功，只要建立连接即可
+    elapsed := time.Since(start).Milliseconds()
+    return int(elapsed), nil
+}
+// handleDelayTestGoogle 测试 Google 延迟
+func handleDelayTestGoogle(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.gstatic.com/generate_204")
+}
+
+// handleDelayTestMicrosoft 测试 Microsoft 延迟
+func handleDelayTestMicrosoft(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.microsoft.com")
+}
+
+// handleDelayTestApple 测试 Apple 延迟
+func handleDelayTestApple(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.apple.com")
+}
+
+// handleDelayTestYouTube 测试 YouTube 延迟
+func handleDelayTestYouTube(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.youtube.com")
+}
+
+// 公共处理函数
+func handleDelayTestCommon(w http.ResponseWriter, r *http.Request, targetURL string) {
+    if r.Method != http.MethodGet {
+        writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+        return
+    }
+    // 读取超时参数，默认5000ms
+    timeoutMs := 5000
+    if t := r.URL.Query().Get("timeout"); t != "" {
+        if val, err := strconv.Atoi(t); err == nil && val > 0 {
+            timeoutMs = val
+        }
+    }
+    timeout := time.Duration(timeoutMs) * time.Millisecond
+    delay, err := testDelayThroughProxy(targetURL, timeout)
+    if err != nil {
+        // 超时或错误，返回 delay=null 或 -1，前端显示超时
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{"delay": nil, "error": err.Error()})
+        return
+    }
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]int{"delay": delay})
 }

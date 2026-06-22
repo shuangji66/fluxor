@@ -151,10 +151,16 @@ func main() {
 	mux.HandleFunc(baseURL+"/cache/dns/flush", handleFlushDNS)
 	mux.HandleFunc(baseURL+"/dns/query", handleDNSQuery)
 	mux.HandleFunc(baseURL+"/restart", handleRestart)
+
 	mux.HandleFunc(baseURL+"/ipinfo/local/v4", handleLocalIPv4)
     mux.HandleFunc(baseURL+"/ipinfo/local/v6", handleLocalIPv6)
     mux.HandleFunc(baseURL+"/ipinfo/proxy/v4", handleProxyIPv4)
     mux.HandleFunc(baseURL+"/ipinfo/proxy/v6", handleProxyIPv6)
+
+    mux.HandleFunc(baseURL+"/delaytest/google", handleDelayTestGoogle)
+    mux.HandleFunc(baseURL+"/delaytest/microsoft", handleDelayTestMicrosoft)
+    mux.HandleFunc(baseURL+"/delaytest/apple", handleDelayTestApple)
+    mux.HandleFunc(baseURL+"/delaytest/youtube", handleDelayTestYouTube)
 
 	// 代理 API
 	mux.HandleFunc(baseURL+"/proxies", handleProxies)

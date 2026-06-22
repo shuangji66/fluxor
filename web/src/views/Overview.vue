@@ -451,7 +451,6 @@ interface DelayTestResult {
   name: string
   url: string
   delay: number | null
-  ip: string | null  // 解析到的 IP（优先 IPv6）
   loading: boolean
 }
 
@@ -463,95 +462,50 @@ const delayTargets = [
 ]
 
 const delayResults = ref<DelayTestResult[]>(
-  delayTargets.map(t => ({ ...t, delay: null, ip: null, loading: false }))
+  delayTargets.map(t => ({ ...t, delay: null, loading: false }))
 )
 
 const isTestingDelay = ref(false)
 
-// DNS 缓存：域名 -> { ipv4?, ipv6? }
-const dnsCache = new Map<string, { ipv4: string | null, ipv6: string | null }>()
-
-// 查询域名的 A 和 AAAA 记录
-const resolveDomain = async (domain: string): Promise<{ ipv4: string | null, ipv6: string | null }> => {
-  const cacheKey = domain
-  if (dnsCache.has(cacheKey)) {
-    return dnsCache.get(cacheKey)!
-  }
-
-  const [aResp, aaaaResp] = await Promise.allSettled([
-    fetch(`https://dns.google/resolve?name=${domain}&type=A`),
-    fetch(`https://dns.google/resolve?name=${domain}&type=AAAA`)
-  ])
-
-  let ipv4: string | null = null
-  let ipv6: string | null = null
-
-  if (aResp.status === 'fulfilled' && aResp.value.ok) {
-    const data = await aResp.value.json()
-    if (data.Answer && data.Answer.length > 0) {
-      ipv4 = data.Answer[0].data
-    }
-  }
-  if (aaaaResp.status === 'fulfilled' && aaaaResp.value.ok) {
-    const data = await aaaaResp.value.json()
-    if (data.Answer && data.Answer.length > 0) {
-      ipv6 = data.Answer[0].data
-    }
-  }
-
-  const result = { ipv4, ipv6 }
-  dnsCache.set(cacheKey, result)
-  return result
+// 目标名称到后端API路径的映射
+const delayApiMap: Record<string, string> = {
+    'Google': '/delaytest/google',
+    'Microsoft': '/delaytest/microsoft',
+    'Apple': '/delaytest/apple',
+    'YouTube': '/delaytest/youtube'
 }
 
-// 测试单个目标的延迟和 IP
+// 测试单个目标的延迟（通过后端代理）
 const testSingleDelay = async (index: number) => {
-  const item = delayResults.value[index]
-  if (item.loading) return
-
-  item.loading = true
-  item.delay = null
-  item.ip = null
-
-  const domain = new URL(item.url).hostname
-
-  try {
-    // 同时进行延迟测试和 DNS 解析
-    const [delayResult, dnsResult] = await Promise.allSettled([
-      (async () => {
-        const start = performance.now()
-        await fetch(item.url, {
-          method: 'HEAD',
-          mode: 'no-cors',
-          cache: 'no-cache',
-          signal: AbortSignal.timeout(5000)
-        })
-        return Math.round(performance.now() - start)
-      })(),
-      resolveDomain(domain)
-    ])
-
-    // 处理延迟结果
-    if (delayResult.status === 'fulfilled') {
-      item.delay = delayResult.value
-    } else {
-      item.delay = null
-    }
-
-    // 处理 DNS 结果
-    if (dnsResult.status === 'fulfilled') {
-      const { ipv4, ipv6 } = dnsResult.value
-      item.ip = ipv6 || ipv4 || null
-    } else {
-      item.ip = null
-    }
-  } catch (e) {
-    // 超时或失败
+    const item = delayResults.value[index]
+    if (item.loading) return
+    item.loading = true
     item.delay = null
-    item.ip = null
-  } finally {
-    item.loading = false
-  }
+
+    try {
+        const apiPath = delayApiMap[item.name]
+        if (!apiPath) {
+            item.delay = null
+            return
+        }
+        const resp = await apiFetch(apiPath + '?timeout=5000')
+        if (resp.ok) {
+            const data = await resp.json()
+            // 后端可能返回 delay 为 null 或数字
+            if (data.delay !== undefined && data.delay !== null && data.delay > 0) {
+                item.delay = data.delay
+            } else {
+                item.delay = null // 超时或错误
+            }
+        } else {
+            item.delay = null
+        }
+    } catch (e) {
+        console.warn('测试延迟失败:', e)
+        item.delay = null
+    } finally {
+        item.loading = false
+    }
 }
 
 // 测试全部目标
@@ -747,40 +701,48 @@ onUnmounted(() => {
         <div v-else class="space-y-1.5 text-sm">
             <!-- 本机 IPv4 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400">{{ t('overview.local_ip') }} (IPv4)</span>
-                <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all">{{ ipInfo.localIPv4 || '--' }}</span>
-                    <button @click="refreshLocalIPv4" :disabled="loadingLocalV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50" :title="t('common.refresh')">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.local_ip') }} (IPv4)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.localIPv4 || '--' }}
+                    </span>
+                    <button @click="refreshLocalIPv4" :disabled="loadingLocalV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV4 }" />
                     </button>
                 </div>
             </div>
             <!-- 本机 IPv6 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400">{{ t('overview.local_ip') }} (IPv6)</span>
-                <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all">{{ ipInfo.localIPv6 || '--' }}</span>
-                    <button @click="refreshLocalIPv6" :disabled="loadingLocalV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50" :title="t('common.refresh')">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.local_ip') }} (IPv6)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.localIPv6 || '--' }}
+                    </span>
+                    <button @click="refreshLocalIPv6" :disabled="loadingLocalV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV6 }" />
                     </button>
                 </div>
             </div>
             <!-- 代理 IPv4 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400">{{ t('overview.proxy_ip') }} (IPv4)</span>
-                <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all">{{ ipInfo.proxyIPv4 || '--' }}</span>
-                    <button @click="refreshProxyIPv4" :disabled="loadingProxyV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50" :title="t('common.refresh')">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.proxy_ip') }} (IPv4)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.proxyIPv4 || '--' }}
+                    </span>
+                    <button @click="refreshProxyIPv4" :disabled="loadingProxyV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV4 }" />
                     </button>
                 </div>
             </div>
             <!-- 代理 IPv6 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400">{{ t('overview.proxy_ip') }} (IPv6)</span>
-                <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all">{{ ipInfo.proxyIPv6 || '--' }}</span>
-                    <button @click="refreshProxyIPv6" :disabled="loadingProxyV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50" :title="t('common.refresh')">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.proxy_ip') }} (IPv6)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.proxyIPv6 || '--' }}
+                    </span>
+                    <button @click="refreshProxyIPv6" :disabled="loadingProxyV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV6 }" />
                     </button>
                 </div>
@@ -819,9 +781,7 @@ onUnmounted(() => {
                       >
                           {{ getDelayDisplay(result).text }}
                       </span>
-                      <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500 min-w-[80px] text-right">
-                          {{ result.loading ? t('overview.resolving') : (result.ip || '--') }}
-                      </span>
+
                       <button 
                           @click="testSingleDelay(idx)" 
                           :disabled="result.loading"
@@ -835,11 +795,6 @@ onUnmounted(() => {
                       </button>
                   </div>
               </div>
-          </div>
-          
-          <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/50 text-[10px] text-slate-400 flex justify-between">
-              <span>{{ t('overview.click_to_test') }}</span>
-              <span>{{ t('overview.timeout_label') }} 5s</span>
           </div>
       </div>
     </div>
