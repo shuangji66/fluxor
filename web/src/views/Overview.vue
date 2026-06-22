@@ -34,7 +34,7 @@ const base = window.BASE_URL || ''
 
 const showLocalV4 = ref(false)
 const showLocalV6 = ref(false)
-const showProxyV4 = ref(true)  // false = 明文
+const showProxyV4 = ref(true)
 const showProxyV6 = ref(true)
 
 // 流量数据点 (最多65个)
