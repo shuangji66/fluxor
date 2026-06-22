@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { OpenOutline, SyncOutline } from '@vicons/ionicons5'
+import { OpenOutline, SyncOutline, EyeOutline, EyeOffOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useOverviewStore } from '../store/overview'
 import { useConnectionsStore } from '../store/connections'
@@ -31,6 +31,11 @@ const currentNodeDisplay = computed(() => {
 })
 
 const base = window.BASE_URL || ''
+
+const showLocalV4 = ref(false)
+const showLocalV6 = ref(false)
+const showProxyV4 = ref(true)  // false = 明文
+const showProxyV6 = ref(true)
 
 // 流量数据点 (最多65个)
 const maxPoints = 65
@@ -660,7 +665,7 @@ onUnmounted(() => {
     <!-- 双列卡片：IP 信息 + 延迟测试 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-    <!-- IP 信息卡 -->
+        <!-- IP 信息卡 -->
     <div class="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
         <div class="flex items-center justify-between mb-3">
             <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
@@ -680,10 +685,16 @@ onUnmounted(() => {
         <div class="space-y-1.5 text-sm">
             <!-- 本机 IPv4 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.local_ip') }} (IPv4)</span>
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
+                    {{ t('overview.local_ip') }} (IPv4)
+                    <button @click="showLocalV4 = !showLocalV4" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showLocalV4 ? t('common.hide') : t('common.show')">
+                        <EyeOutline v-if="showLocalV4" class="w-3.5 h-3.5" />
+                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
+                    </button>
+                </span>
                 <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
                     <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ ipInfo.localIPv4 || '--' }}
+                        {{ showLocalV4 ? (ipInfo.localIPv4 || '--') : (ipInfo.localIPv4 ? '••••••••' : '--') }}
                     </span>
                     <button @click="refreshLocalIPv4" :disabled="loadingLocalV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV4 }" />
@@ -692,10 +703,16 @@ onUnmounted(() => {
             </div>
             <!-- 本机 IPv6 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.local_ip') }} (IPv6)</span>
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
+                    {{ t('overview.local_ip') }} (IPv6)
+                    <button @click="showLocalV6 = !showLocalV6" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showLocalV6 ? t('common.hide') : t('common.show')">
+                        <EyeOutline v-if="showLocalV6" class="w-3.5 h-3.5" />
+                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
+                    </button>
+                </span>
                 <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
                     <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ ipInfo.localIPv6 || '--' }}
+                        {{ showLocalV6 ? (ipInfo.localIPv6 || '--') : (ipInfo.localIPv6 ? '••••••••' : '--') }}
                     </span>
                     <button @click="refreshLocalIPv6" :disabled="loadingLocalV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV6 }" />
@@ -704,10 +721,16 @@ onUnmounted(() => {
             </div>
             <!-- 代理 IPv4 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.proxy_ip') }} (IPv4)</span>
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
+                    {{ t('overview.proxy_ip') }} (IPv4)
+                    <button @click="showProxyV4 = !showProxyV4" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showProxyV4 ? t('common.hide') : t('common.show')">
+                        <EyeOutline v-if="showProxyV4" class="w-3.5 h-3.5" />
+                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
+                    </button>
+                </span>
                 <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
                     <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ ipInfo.proxyIPv4 || '--' }}
+                        {{ showProxyV4 ? (ipInfo.proxyIPv4 || '--') : (ipInfo.proxyIPv4 ? '••••••••' : '--') }}
                     </span>
                     <button @click="refreshProxyIPv4" :disabled="loadingProxyV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV4 }" />
@@ -716,10 +739,16 @@ onUnmounted(() => {
             </div>
             <!-- 代理 IPv6 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.proxy_ip') }} (IPv6)</span>
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
+                    {{ t('overview.proxy_ip') }} (IPv6)
+                    <button @click="showProxyV6 = !showProxyV6" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showProxyV6 ? t('common.hide') : t('common.show')">
+                        <EyeOutline v-if="showProxyV6" class="w-3.5 h-3.5" />
+                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
+                    </button>
+                </span>
                 <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
                     <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ ipInfo.proxyIPv6 || '--' }}
+                        {{ showProxyV6 ? (ipInfo.proxyIPv6 || '--') : (ipInfo.proxyIPv6 ? '••••••••' : '--') }}
                     </span>
                     <button @click="refreshProxyIPv6" :disabled="loadingProxyV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
                         <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV6 }" />

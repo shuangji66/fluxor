@@ -18,6 +18,8 @@ const messages = {
     'common.network_error': '网络错误',
     'common.operation_failed': '操作失败',
     'common.unknown': '未知',
+    'common.show': '显示',
+    'common.hide': '隐藏',
 
     'nav.overview': '概览',
     'nav.overview_desc': '仪表盘',
@@ -333,6 +335,8 @@ const messages = {
     'common.network_error': 'Network error',
     'common.operation_failed': 'Operation failed',
     'common.unknown': 'Unknown',
+    'common.show': 'Show',
+    'common.hide': 'Hide',
 
     'nav.overview': 'Overview',
     'nav.overview_desc': 'Dashboard',
