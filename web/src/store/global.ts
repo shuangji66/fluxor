@@ -13,6 +13,8 @@ export interface ConfirmOptions {
   okText?: string
   cancelText?: string
   type?: 'info' | 'warning' | 'danger' | 'success'
+  checkboxLabel?: string
+  checkboxDefault?: boolean
 }
 
 export interface ConfirmState {
@@ -22,7 +24,9 @@ export interface ConfirmState {
   okText: string
   cancelText: string
   type: 'info' | 'warning' | 'danger' | 'success'
-  resolve: ((value: boolean) => void) | null
+  checkboxLabel?: string
+  checkboxChecked?: boolean
+  resolve: ((value: any) => void) | null
 }
 
 export const useGlobalStore = defineStore('global', () => {
@@ -53,11 +57,14 @@ export const useGlobalStore = defineStore('global', () => {
   }
 
   // 触发全局模态确认框
-  const showConfirm = (options: ConfirmOptions | string): Promise<boolean> => {
+  function showConfirm(options: string): Promise<boolean>;
+  function showConfirm(options: ConfirmOptions & { checkboxLabel: string }): Promise<{ confirmed: boolean; checkboxChecked: boolean }>;
+  function showConfirm(options: ConfirmOptions): Promise<boolean>;
+  function showConfirm(options: ConfirmOptions | string): Promise<any> {
     return new Promise((resolve) => {
       // 防重入处理，避免 Promise 覆盖泄露
       if (confirmDialog.value && confirmDialog.value.visible) {
-        resolve(false);
+        resolve(typeof options === 'object' && options.checkboxLabel ? { confirmed: false, checkboxChecked: false } : false);
         return;
       }
 
@@ -66,6 +73,8 @@ export const useGlobalStore = defineStore('global', () => {
       let okText = ''
       let cancelText = ''
       let type: 'info' | 'warning' | 'danger' | 'success' = 'warning'
+      let checkboxLabel: string | undefined = undefined
+      let checkboxChecked = false
 
       if (typeof options === 'string') {
         message = options
@@ -75,7 +84,11 @@ export const useGlobalStore = defineStore('global', () => {
         okText = options.okText || ''
         cancelText = options.cancelText || ''
         type = options.type || 'warning'
+        checkboxLabel = options.checkboxLabel
+        checkboxChecked = options.checkboxDefault || false
       }
+
+      const hasCheckbox = !!checkboxLabel
 
       confirmDialog.value = {
         visible: true,
@@ -84,7 +97,15 @@ export const useGlobalStore = defineStore('global', () => {
         okText,
         cancelText,
         type,
-        resolve
+        checkboxLabel,
+        checkboxChecked,
+        resolve: (confirmed: boolean) => {
+          if (hasCheckbox) {
+            resolve({ confirmed, checkboxChecked: confirmDialog.value?.checkboxChecked ?? false })
+          } else {
+            resolve(confirmed)
+          }
+        }
       }
     })
   }

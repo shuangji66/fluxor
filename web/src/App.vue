@@ -469,6 +469,28 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- 自定义复选框：左侧复选框，右侧文本联动（左侧 pl-[54px] 与上方标题文字左对齐） -->
+          <div v-if="globalStore.confirmDialog.checkboxLabel" class="flex items-center gap-2 select-none pl-[54px] pr-1 py-0.5">
+            <label class="relative flex items-center cursor-pointer gap-2">
+              <input type="checkbox" v-model="globalStore.confirmDialog.checkboxChecked" class="sr-only" />
+              <!-- 复选框图标 -->
+              <div class="w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center shadow-sm shrink-0"
+                :class="globalStore.confirmDialog.checkboxChecked 
+                  ? 'bg-accent border-accent text-white' 
+                  : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-transparent'">
+                <svg class="w-2.5 h-2.5 transform transition-all duration-200" 
+                  :class="globalStore.confirmDialog.checkboxChecked ? 'scale-100 opacity-100' : 'scale-50 opacity-0'"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <!-- 联动文本 -->
+              <span class="text-xs font-semibold text-slate-600 dark:text-slate-400 select-none">
+                {{ globalStore.confirmDialog.checkboxLabel }}
+              </span>
+            </label>
+          </div>
+
           <!-- 底部操作区 -->
           <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
             <button @click="globalStore.handleConfirmResult(false)" 

@@ -18,6 +18,7 @@ const showUrls = ref<Record<number, boolean>>({})
 const modalTitle = ref('')
 const isUpdating = ref<Record<number, boolean>>({})
 const isApplying = ref(false)
+const pendingPhysicalDeletes = ref<string[]>([])
 
 // 弹窗编辑项
 const editingIndex = ref(-1)
@@ -236,15 +237,29 @@ const saveSubToList = () => {
   if (currentConfig.value.mode === 'switch' && wasEmpty) {
     currentConfig.value.active_subscription = name
   }
+  // 从物理删除暂存列表中移除，以防同名冲突
+  pendingPhysicalDeletes.value = pendingPhysicalDeletes.value.filter(n => n !== name.trim())
 }
 
 // 删除订阅
 const handleDeleteSub = async (index: number) => {
-  const ok = await globalStore.showConfirm({
-    message: `${t('common.confirm')} ${t('common.delete')}?`,
-    type: 'danger'
+  const sub = currentConfig.value.subscriptions[index]
+  if (!sub) return
+
+  const result = await globalStore.showConfirm({
+    title: `${t('common.confirm')}${t('common.delete')}`,
+    message: `${t('common.confirm')}${t('common.delete')} ${sub.name}?`,
+    type: 'danger',
+    checkboxLabel: t('subscription.delete_physical_file'),
+    checkboxDefault: true
   })
-  if (ok) {
+
+  if (result.confirmed) {
+    if (result.checkboxChecked) {
+      if (!pendingPhysicalDeletes.value.includes(sub.name)) {
+        pendingPhysicalDeletes.value.push(sub.name)
+      }
+    }
     currentConfig.value.subscriptions.splice(index, 1)
   }
 }
@@ -265,14 +280,19 @@ const saveAndApply = async () => {
   }
   isApplying.value = true
   try {
+    const payload = {
+      ...currentConfig.value,
+      delete_physical: pendingPhysicalDeletes.value
+    }
     const resp = await apiFetch('/subscribe/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentConfig.value)
+      body: JSON.stringify(payload)
     })
     const result = await resp.json()
     if (resp.ok && result.status === 'ok') {
       globalStore.showToast(result.message || t('subscription.apply_success'), 'success')
+      pendingPhysicalDeletes.value = []
       loadConfig()
     } else {
       globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')

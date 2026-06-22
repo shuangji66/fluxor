@@ -111,6 +111,7 @@ func main() {
 	mux.HandleFunc(baseURL+"/subscribe/generate", handleGenerateConfig)
 	mux.HandleFunc(baseURL+"/subscribe/update/", handleSubscribeUpdate)
 	mux.HandleFunc(baseURL+"/subscribe/update-info/", handleUpdateSubscriptionInfo)
+
 	
 	// 订阅信息（含流量、有效期）
     mux.HandleFunc(baseURL+"/providers/proxies/", handleProviderProxies)

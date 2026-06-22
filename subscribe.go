@@ -27,6 +27,7 @@ type SubscribeConfig struct {
 	Mode           string         `json:"mode"`              // "merge" 或 "switch"
 	ActiveSubscription string         `json:"active_subscription"` // 新增：当前选中的订阅名称（切换模式使用）
 	Subscriptions  []Subscription `json:"subscriptions"`
+	DeletePhysical []string       `json:"delete_physical,omitempty"`
 }
 
 type Subscription struct {
@@ -177,6 +178,25 @@ func handleGenerateConfig(w http.ResponseWriter, r *http.Request) {
         writeJSONError(w, http.StatusBadRequest, "外部面板后端地址格式不正确")
         return
     }
+
+    // 物理清理标记删除的配置文件，使用 filepath.Base 防范路径穿越
+    if len(cfg.DeletePhysical) > 0 {
+        for _, name := range cfg.DeletePhysical {
+            cleanName := filepath.Base(name)
+            if cleanName == "." || cleanName == "/" || cleanName == "\\" {
+                continue
+            }
+            targetFile := filepath.Join(coreWorkDir, "proxies", cleanName+".yaml")
+            if _, err := os.Stat(targetFile); err == nil {
+                if err := os.Remove(targetFile); err != nil {
+                    log.Printf("[DELETE] 物理删除配置文件失败 %s: %v", targetFile, err)
+                } else {
+                    log.Printf("[DELETE] 成功物理删除配置文件: %s", targetFile)
+                }
+            }
+        }
+    }
+    cfg.DeletePhysical = nil // 清空临时字段避免持久化
 
     // 切换模式
     if cfg.Mode == "switch" {
