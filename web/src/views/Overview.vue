@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { OpenOutline } from '@vicons/ionicons5'
+import { OpenOutline, SyncOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useOverviewStore } from '../store/overview'
 import { useConnectionsStore } from '../store/connections'
@@ -187,7 +187,6 @@ const drawChart = () => {
   ctx.restore()
 
   // 2. 绘制平滑渐变曲线
-  // 上传：蓝色 #3b82f6；下载：绿色 #10b981
   drawSmoothArea(uploadHistory.value, '#3b82f6', 'rgba(59, 130, 246, 0.18)', 'rgba(59, 130, 246, 0.0)', offsetX, stepX, h, chartH)
   drawSmoothArea(downloadHistory.value, '#10b981', 'rgba(16, 185, 129, 0.18)', 'rgba(16, 185, 129, 0.0)', offsetX, stepX, h, chartH)
 
@@ -211,7 +210,6 @@ const drawChart = () => {
     const idx = hoverIndex.value
     const x = offsetX + idx * stepX
     
-    // 绘制垂直引导实线（竖线）
     ctx.save()
     ctx.strokeStyle = colors.grid
     ctx.lineWidth = 1
@@ -285,7 +283,7 @@ watch(uploadHistory, () => {
   drawChart()
 }, { deep: true })
 
-// 获取基础设置（面板和订阅配置相关）
+// 获取基础设置
 const fetchSubscribeConfig = async () => {
   try {
     const resp = await apiFetch('/subscribe/config')
@@ -326,6 +324,219 @@ const initCanvas = () => {
   resize()
 }
 
+// ===== IP 信息 =====
+interface IpInfo {
+  localIPv4: string | null
+  localIPv6: string | null
+  proxyIPv4: string | null
+  proxyIPv6: string | null
+  proxyPort: number | null
+  loading: boolean
+  error: boolean
+}
+
+// 独立刷新加载状态
+const loadingLocalV4 = ref(false)
+const loadingLocalV6 = ref(false)
+const loadingProxyV4 = ref(false)
+const loadingProxyV6 = ref(false)
+
+const ipInfo = ref<IpInfo>({
+  localIPv4: null,
+  localIPv6: null,
+  proxyIPv4: null,
+  proxyIPv6: null,
+  proxyPort: null,
+  loading: true,
+  error: false
+})
+
+// 获取公网 IP 信息（全部更新，并发调用四个独立刷新）
+const fetchPublicIP = async () => {
+  ipInfo.value.loading = true
+  ipInfo.value.error = false
+
+  try {
+    await Promise.all([
+      refreshLocalIPv4(),
+      refreshLocalIPv6(),
+      refreshProxyIPv4(),
+      refreshProxyIPv6()
+    ])
+    // 如果所有字段都为空，标记为错误
+    if (!ipInfo.value.localIPv4 && !ipInfo.value.localIPv6 && 
+        !ipInfo.value.proxyIPv4 && !ipInfo.value.proxyIPv6) {
+      ipInfo.value.error = true
+    }
+  } catch (e) {
+    console.warn('全部更新 IP 信息失败:', e)
+    ipInfo.value.error = true
+  } finally {
+    ipInfo.value.loading = false
+  }
+}
+
+// 独立刷新本机 IPv4
+const refreshLocalIPv4 = async () => {
+  loadingLocalV4.value = true
+  try {
+    const resp = await apiFetch('/ipinfo/local/v4')
+    if (resp.ok) {
+      const data = await resp.json()
+      ipInfo.value.localIPv4 = data.ip || null
+    }
+  } catch (e) {
+    console.warn('刷新本机 IPv4 失败:', e)
+  } finally {
+    loadingLocalV4.value = false
+  }
+}
+
+// 独立刷新本机 IPv6
+const refreshLocalIPv6 = async () => {
+  loadingLocalV6.value = true
+  try {
+    const resp = await apiFetch('/ipinfo/local/v6')
+    if (resp.ok) {
+      const data = await resp.json()
+      ipInfo.value.localIPv6 = data.ip || null
+    }
+  } catch (e) {
+    console.warn('刷新本机 IPv6 失败:', e)
+  } finally {
+    loadingLocalV6.value = false
+  }
+}
+
+// 独立刷新代理 IPv4
+const refreshProxyIPv4 = async () => {
+  loadingProxyV4.value = true
+  try {
+    const resp = await apiFetch('/ipinfo/proxy/v4')
+    if (resp.ok) {
+      const data = await resp.json()
+      ipInfo.value.proxyIPv4 = data.ip || null
+    } else {
+      ipInfo.value.proxyIPv4 = null
+    }
+  } catch (e) {
+    console.warn('刷新代理 IPv4 失败:', e)
+    ipInfo.value.proxyIPv4 = null
+  } finally {
+    loadingProxyV4.value = false
+  }
+}
+
+// 独立刷新代理 IPv6
+const refreshProxyIPv6 = async () => {
+  loadingProxyV6.value = true
+  try {
+    const resp = await apiFetch('/ipinfo/proxy/v6')
+    if (resp.ok) {
+      const data = await resp.json()
+      ipInfo.value.proxyIPv6 = data.ip || null
+    } else {
+      ipInfo.value.proxyIPv6 = null
+    }
+  } catch (e) {
+    console.warn('刷新代理 IPv6 失败:', e)
+    ipInfo.value.proxyIPv6 = null
+  } finally {
+    loadingProxyV6.value = false
+  }
+}
+
+// ===== 代理延迟测试 =====
+interface DelayTestResult {
+  name: string
+  url: string
+  delay: number | null
+  loading: boolean
+}
+
+const delayTargets = [
+  { name: 'Google', url: 'https://www.gstatic.com/generate_204' },
+  { name: 'Microsoft', url: 'https://www.microsoft.com' },
+  { name: 'Apple', url: 'https://www.apple.com' },
+  { name: 'YouTube', url: 'https://www.youtube.com' }
+]
+
+const delayResults = ref<DelayTestResult[]>(
+  delayTargets.map(t => ({ ...t, delay: null, loading: false }))
+)
+
+const isTestingDelay = ref(false)
+
+// 目标名称到后端API路径的映射
+const delayApiMap: Record<string, string> = {
+    'Google': '/delaytest/google',
+    'Microsoft': '/delaytest/microsoft',
+    'Apple': '/delaytest/apple',
+    'YouTube': '/delaytest/youtube'
+}
+
+// 测试单个目标的延迟（通过后端代理）
+const testSingleDelay = async (index: number) => {
+    const item = delayResults.value[index]
+    if (item.loading) return
+    item.loading = true
+    item.delay = null
+
+    try {
+        const apiPath = delayApiMap[item.name]
+        if (!apiPath) {
+            item.delay = null
+            return
+        }
+        const resp = await apiFetch(apiPath + '?timeout=5000')
+        if (resp.ok) {
+            const data = await resp.json()
+            // 后端可能返回 delay 为 null 或数字
+            if (data.delay !== undefined && data.delay !== null && data.delay > 0) {
+                item.delay = data.delay
+            } else {
+                item.delay = null // 超时或错误
+            }
+        } else {
+            item.delay = null
+        }
+    } catch (e) {
+        console.warn('测试延迟失败:', e)
+        item.delay = null
+    } finally {
+        item.loading = false
+    }
+}
+
+// 测试全部目标
+const testAllDelays = async () => {
+  if (isTestingDelay.value) return
+  isTestingDelay.value = true
+
+  const concurrency = 2
+  const queue = delayResults.value.map((_, idx) => idx)
+  const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const idx = queue.shift()
+      if (idx !== undefined) {
+        await testSingleDelay(idx)
+      }
+    }
+  })
+  await Promise.all(workers)
+
+  isTestingDelay.value = false
+}
+
+// 获取延迟显示
+const getDelayDisplay = (result: DelayTestResult) => {
+  if (result.loading) return { text: t('proxies.testing'), color: 'text-slate-400' }
+  if (result.delay === null) return { text: t('proxies.timeout'), color: 'text-red-500' }
+  if (result.delay < 150) return { text: `${result.delay}ms`, color: 'text-success' }
+  if (result.delay < 300) return { text: `${result.delay}ms`, color: 'text-amber-500' }
+  return { text: `${result.delay}ms`, color: 'text-red-400' }
+}
+
 // 监听主题变化
 const observeTheme = () => {
   if (themeObserver) themeObserver.disconnect()
@@ -341,16 +552,15 @@ onMounted(() => {
     initCanvas()
     observeTheme()
 
-    // 订阅数据流与状态轮询
     overviewStore.subscribeStatus()
     overviewStore.subscribeTraffic()
     overviewStore.subscribeMemory()
     connectionsStore.subscribe()
   })
+  fetchPublicIP()
 })
 
 onUnmounted(() => {
-  // 取消订阅
   overviewStore.unsubscribeStatus()
   overviewStore.unsubscribeTraffic()
   overviewStore.unsubscribeMemory()
@@ -363,6 +573,7 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-6">
+    <!-- 8 个统计卡片 -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
         <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_speed') }}</div>
@@ -403,11 +614,13 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 当前节点 -->
     <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all flex items-center justify-between gap-4">
       <span class="text-sm font-extrabold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
       <div class="text-base font-bold text-accent break-all select-all">{{ currentNodeDisplay }}</div>
     </div>
 
+    <!-- 流量趋势图 -->
     <div class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all space-y-4">
       <div class="flex justify-between items-center">
         <h4 class="font-bold text-sm">{{ t('overview.traffic_trend') }}</h4>
@@ -430,7 +643,7 @@ onUnmounted(() => {
           class="cursor-crosshair block w-full"
         ></canvas>
         
-        <!-- Interactive Tooltip Card -->
+        <!-- Tooltip -->
         <div
           v-show="tooltip.show"
           :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
@@ -454,6 +667,135 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 双列卡片：IP 信息 + 延迟测试 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+    <!-- IP 信息卡 -->
+    <div class="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+        <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                {{ t('overview.ip_info') }}
+            </h4>
+            <button 
+                @click="fetchPublicIP" 
+                :disabled="ipInfo.loading"
+                class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+                :title="t('common.refresh')"
+            >
+                <SyncOutline class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" :class="{ 'animate-spin': ipInfo.loading }" />
+            </button>
+        </div>
+        
+        <div v-if="ipInfo.loading" class="flex items-center justify-center py-6">
+            <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
+        </div>
+        
+        <div v-else-if="ipInfo.error" class="text-center py-6 text-sm text-slate-400">
+            {{ t('overview.ip_fetch_failed') }}
+        </div>
+        
+        <div v-else class="space-y-1.5 text-sm">
+            <!-- 本机 IPv4 -->
+            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.local_ip') }} (IPv4)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.localIPv4 || '--' }}
+                    </span>
+                    <button @click="refreshLocalIPv4" :disabled="loadingLocalV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
+                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV4 }" />
+                    </button>
+                </div>
+            </div>
+            <!-- 本机 IPv6 -->
+            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.local_ip') }} (IPv6)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.localIPv6 || '--' }}
+                    </span>
+                    <button @click="refreshLocalIPv6" :disabled="loadingLocalV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
+                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV6 }" />
+                    </button>
+                </div>
+            </div>
+            <!-- 代理 IPv4 -->
+            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.proxy_ip') }} (IPv4)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.proxyIPv4 || '--' }}
+                    </span>
+                    <button @click="refreshProxyIPv4" :disabled="loadingProxyV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
+                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV4 }" />
+                    </button>
+                </div>
+            </div>
+            <!-- 代理 IPv6 -->
+            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.proxy_ip') }} (IPv6)</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ ipInfo.proxyIPv6 || '--' }}
+                    </span>
+                    <button @click="refreshProxyIPv6" :disabled="loadingProxyV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
+                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV6 }" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+      <!-- 代理延迟测试卡 -->
+      <div class="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+          <div class="flex items-center justify-between mb-3">
+              <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                  {{ t('overview.proxy_delay_test') }}
+              </h4>
+              <button 
+                  @click="testAllDelays" 
+                  :disabled="isTestingDelay"
+                  class="px-3 py-1 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                  {{ isTestingDelay ? t('overview.testing') : t('overview.test_all') }}
+              </button>
+          </div>
+          
+          <div class="space-y-2">
+              <div 
+                  v-for="(result, idx) in delayResults" 
+                  :key="result.name"
+                  class="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+              >
+                  <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">{{ result.name }}</span>
+                  <div class="flex items-center gap-3">
+                      <span 
+                          class="text-sm font-mono font-bold cursor-pointer hover:underline"
+                          :class="getDelayDisplay(result).color"
+                          @click="testSingleDelay(idx)"
+                      >
+                          {{ getDelayDisplay(result).text }}
+                      </span>
+
+                      <button 
+                          @click="testSingleDelay(idx)" 
+                          :disabled="result.loading"
+                          class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-50"
+                          :title="t('overview.test_single_title', { name: result.name })"
+                      >
+                          <svg v-if="!result.loading" class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          <div v-else class="w-3 h-3 border-2 border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
+                      </button>
+                  </div>
+              </div>
+          </div>
       </div>
     </div>
   </div>

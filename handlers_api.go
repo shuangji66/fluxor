@@ -5,7 +5,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
+	"fmt"
+	"time"
+	"strconv"
 )
 
 // ---------- 仪表盘数据 API ----------
@@ -423,4 +427,229 @@ func handleInterfaces(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(names)
+}
+
+// handleLocalIPv4 获取本机 IPv4
+func handleLocalIPv4(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	ip, err := fetchPublicIPWithFallback("http://ip-api.com/json?fields=query", "https://api.ipify.org?format=json", "")
+	if err != nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "获取本机 IPv4 失败: "+err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
+}
+
+// handleLocalIPv6 获取本机 IPv6
+func handleLocalIPv6(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	ip, err := fetchPublicIP("https://api6.ipify.org?format=json", "")
+	if err != nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "获取本机 IPv6 失败: "+err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
+}
+
+// handleProxyIPv4 获取代理 IPv4
+func handleProxyIPv4(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	proxyPort := getProxyPortFromConfig()
+	if proxyPort == 0 {
+		writeJSONError(w, http.StatusServiceUnavailable, "无可用代理端口")
+		return
+	}
+	proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
+	ip, err := fetchPublicIP("https://api.ipify.org?format=json", proxyAddr)
+	if err != nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "获取代理 IPv4 失败: "+err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
+}
+
+// handleProxyIPv6 获取代理 IPv6
+func handleProxyIPv6(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	proxyPort := getProxyPortFromConfig()
+	if proxyPort == 0 {
+		writeJSONError(w, http.StatusServiceUnavailable, "无可用代理端口")
+		return
+	}
+	proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
+	ip, err := fetchPublicIP("https://api6.ipify.org?format=json", proxyAddr)
+	if err != nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "获取代理 IPv6 失败: "+err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
+}
+
+// getProxyPortFromConfig 从内核配置中获取代理端口
+func getProxyPortFromConfig() int {
+	resp, err := coreRequest("GET", "/configs", nil)
+	if err != nil {
+		return 0
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0
+	}
+	var cfg map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&cfg); err != nil {
+		return 0
+	}
+	// 优先 mixed-port
+	if p, ok := cfg["mixed-port"]; ok {
+		if port, ok := p.(float64); ok && port > 0 {
+			return int(port)
+		}
+	}
+	if p, ok := cfg["port"]; ok {
+		if port, ok := p.(float64); ok && port > 0 {
+			return int(port)
+		}
+	}
+	if p, ok := cfg["socks-port"]; ok {
+		if port, ok := p.(float64); ok && port > 0 {
+			return int(port)
+		}
+	}
+	return 0
+}
+
+// fetchPublicIP 支持通过代理获取 IP
+func fetchPublicIP(apiURL, proxyAddr string) (string, error) {
+    client := &http.Client{Timeout: 5 * time.Second}
+    if proxyAddr != "" {
+        proxyURL, err := url.Parse(proxyAddr)
+        if err == nil {
+            client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+        }
+    }
+    resp, err := client.Get(apiURL)
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+        return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+    }
+    var data struct {
+        IP    string `json:"ip"`
+        Query string `json:"query"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+        return "", err
+    }
+    if data.IP != "" {
+        return data.IP, nil
+    }
+    if data.Query != "" {
+        return data.Query, nil
+    }
+    return "", fmt.Errorf("no ip field in response")
+}
+// fetchPublicIPWithFallback 尝试主 URL，失败则尝试备用 URL（无代理）
+func fetchPublicIPWithFallback(primaryURL, fallbackURL, proxyAddr string) (string, error) {
+	ip, err := fetchPublicIP(primaryURL, proxyAddr)
+	if err == nil && ip != "" {
+		return ip, nil
+	}
+	// 尝试备用 URL（无代理）
+	ip, err = fetchPublicIP(fallbackURL, "")
+	if err == nil && ip != "" {
+		return ip, nil
+	}
+	return "", fmt.Errorf("所有尝试均失败: %v", err)
+}
+// testDelayThroughProxy 通过代理测试目标URL的延迟（HEAD请求），返回毫秒
+func testDelayThroughProxy(targetURL string, timeout time.Duration) (int, error) {
+    proxyPort := getProxyPortFromConfig()
+    if proxyPort == 0 {
+        return 0, fmt.Errorf("no proxy port available")
+    }
+    proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
+    proxyURL, err := url.Parse(proxyAddr)
+    if err != nil {
+        return 0, err
+    }
+    transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+    client := &http.Client{
+        Transport: transport,
+        Timeout:   timeout,
+        // 禁止重定向，因为HEAD请求不需要
+        CheckRedirect: func(req *http.Request, via []*http.Request) error {
+            return http.ErrUseLastResponse
+        },
+    }
+    start := time.Now()
+    resp, err := client.Head(targetURL)
+    if err != nil {
+        return 0, err
+    }
+    defer resp.Body.Close()
+    // 即使状态码不是200，也认为连接成功，只要建立连接即可
+    elapsed := time.Since(start).Milliseconds()
+    return int(elapsed), nil
+}
+// handleDelayTestGoogle 测试 Google 延迟
+func handleDelayTestGoogle(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.gstatic.com/generate_204")
+}
+
+// handleDelayTestMicrosoft 测试 Microsoft 延迟
+func handleDelayTestMicrosoft(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.microsoft.com")
+}
+
+// handleDelayTestApple 测试 Apple 延迟
+func handleDelayTestApple(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.apple.com")
+}
+
+// handleDelayTestYouTube 测试 YouTube 延迟
+func handleDelayTestYouTube(w http.ResponseWriter, r *http.Request) {
+    handleDelayTestCommon(w, r, "https://www.youtube.com")
+}
+
+// 公共处理函数
+func handleDelayTestCommon(w http.ResponseWriter, r *http.Request, targetURL string) {
+    if r.Method != http.MethodGet {
+        writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+        return
+    }
+    // 读取超时参数，默认5000ms
+    timeoutMs := 5000
+    if t := r.URL.Query().Get("timeout"); t != "" {
+        if val, err := strconv.Atoi(t); err == nil && val > 0 {
+            timeoutMs = val
+        }
+    }
+    timeout := time.Duration(timeoutMs) * time.Millisecond
+    delay, err := testDelayThroughProxy(targetURL, timeout)
+    if err != nil {
+        // 超时或错误，返回 delay=null 或 -1，前端显示超时
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{"delay": nil, "error": err.Error()})
+        return
+    }
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]int{"delay": delay})
 }
