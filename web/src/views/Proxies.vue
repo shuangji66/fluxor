@@ -14,17 +14,27 @@ const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 
+// 从 store 中解构所需状态
 const { proxyGroups, delays, isLoading } = storeToRefs(proxyStore)
-const { configs, coreStatus } = storeToRefs(configStore)
+const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
 
-// 根据模式过滤代理组
+// 根据内核模式与订阅模式过滤代理组
 const filteredGroups = computed(() => {
   const mode = configs.value.mode
+  const subMode = currentConfig.value.mode // 'merge' 或 'switch'
+
   if (mode === 'Direct') return []
+
   if (mode === 'Global') {
+    // 融合订阅下，全局模式展示所有代理组
+    if (subMode === 'merge') {
+      return proxyGroups.value
+    }
+    // 切换订阅下，只展示 GLOBAL 组
     return proxyGroups.value.filter(g => g.name.toUpperCase() === 'GLOBAL')
   }
-  // Rule 模式：隐藏 GLOBAL 组
+
+  // 规则模式：隐藏 GLOBAL 组
   return proxyGroups.value.filter(g => g.name.toUpperCase() !== 'GLOBAL')
 })
 
