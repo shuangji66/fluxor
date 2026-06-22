@@ -151,6 +151,10 @@ func main() {
 	mux.HandleFunc(baseURL+"/cache/dns/flush", handleFlushDNS)
 	mux.HandleFunc(baseURL+"/dns/query", handleDNSQuery)
 	mux.HandleFunc(baseURL+"/restart", handleRestart)
+	mux.HandleFunc(baseURL+"/ipinfo/local/v4", handleLocalIPv4)
+    mux.HandleFunc(baseURL+"/ipinfo/local/v6", handleLocalIPv6)
+    mux.HandleFunc(baseURL+"/ipinfo/proxy/v4", handleProxyIPv4)
+    mux.HandleFunc(baseURL+"/ipinfo/proxy/v6", handleProxyIPv6)
 
 	// 代理 API
 	mux.HandleFunc(baseURL+"/proxies", handleProxies)

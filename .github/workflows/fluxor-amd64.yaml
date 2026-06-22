@@ -10,24 +10,23 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: 安装依赖（Node.js、Go、jq）
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget curl jq
-          # 安装 Node.js 24
-          curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          # 安装 Go
-          sudo snap install go --classic
+      - name: 检出源码
+        uses: actions/checkout@v5
 
-      - name: 克隆 fluxor 源码
-        run: |
-          git clone https://github.com/shuangji66/fluxor.git fluxor-src
-          ls -la fluxor-src
+      - name: 设置 Node.js 环境
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
 
       - name: 修改 package.json 版本号（追加 commit 哈希）
         run: |
-          cd fluxor-src
           HASH=$(git rev-parse --short HEAD)
           VERSION=$(jq -r '.version' web/package.json)
           NEW_VERSION="${VERSION}~${HASH}"
@@ -35,18 +34,17 @@ jobs:
           echo "新版本号: $NEW_VERSION"
 
       - name: 构建前端 (web)
-        working-directory: ./fluxor-src/web
+        working-directory: ./web
         run: |
           npm ci
           npm run build
 
       - name: 构建 Go 后端（amd64）
-        working-directory: ./fluxor-src
         run: |
           GOOS=linux GOARCH=amd64 go build -tags vue -ldflags="-s -w" -o fluxor
 
       - name: 上传 fluxor 二进制作为 Artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: fluxor
-          path: fluxor-src/fluxor
+          path: fluxor
