@@ -5,19 +5,62 @@ import { GlobeOutline, SyncOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useProxyStore } from '../store/proxies'
 import { useGlobalStore } from '../store/global'
+import { useConfigStore } from '../store/config'
 import ProxyGroupCard from '../components/ProxyGroupCard.vue'
+import { apiFetch } from '../utils/api'
 
 const { t } = useI18n()
 const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
-const { proxyGroups, delays, isLoading } = storeToRefs(proxyStore)
+const configStore = useConfigStore()
 
-// 将代理组拆分为左右两列，保证左右高度平衡且横向交替排列
-const leftGroups = computed(() => proxyGroups.value.filter((_, index) => index % 2 === 0))
-const rightGroups = computed(() => proxyGroups.value.filter((_, index) => index % 2 !== 0))
+const { proxyGroups, delays, isLoading } = storeToRefs(proxyStore)
+const { configs, coreStatus } = storeToRefs(configStore)
+
+// 根据模式过滤代理组
+const filteredGroups = computed(() => {
+  const mode = configs.value.mode
+  if (mode === 'Direct') return []
+  if (mode === 'Global') {
+    return proxyGroups.value.filter(g => g.name.toUpperCase() === 'GLOBAL')
+  }
+  // Rule 模式：隐藏 GLOBAL 组
+  return proxyGroups.value.filter(g => g.name.toUpperCase() !== 'GLOBAL')
+})
+
+// 将过滤后的组拆分为左右两列（仅当组数 > 6 时使用）
+const leftGroups = computed(() => filteredGroups.value.filter((_, index) => index % 2 === 0))
+const rightGroups = computed(() => filteredGroups.value.filter((_, index) => index % 2 !== 0))
+
+// 是否使用单列布局（组数 <= 6）
+const isSingleColumn = computed(() => filteredGroups.value.length <= 6)
 
 const isTestingAll = ref(false)
 let refreshTimer: number | null = null
+
+// 切换运行模式
+const changeMode = async (mode: string) => {
+  if (!coreStatus.value.running) {
+    globalStore.showToast(t('config.core_not_running'), 'warning')
+    return
+  }
+  if (mode === configs.value.mode) return
+  try {
+    const resp = await apiFetch('/configs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode })
+    })
+    if (resp.ok) {
+      configs.value.mode = mode
+      globalStore.showToast(t('config.mode_switched'), 'success')
+    } else {
+      globalStore.showToast(t('common.operation_failed'), 'error')
+    }
+  } catch (e) {
+    globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
+  }
+}
 
 // 测速所有节点
 const handleTestAll = async () => {
@@ -82,7 +125,6 @@ onMounted(async () => {
 })
 
 onActivated(async () => {
-  // 激活时立即静默刷新，拉取最新节点
   await proxyStore.fetchProxies(true)
   autoTestMissingNodes().catch(e => console.warn('[Proxies] 自动测速失败:', e))
   startRefreshTimer()
@@ -99,21 +141,57 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-6">
-    <div class="sticky top-0 z-20 glass-medium shadow-sm p-4 rounded-xl border flex items-center justify-between transition-all">
-      <h3 class="text-base font-semibold flex items-center gap-2">
-        <GlobeOutline class="w-5 h-5 text-accent" />
-        {{ t('proxies.title') }}
-      </h3>
+    <!-- 顶部栏 -->
+    <div class="sticky top-0 z-20 glass-medium shadow-sm p-4 rounded-xl border transition-all">
+      <!-- 移动端：flex-col，桌面端：flex-row -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <!-- 第一行：标题 + 全部测速（移动端显示） -->
+        <div class="flex items-center justify-between w-full md:w-auto">
+          <h3 class="text-base font-semibold flex items-center gap-2">
+            <GlobeOutline class="w-5 h-5 text-accent" />
+            {{ t('proxies.title') }}
+          </h3>
+          <!-- 移动端全部测速按钮 -->
+          <button
+            @click="handleTestAll"
+            :disabled="isTestingAll"
+            class="md:hidden px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
+            {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
+          </button>
+        </div>
 
-      <button @click="handleTestAll" :disabled="isTestingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
-        <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
-        {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
-      </button>
+        <!-- 第二行：模式切换滑块（移动端占满，桌面端正常） -->
+        <div class="flex items-center w-full md:w-auto">
+          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full md:w-auto">
+            <button
+              v-for="modeOption in ['Rule', 'Global', 'Direct']"
+              :key="modeOption"
+              @click="changeMode(modeOption)"
+              :disabled="!coreStatus.running"
+              class="flex-1 md:flex-none px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            >
+              {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 桌面端全部测速按钮 -->
+        <button
+          @click="handleTestAll"
+          :disabled="isTestingAll"
+          class="hidden md:flex px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
+          {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
+        </button>
+      </div>
     </div>
 
-    <!-- 骨架屏：首屏加载且无缓存时渲染 -->
+    <!-- 骨架屏 -->
     <div v-if="isLoading && proxyGroups.length === 0" class="flex flex-col lg:flex-row gap-6 items-start">
-      <!-- 骨架屏左列 -->
       <div class="flex-1 space-y-6 w-full min-w-0">
         <div v-for="i in 2" :key="'skeleton-l-' + i" class="bg-white dark:bg-[#1e293b] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 animate-pulse select-none">
           <div class="flex items-center justify-between gap-4">
@@ -132,7 +210,6 @@ onUnmounted(() => {
           <div class="h-1.5 bg-slate-100 dark:bg-slate-800/50 rounded w-full"></div>
         </div>
       </div>
-      <!-- 骨架屏右列 -->
       <div class="flex-1 space-y-6 w-full min-w-0">
         <div v-for="i in 2" :key="'skeleton-r-' + i" class="bg-white dark:bg-[#1e293b] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 animate-pulse select-none">
           <div class="flex items-center justify-between gap-4">
@@ -152,29 +229,41 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    
-    <div v-else-if="proxyGroups.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
-      {{ t('proxies.empty') }}
+
+    <!-- 空状态 -->
+    <div v-else-if="filteredGroups.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+      <span v-if="configs.mode === 'Direct'">{{ t('proxies.empty_direct') }}</span>
+      <span v-else-if="configs.mode === 'Global'">{{ t('proxies.empty_global') }}</span>
+      <span v-else>{{ t('proxies.empty') }}</span>
     </div>
 
-    <!-- 响应式双列布局 -->
-    <div v-else class="flex flex-col lg:flex-row gap-6 items-start">
-      <!-- 左列 -->
-      <div class="flex-1 space-y-6 w-full min-w-0">
+    <!-- 代理组列表（单列或双列） -->
+    <div v-else>
+      <!-- 单列模式（组数 <= 6） -->
+      <div v-if="isSingleColumn" class="space-y-6 w-full">
         <ProxyGroupCard
-          v-for="group in leftGroups"
+          v-for="group in filteredGroups"
           :key="group.name"
           :group="group"
         />
       </div>
 
-      <!-- 右列 -->
-      <div class="flex-1 space-y-6 w-full min-w-0">
-        <ProxyGroupCard
-          v-for="group in rightGroups"
-          :key="group.name"
-          :group="group"
-        />
+      <!-- 双列模式（组数 > 6） -->
+      <div v-else class="flex flex-col lg:flex-row gap-6 items-start">
+        <div class="flex-1 space-y-6 w-full min-w-0">
+          <ProxyGroupCard
+            v-for="group in leftGroups"
+            :key="group.name"
+            :group="group"
+          />
+        </div>
+        <div class="flex-1 space-y-6 w-full min-w-0">
+          <ProxyGroupCard
+            v-for="group in rightGroups"
+            :key="group.name"
+            :group="group"
+          />
+        </div>
       </div>
     </div>
   </div>

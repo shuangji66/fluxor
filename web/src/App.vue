@@ -514,10 +514,10 @@ onUnmounted(() => {
 
     <!-- 全局 Toast 提示容器 -->
     <Teleport to="body">
-      <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2.5 pointer-events-none max-w-sm w-full px-4">
+      <div class="fixed top-4 right-4 z-[9999] inline-flex flex-col items-end gap-2.5 pointer-events-none max-w-[90%] md:max-w-sm">
         <div v-for="toast in globalStore.toasts" :key="toast.id" 
           @click="globalStore.removeToast(toast.id)"
-          class="p-4 rounded-2xl shadow-lg border text-xs font-semibold flex items-center justify-between gap-3 animate-[slideIn_0.25s_cubic-bezier(0.16,1,0.3,1)] pointer-events-auto backdrop-blur-lg cursor-pointer hover:translate-y-[-1px] active:scale-[0.98] transition-all duration-200"
+          class="p-4 rounded-2xl shadow-lg border text-xs font-semibold flex items-center justify-between gap-3 animate-[slideIn_0.25s_cubic-bezier(0.16,1,0.3,1)] pointer-events-auto backdrop-blur-lg cursor-pointer hover:translate-y-[-1px] active:scale-[0.98] transition-all duration-200 w-full"
           :class="{
             'bg-emerald-50/95 dark:bg-[#064e3b]/30 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-emerald-500/5': toast.type === 'success',
             'bg-red-50/95 dark:bg-[#7f1d1d]/30 border-red-500/20 text-red-600 dark:text-red-400 shadow-red-500/5': toast.type === 'error',
@@ -525,12 +525,10 @@ onUnmounted(() => {
             'glass-heavy text-slate-700 dark:text-slate-300 shadow-slate-500/5': toast.type === 'info'
           }">
           <div class="flex items-center gap-2.5">
-            <!-- 状态图标 -->
             <CheckmarkCircleOutline v-if="toast.type === 'success'" class="w-4 h-4 shrink-0" />
             <CloseCircleOutline v-else-if="toast.type === 'error'" class="w-4 h-4 shrink-0" />
             <AlertCircleOutline v-else-if="toast.type === 'warning'" class="w-4 h-4 shrink-0" />
             <InformationCircleOutline v-else class="w-4 h-4 shrink-0" />
-            
             <span class="leading-normal">{{ toast.text }}</span>
           </div>
           <CloseOutline class="w-3.5 h-3.5 shrink-0 opacity-40 hover:opacity-100 transition-opacity" />

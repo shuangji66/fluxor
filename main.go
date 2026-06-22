@@ -19,23 +19,44 @@ import (
 
 var staticFS fs.FS
 
+var (
+    socketPath          string
+    baseURL             string
+    corePidFile         string
+    coreBin             string
+    coreSocket          string
+    metaDir             string
+    zashDir             string
+    subscribeConfigFile string
+    configTarget        string
+    configTemplateDir   string
+    infoLogFile         string
+    coreWorkDir         string
+)
+
+func init() {
+    socketPath = getEnv("SOCKET_PATH", "/var/apps/Fluxor/target/app.sock")
+    baseURL = getEnv("BASE_URL", "/app/Fluxor")
+    corePidFile = getEnv("CORE_PID_FILE", "/var/apps/Fluxor/var/core.pid")
+    coreBin = getEnv("CORE_BIN", "/var/apps/Fluxor/target/bin/mihomo")
+    coreSocket = getEnv("CORE_SOCKET", "/var/apps/Fluxor/target/core.sock")
+    metaDir = getEnv("META_DIR", "/var/apps/Fluxor/shares/ui/meta")
+    zashDir = getEnv("ZASH_DIR", "/var/apps/Fluxor/shares/ui/zash")
+    subscribeConfigFile = getEnv("SUBSCRIBE_CONFIG_FILE", "/var/apps/Fluxor/var/subscribe.json")
+    configTarget = getEnv("CONFIG_TARGET", "/var/apps/Fluxor/shares/Fluxor/config.yaml")
+    configTemplateDir = getEnv("CONFIG_TEMPLATE_DIR", "/var/apps/Fluxor/target/templates")
+    infoLogFile = getEnv("INFO_LOG_FILE", "/var/apps/Fluxor/shares/Fluxor/info.log")
+    coreWorkDir = getEnv("CORE_WORK_DIR", "/var/apps/Fluxor/shares/Fluxor")
+}
+
+func getEnv(key, defaultVal string) string {
+    if val := os.Getenv(key); val != "" {
+        return val
+    }
+    return defaultVal
+}
+
 const (
-	socketPath   = "/var/apps/Fluxor/target/app.sock"
-	baseURL      = "/app/Fluxor"
-
-	corePidFile = "/var/apps/Fluxor/var/core.pid"
-	coreBin     = "/var/apps/Fluxor/target/bin/mihomo"
-	coreSocket  = "/var/apps/Fluxor/target/core.sock"
-
-	metaDir = "/var/apps/Fluxor/shares/ui/meta"
-	zashDir = "/var/apps/Fluxor/shares/ui/zash"
-
-	subscribeConfigFile = "/var/apps/Fluxor/var/subscribe.json"
-	configTarget        = "/var/apps/Fluxor/shares/Fluxor/config.yaml"
-	configTemplateDir   = "/var/apps/Fluxor/target/templates"
-
-	infoLogFile   = "/var/apps/Fluxor/shares/Fluxor/info.log"
-	coreWorkDir   = "/var/apps/Fluxor/shares/Fluxor"
 	metaConfigFile = "config.js"
 )
 
