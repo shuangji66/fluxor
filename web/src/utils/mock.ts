@@ -278,6 +278,26 @@ export function handleMockFetch(path: string, options: RequestInit = {}): Respon
     return new Response(JSON.stringify(['eth0', 'wlan0', 'en0', 'meta', 'WLAN']), { status: 200 })
   }
 
+  // 9. IP 信息模拟
+  if (cleanPath.endsWith('/ipinfo/local/v4')) {
+    return new Response(JSON.stringify({ ip: '116.228.111.222' }), { status: 200 })
+  }
+  if (cleanPath.endsWith('/ipinfo/local/v6')) {
+    return new Response(JSON.stringify({ ip: '240e:3b3:3000:200::100' }), { status: 200 })
+  }
+  if (cleanPath.endsWith('/ipinfo/proxy/v4')) {
+    return new Response(JSON.stringify({ ip: '104.244.42.1' }), { status: 200 })
+  }
+  if (cleanPath.endsWith('/ipinfo/proxy/v6')) {
+    return new Response(JSON.stringify({ ip: '2606:4700:3030::ac43:8ad7' }), { status: 200 })
+  }
+
+  // 10. 延迟测试模拟
+  if (cleanPath.includes('/delaytest/')) {
+    const delay = Math.floor(45 + Math.random() * 120)
+    return new Response(JSON.stringify({ delay }), { status: 200 })
+  }
+
   return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404 })
 }
 

@@ -2,14 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
-	"fmt"
-	"time"
+	"regexp"
 	"strconv"
+	"strings"
+	"time"
 )
 
 // ---------- 仪表盘数据 API ----------
@@ -343,6 +344,7 @@ func handleRulesDisable(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
+
 // handleProviderProxies 获取指定订阅的代理信息（含流量/有效期）
 // GET /providers/proxies/{encodedName}
 // handleProviderProxies 处理订阅信息获取（GET）和更新（PUT）
@@ -379,6 +381,7 @@ func handleProviderProxies(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
+
 // handleUpgrade 更新内核（POST /upgrade）
 func handleUpgrade(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -435,10 +438,20 @@ func handleLocalIPv4(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	ip, err := fetchPublicIPWithFallback("http://ip-api.com/json?fields=query", "https://api.ipify.org?format=json", "")
+	urls := []string{
+		"https://ipv4.ddnspod.com/",
+		"https://myip.ipip.net",
+		"https://ip.3322.net",
+	}
+	ip, err := fetchPublicIPWithFallback(urls, "")
 	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "获取本机 IPv4 失败: "+err.Error())
-		return
+		// 回退到网卡获取的本机局域网 IP
+		if localIP, localErr := getLocalIPFromInterfaces(false); localErr == nil {
+			ip = localIP
+		} else {
+			writeJSONError(w, http.StatusServiceUnavailable, "获取本机 IPv4 失败: "+err.Error())
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
@@ -450,10 +463,21 @@ func handleLocalIPv6(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-	ip, err := fetchPublicIP("https://api6.ipify.org?format=json", "")
+	urls := []string{
+		"https://ipv6.ddnspod.com",
+		"https://v6.myip.la",
+		"https://speed.neu6.edu.cn/getIP.php",
+		"https://api6.ipify.org?format=json",
+	}
+	ip, err := fetchPublicIPWithFallback(urls, "")
 	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "获取本机 IPv6 失败: "+err.Error())
-		return
+		// 回退到网卡获取的本机全球单播 IPv6
+		if localIP, localErr := getLocalIPFromInterfaces(true); localErr == nil {
+			ip = localIP
+		} else {
+			writeJSONError(w, http.StatusServiceUnavailable, "获取本机 IPv6 失败: "+err.Error())
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
@@ -471,7 +495,12 @@ func handleProxyIPv4(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
-	ip, err := fetchPublicIP("https://api.ipify.org?format=json", proxyAddr)
+	urls := []string{
+		"https://api.ipify.org?format=json",
+		"https://icanhazip.com",
+		"https://ifconfig.me/ip",
+	}
+	ip, err := fetchPublicIPWithFallback(urls, proxyAddr)
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "获取代理 IPv4 失败: "+err.Error())
 		return
@@ -492,7 +521,12 @@ func handleProxyIPv6(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
-	ip, err := fetchPublicIP("https://api6.ipify.org?format=json", proxyAddr)
+	urls := []string{
+		"https://api6.ipify.org?format=json",
+		"https://ipv6.icanhazip.com",
+		"https://v6.ident.me",
+	}
+	ip, err := fetchPublicIPWithFallback(urls, proxyAddr)
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "获取代理 IPv6 失败: "+err.Error())
 		return
@@ -534,122 +568,191 @@ func getProxyPortFromConfig() int {
 	return 0
 }
 
-// fetchPublicIP 支持通过代理获取 IP
+// fetchPublicIP 支持通过代理获取 IP，兼容 JSON 与纯文本，带正则表达式提取和校验
 func fetchPublicIP(apiURL, proxyAddr string) (string, error) {
-    client := &http.Client{Timeout: 5 * time.Second}
-    if proxyAddr != "" {
-        proxyURL, err := url.Parse(proxyAddr)
-        if err == nil {
-            client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
-        }
-    }
-    resp, err := client.Get(apiURL)
-    if err != nil {
-        return "", err
-    }
-    defer resp.Body.Close()
-    if resp.StatusCode != http.StatusOK {
-        return "", fmt.Errorf("HTTP %d", resp.StatusCode)
-    }
-    var data struct {
-        IP    string `json:"ip"`
-        Query string `json:"query"`
-    }
-    if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-        return "", err
-    }
-    if data.IP != "" {
-        return data.IP, nil
-    }
-    if data.Query != "" {
-        return data.Query, nil
-    }
-    return "", fmt.Errorf("no ip field in response")
-}
-// fetchPublicIPWithFallback 尝试主 URL，失败则尝试备用 URL（无代理）
-func fetchPublicIPWithFallback(primaryURL, fallbackURL, proxyAddr string) (string, error) {
-	ip, err := fetchPublicIP(primaryURL, proxyAddr)
-	if err == nil && ip != "" {
-		return ip, nil
+	client := &http.Client{Timeout: 5 * time.Second}
+	if proxyAddr != "" {
+		proxyURL, err := url.Parse(proxyAddr)
+		if err == nil {
+			client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+		}
 	}
-	// 尝试备用 URL（无代理）
-	ip, err = fetchPublicIP(fallbackURL, "")
-	if err == nil && ip != "" {
-		return ip, nil
+	resp, err := client.Get(apiURL)
+	if err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("所有尝试均失败: %v", err)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	bodyStr := strings.TrimSpace(string(bodyBytes))
+
+	// 1. 尝试解析为 JSON
+	var data struct {
+		IP    string `json:"ip"`
+		Query string `json:"query"`
+	}
+	if err := json.Unmarshal(bodyBytes, &data); err == nil {
+		if data.IP != "" {
+			return data.IP, nil
+		}
+		if data.Query != "" {
+			return data.Query, nil
+		}
+	}
+
+	// 2. 正则从响应内容中搜索首个合法的 IPv4/IPv6 地址并验证
+	ipRegex := regexp.MustCompile(`((?:[0-9]{1,3}\.){3}[0-9]{1,3})|((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4})`)
+	matches := ipRegex.FindAllString(bodyStr, -1)
+	for _, match := range matches {
+		if net.ParseIP(match) != nil {
+			return match, nil
+		}
+	}
+
+	// 3. 直接验证去除空白后的全文
+	if net.ParseIP(bodyStr) != nil {
+		return bodyStr, nil
+	}
+
+	return "", fmt.Errorf("no valid IP address found in response: %s", bodyStr)
 }
+
+// fetchPublicIPWithFallback 依次尝试一组 URL，返回首个成功获取到的 IP 地址
+func fetchPublicIPWithFallback(urls []string, proxyAddr string) (string, error) {
+	var lastErr error
+	for _, u := range urls {
+		ip, err := fetchPublicIP(u, proxyAddr)
+		if err == nil && ip != "" {
+			return ip, nil
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return "", lastErr
+	}
+	return "", fmt.Errorf("URL 列表为空")
+}
+
 // testDelayThroughProxy 通过代理测试目标URL的延迟（HEAD请求），返回毫秒
 func testDelayThroughProxy(targetURL string, timeout time.Duration) (int, error) {
-    proxyPort := getProxyPortFromConfig()
-    if proxyPort == 0 {
-        return 0, fmt.Errorf("no proxy port available")
-    }
-    proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
-    proxyURL, err := url.Parse(proxyAddr)
-    if err != nil {
-        return 0, err
-    }
-    transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
-    client := &http.Client{
-        Transport: transport,
-        Timeout:   timeout,
-        // 禁止重定向，因为HEAD请求不需要
-        CheckRedirect: func(req *http.Request, via []*http.Request) error {
-            return http.ErrUseLastResponse
-        },
-    }
-    start := time.Now()
-    resp, err := client.Head(targetURL)
-    if err != nil {
-        return 0, err
-    }
-    defer resp.Body.Close()
-    // 即使状态码不是200，也认为连接成功，只要建立连接即可
-    elapsed := time.Since(start).Milliseconds()
-    return int(elapsed), nil
+	proxyPort := getProxyPortFromConfig()
+	if proxyPort == 0 {
+		return 0, fmt.Errorf("no proxy port available")
+	}
+	proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
+	proxyURL, err := url.Parse(proxyAddr)
+	if err != nil {
+		return 0, err
+	}
+	transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
+		// 禁止重定向，因为HEAD请求不需要
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	start := time.Now()
+	resp, err := client.Head(targetURL)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	// 即使状态码不是200，也认为连接成功，只要建立连接即可
+	elapsed := time.Since(start).Milliseconds()
+	return int(elapsed), nil
 }
+
 // handleDelayTestGoogle 测试 Google 延迟
 func handleDelayTestGoogle(w http.ResponseWriter, r *http.Request) {
-    handleDelayTestCommon(w, r, "https://www.gstatic.com/generate_204")
+	handleDelayTestCommon(w, r, "https://www.gstatic.com/generate_204")
 }
 
 // handleDelayTestMicrosoft 测试 Microsoft 延迟
 func handleDelayTestMicrosoft(w http.ResponseWriter, r *http.Request) {
-    handleDelayTestCommon(w, r, "https://www.microsoft.com")
+	handleDelayTestCommon(w, r, "https://www.microsoft.com")
 }
 
 // handleDelayTestApple 测试 Apple 延迟
 func handleDelayTestApple(w http.ResponseWriter, r *http.Request) {
-    handleDelayTestCommon(w, r, "https://www.apple.com")
+	handleDelayTestCommon(w, r, "https://www.apple.com")
 }
 
 // handleDelayTestYouTube 测试 YouTube 延迟
 func handleDelayTestYouTube(w http.ResponseWriter, r *http.Request) {
-    handleDelayTestCommon(w, r, "https://www.youtube.com")
+	handleDelayTestCommon(w, r, "https://www.youtube.com")
 }
 
 // 公共处理函数
 func handleDelayTestCommon(w http.ResponseWriter, r *http.Request, targetURL string) {
-    if r.Method != http.MethodGet {
-        writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
-        return
-    }
-    // 读取超时参数，默认5000ms
-    timeoutMs := 5000
-    if t := r.URL.Query().Get("timeout"); t != "" {
-        if val, err := strconv.Atoi(t); err == nil && val > 0 {
-            timeoutMs = val
-        }
-    }
-    timeout := time.Duration(timeoutMs) * time.Millisecond
-    delay, err := testDelayThroughProxy(targetURL, timeout)
-    if err != nil {
-        // 超时或错误，返回 delay=null 或 -1，前端显示超时
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]interface{}{"delay": nil, "error": err.Error()})
-        return
-    }
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(map[string]int{"delay": delay})
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+	// 读取超时参数，默认5000ms
+	timeoutMs := 5000
+	if t := r.URL.Query().Get("timeout"); t != "" {
+		if val, err := strconv.Atoi(t); err == nil && val > 0 {
+			timeoutMs = val
+		}
+	}
+	timeout := time.Duration(timeoutMs) * time.Millisecond
+	delay, err := testDelayThroughProxy(targetURL, timeout)
+	if err != nil {
+		// 超时或错误，返回 delay=null 或 -1，前端显示超时
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"delay": nil, "error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"delay": delay})
+}
+
+// getLocalIPFromInterfaces 从本地网卡获取有效的 IPv4 或全球单播 IPv6 地址作为回退展示
+func getLocalIPFromInterfaces(isIPv6 bool) (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if (iface.Flags & net.FlagUp) == 0 || (iface.Flags & net.FlagLoopback) != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			if isIPv6 {
+				// 获取非链路本地且合法的全球单播 IPv6 地址 (通常为公网分发 IPv6)
+				if ip.To4() == nil && ip.IsGlobalUnicast() && !ip.IsLinkLocalUnicast() {
+					return ip.String(), nil
+				}
+			} else {
+				// 获取首个有效的局域网/公网 IPv4
+				if ip.To4() != nil {
+					return ip.String(), nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("no active interface IP found")
 }

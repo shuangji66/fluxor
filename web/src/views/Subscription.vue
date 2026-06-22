@@ -6,6 +6,8 @@ import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, Tra
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type SubscriptionInfo, type SubscriptionItem } from '../store/config'
+import { useRulesStore } from '../store/rules'
+import { useProxyStore } from '../store/proxies'
 
 const globalStore = useGlobalStore()
 
@@ -44,6 +46,8 @@ const selectSubscription = (name: string) => {
 }
 
 const configStore = useConfigStore()
+const rulesStore = useRulesStore()
+const proxyStore = useProxyStore()
 const { currentConfig, savedSubNames, coreStatus } = storeToRefs(configStore)
 
 const loadConfig = async () => {
@@ -112,6 +116,9 @@ const handleUpdateSub = async (index: number) => {
             clearPoll(index)
             isUpdating.value[index] = false
             globalStore.showToast(t('subscription.update_success', { name: sub.name }), 'success')
+            rulesStore.fetchRules(true)
+            rulesStore.fetchProviders(true)
+            proxyStore.fetchProxies(true)
           } else if (retries >= maxRetries) {
             clearPoll(index)
             isUpdating.value[index] = false
@@ -138,6 +145,9 @@ const handleUpdateSub = async (index: number) => {
         await loadConfig()
       }
       isUpdating.value[index] = false
+      rulesStore.fetchRules(true)
+      rulesStore.fetchProviders(true)
+      proxyStore.fetchProxies(true)
     } else {
       globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
       isUpdating.value[index] = false
@@ -294,6 +304,9 @@ const saveAndApply = async () => {
       globalStore.showToast(result.message || t('subscription.apply_success'), 'success')
       pendingPhysicalDeletes.value = []
       loadConfig()
+      rulesStore.fetchRules(true)
+      rulesStore.fetchProviders(true)
+      proxyStore.fetchProxies(true)
     } else {
       globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
     }
