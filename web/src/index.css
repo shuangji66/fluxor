@@ -2,10 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* --- 1. 主题 CSS 变量定义 --- */
+/* 1. 主题变量 */
 
 :root {
-  /* 默认暗色主题变量 */
+  /* 默认暗色 */
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-card: #1e293b;
@@ -21,26 +21,31 @@
   --warning: #f59e0b;
   --sidebar-bg: #1e293b;
   --card-bg: #1e293b;
-  --hover-bg: #334155;
+  --hover-bg: rgba(255, 255, 255, 0.08);
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --btn-secondary-bg: #2d3748;
-  --btn-secondary-hover-bg: #3d4a5c;
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.12);
   
-  /* 默认磨砂玻璃变量 */
-  --bg-glass-heavy: rgba(23, 31, 48, 0.85);
-  --bg-glass-medium: rgba(23, 31, 48, 0.75);
-  --bg-glass-light: rgba(23, 31, 48, 0.55);
+  /* 默认磨砂玻璃 */
+  --bg-glass-heavy: rgba(23, 31, 48, 0.65);
+  --bg-glass-medium: rgba(23, 31, 48, 0.45);
+  --bg-glass-light: rgba(23, 31, 48, 0.25);
   --bg-mask: rgba(15, 23, 42, 0.5);
   --border-glass: rgba(255, 255, 255, 0.06);
 
-  /* 全局控件交互与滚动条变量 */
+  /* 全局交互与滚动条 */
   --scrollbar-thumb: rgba(148, 163, 184, 0.2);
   --scrollbar-thumb-hover: rgba(148, 163, 184, 0.4);
   --focus-ring: rgba(59, 130, 246, 0.2);
+
+  /* 侧边栏激活高对比 */
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-shadow: rgba(59, 130, 246, 0.25);
 }
 
 [data-theme="light"] {
-  /* 浅色主题变量 */
+  /* 浅色主题 */
   --bg-primary: #f1f5f9;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
@@ -56,26 +61,31 @@
   --warning: #d97706;
   --sidebar-bg: #f8fafc;
   --card-bg: #ffffff;
-  --hover-bg: #e2e8f0;
+  --hover-bg: rgba(15, 23, 42, 0.04);
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   --btn-secondary-bg: #e8ecf0;
-  --btn-secondary-hover-bg: #d1d5db;
+  --btn-secondary-hover-bg: rgba(15, 23, 42, 0.08);
   
-  /* 浅色磨砂玻璃变量 */
-  --bg-glass-heavy: rgba(255, 255, 255, 0.85);
-  --bg-glass-medium: rgba(255, 255, 255, 0.70);
-  --bg-glass-light: rgba(255, 255, 255, 0.50);
+  /* 浅色磨砂玻璃 */
+  --bg-glass-heavy: rgba(255, 255, 255, 0.65);
+  --bg-glass-medium: rgba(255, 255, 255, 0.45);
+  --bg-glass-light: rgba(255, 255, 255, 0.25);
   --bg-mask: rgba(15, 23, 42, 0.2);
   --border-glass: rgba(15, 23, 42, 0.06);
 
-  /* 浅色控件交互与滚动条变量 */
+  /* 浅色交互与滚动条 */
   --scrollbar-thumb: rgba(15, 23, 42, 0.15);
   --scrollbar-thumb-hover: rgba(15, 23, 42, 0.3);
   --focus-ring: rgba(59, 130, 246, 0.2);
+
+  /* 侧边栏激活高对比 */
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-shadow: rgba(59, 130, 246, 0.15);
 }
 
 [data-theme="purple"] {
-  /* 紫色主题变量 */
+  /* 紫色主题 */
   --bg-primary: #0a0516;
   --bg-secondary: #120a24;
   --bg-card: #120a24;
@@ -91,26 +101,31 @@
   --warning: #fbbf24;
   --sidebar-bg: #0e071e;
   --card-bg: #120a24;
-  --hover-bg: #2e1065;
+  --hover-bg: rgba(192, 132, 252, 0.12);
   --shadow: 0 8px 30px rgba(147, 51, 234, 0.12);
   --btn-secondary-bg: #1e113a;
-  --btn-secondary-hover-bg: #2e1a56;
+  --btn-secondary-hover-bg: rgba(192, 132, 252, 0.18);
   
-  /* 紫色磨砂玻璃变量 */
-  --bg-glass-heavy: rgba(10, 5, 22, 0.85);
-  --bg-glass-medium: rgba(10, 5, 22, 0.70);
-  --bg-glass-light: rgba(18, 10, 36, 0.50);
+  /* 紫色磨砂玻璃 */
+  --bg-glass-heavy: rgba(10, 5, 22, 0.65);
+  --bg-glass-medium: rgba(10, 5, 22, 0.45);
+  --bg-glass-light: rgba(18, 10, 36, 0.25);
   --bg-mask: rgba(10, 5, 22, 0.5);
   --border-glass: rgba(192, 132, 252, 0.15);
 
-  /* 紫色控件交互与滚动条变量 */
+  /* 紫色交互与滚动条 */
   --scrollbar-thumb: rgba(168, 85, 247, 0.2);
   --scrollbar-thumb-hover: rgba(168, 85, 247, 0.4);
   --focus-ring: rgba(192, 132, 252, 0.25);
+
+  /* 侧边栏激活高对比 */
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #0a0516; /* 深紫字色 */
+  --sidebar-active-shadow: rgba(192, 132, 252, 0.25);
 }
 
 [data-theme="pink"] {
-  /* 粉色主题变量 */
+  /* 粉色主题 */
   --bg-primary: #fff1f2;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
@@ -126,27 +141,32 @@
   --warning: #d97706;
   --sidebar-bg: #fff1f2;
   --card-bg: #ffffff;
-  --hover-bg: #ffe4e6;
+  --hover-bg: rgba(244, 63, 94, 0.06);
   --shadow: 0 8px 30px rgba(244, 63, 94, 0.08);
   --btn-secondary-bg: #fff1f2;
-  --btn-secondary-hover-bg: #ffe4e6;
+  --btn-secondary-hover-bg: rgba(244, 63, 94, 0.12);
   
-  /* 粉色磨砂玻璃变量 */
-  --bg-glass-heavy: rgba(255, 255, 255, 0.85);
-  --bg-glass-medium: rgba(255, 255, 255, 0.75);
-  --bg-glass-light: rgba(255, 241, 242, 0.55);
+  /* 粉色磨砂玻璃 */
+  --bg-glass-heavy: rgba(255, 255, 255, 0.65);
+  --bg-glass-medium: rgba(255, 255, 255, 0.45);
+  --bg-glass-light: rgba(255, 241, 242, 0.25);
   --bg-mask: rgba(136, 19, 55, 0.12);
   --border-glass: rgba(244, 63, 94, 0.12);
 
-  /* 粉色控件交互与滚动条变量 */
+  /* 粉色交互与滚动条 */
   --scrollbar-thumb: rgba(244, 63, 94, 0.2);
   --scrollbar-thumb-hover: rgba(244, 63, 94, 0.4);
   --focus-ring: rgba(244, 63, 94, 0.2);
+
+  /* 侧边栏激活高对比 */
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-shadow: rgba(244, 63, 94, 0.20);
 }
 
-/* --- 2. 主题防御性覆盖 (针对 TailwindCSS 硬编码样式的强制重写) --- */
+/* 2. 主题覆盖 */
 
-/* 紫色主题覆盖规则 */
+/* 紫色主题 */
 [data-theme="purple"] .bg-white,
 [data-theme="purple"] .dark\:bg-\[\#1e293b\] {
   background-color: var(--bg-secondary) !important;
@@ -215,10 +235,12 @@
   color: var(--text-primary) !important;
 }
 [data-theme="purple"] aside {
-  background-color: var(--sidebar-bg) !important;
+  background-color: var(--bg-glass-heavy) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* 粉色主题覆盖规则 */
+/* 粉色主题 */
 [data-theme="pink"] .bg-white,
 [data-theme="pink"] .dark\:bg-\[\#1e293b\] {
   background-color: var(--bg-secondary) !important;
@@ -287,10 +309,25 @@
   color: var(--text-primary) !important;
 }
 [data-theme="pink"] aside {
-  background-color: var(--sidebar-bg) !important;
+  background-color: var(--bg-glass-heavy) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* --- 3. 全局基础样式与交互 --- */
+/* 3. 全局样式与交互 */
+
+/* 避免点击时选中文字 */
+button,
+select,
+nav,
+aside,
+svg,
+.cursor-pointer {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
 
 body {
   background-color: var(--bg-primary);
@@ -303,7 +340,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* 全局输入控件交互聚焦样式与占位符 */
+/* 输入控件聚焦 */
 input, select, textarea {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -315,7 +352,7 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 2px var(--focus-ring) !important;
 }
 
-/* 输入控件占位符自适应色彩 */
+/* 占位符颜色 */
 ::-webkit-input-placeholder {
   color: var(--text-secondary) !important;
   opacity: 0.45;
@@ -333,7 +370,7 @@ input:focus, select:focus, textarea:focus {
   opacity: 0.45;
 }
 
-/* 全局滚动条样式定义 */
+/* 滚动条 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -353,13 +390,13 @@ input:focus, select:focus, textarea:focus {
   background: var(--scrollbar-thumb-hover);
 }
 
-/* Firefox 滚动条兼容性配置 */
+/* Firefox 兼容 */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
-/* --- 4. 磨砂玻璃与遮罩类定义 --- */
+/* 4. 磨砂玻璃与遮罩 */
 
 .glass-heavy, [data-theme] .glass-heavy {
   background-color: var(--bg-glass-heavy) !important;
@@ -367,6 +404,10 @@ input:focus, select:focus, textarea:focus {
   -webkit-backdrop-filter: blur(16px);
   border-color: var(--border-glass) !important;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 255, 255, 0.01);
+  /* 硬件加速 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: backdrop-filter;
 }
 
 .glass-medium, [data-theme] .glass-medium {
@@ -375,6 +416,10 @@ input:focus, select:focus, textarea:focus {
   -webkit-backdrop-filter: blur(12px);
   border-color: var(--border-glass) !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  /* 硬件加速 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: backdrop-filter;
 }
 
 .glass-light, [data-theme] .glass-light {
@@ -382,27 +427,44 @@ input:focus, select:focus, textarea:focus {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-color: var(--border-glass) !important;
+  /* 硬件加速 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: backdrop-filter;
+  /* 继承圆角 */
+  border-radius: inherit;
 }
 
 .glass-mask {
   background-color: var(--bg-mask) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  /* 硬件加速 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: backdrop-filter;
 }
 
-/* 磨砂玻璃在不同主题下的投影与发光微动效定义 */
+/* 侧边栏激活 */
+.sidebar-active {
+  background-color: var(--sidebar-active-bg) !important;
+  color: var(--sidebar-active-text) !important;
+  box-shadow: 0 4px 12px var(--sidebar-active-shadow) !important;
+}
+
+/* 磨砂玻璃投影 */
 [data-theme="purple"] .glass-heavy {
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 30px rgba(168, 85, 247, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
 [data-theme="purple"] .glass-medium {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 15px rgba(168, 85, 247, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="pink"] .glass-heavy {
-  box-shadow: 0 20px 50px rgba(244, 63, 94, 0.04), 0 0 30px rgba(244, 63, 94, 0.08);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.06);
 }
 [data-theme="pink"] .glass-medium {
-  box-shadow: 0 8px 32px rgba(244, 63, 94, 0.02), 0 0 15px rgba(244, 63, 94, 0.04);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.03);
 }
 
 [data-theme="light"] .glass-heavy {
@@ -410,10 +472,10 @@ input:focus, select:focus, textarea:focus {
 }
 
 .dark .glass-heavy {
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 25px rgba(59, 130, 246, 0.03);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
 
-/* --- 5. 磨砂玻璃内部文字可读性保障 --- */
+/* 5. 文字颜色 */
 
 .glass-heavy,
 .glass-medium,
@@ -439,7 +501,7 @@ input:focus, select:focus, textarea:focus {
   --text-secondary: #d8b4fe;
 }
 
-/* 覆盖 Tailwind 硬编码文本灰色类，确保磨砂玻璃背景上的文字清晰可读 */
+/* 覆盖文本色 */
 .glass-heavy .text-slate-400,
 .glass-heavy .text-slate-500,
 .glass-heavy .text-slate-600,
@@ -461,7 +523,7 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-secondary) !important;
 }
 
-/* --- 6. 移动端底栏交互对比度保障 --- */
+/* 6. 移动端底栏 */
 
 nav.md\:hidden button:not(.text-accent) {
   color: var(--text-secondary) !important;
@@ -475,7 +537,7 @@ nav.md\:hidden button.text-accent {
   transition: opacity 0.2s ease;
 }
 
-/* --- 7. 动画预设 --- */
+/* 7. 动画 */
 
 @keyframes fadeIn {
   from {
@@ -486,4 +548,69 @@ nav.md\:hidden button.text-accent {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* 8. 适配与 Hover */
+
+/* 面板玻璃化 */
+main .bg-white,
+main .dark\:bg-\[\#1e293b\],
+main .dark\:bg-slate-800,
+[data-theme="purple"] main .bg-white,
+[data-theme="purple"] main .dark\:bg-\[\#1e293b\],
+[data-theme="pink"] main .bg-white,
+[data-theme="pink"] main .dark\:bg-\[\#1e293b\] {
+  background-color: var(--bg-glass-medium) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  /* 硬件加速 */
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  will-change: backdrop-filter !important;
+}
+
+/* 内部 Hover 优化 */
+.glass-heavy .hover\:bg-slate-50:hover,
+.glass-heavy .hover\:bg-slate-100:hover,
+.glass-heavy .hover\:bg-slate-200:hover,
+.glass-heavy .dark\:hover\:bg-slate-700:hover,
+.glass-heavy .dark\:hover\:bg-slate-800:hover,
+.glass-medium .hover\:bg-slate-50:hover,
+.glass-medium .hover\:bg-slate-100:hover,
+.glass-medium .hover\:bg-slate-200:hover,
+.glass-medium .dark\:hover\:bg-slate-700:hover,
+.glass-medium .dark\:hover\:bg-slate-800:hover,
+.glass-light .hover\:bg-slate-50:hover,
+.glass-light .hover\:bg-slate-100:hover,
+.glass-light .hover\:bg-slate-200:hover,
+.glass-light .dark\:hover\:bg-slate-700:hover,
+.glass-light .dark\:hover\:bg-slate-800:hover,
+/* 兼容卡片 Hover */
+.bg-white .hover\:bg-slate-50:hover,
+.bg-white .hover\:bg-slate-100:hover,
+.bg-white .hover\:bg-slate-200:hover,
+.bg-white .dark\:hover\:bg-slate-700:hover,
+.bg-white .dark\:hover\:bg-slate-800:hover,
+.dark\:bg-\[\#1e293b\] .hover\:bg-slate-50:hover,
+.dark\:bg-\[\#1e293b\] .hover\:bg-slate-100:hover,
+.dark\:bg-\[\#1e293b\] .hover\:bg-slate-200:hover,
+.dark\:bg-\[\#1e293b\] .dark\:hover\:bg-slate-700:hover,
+.dark\:bg-\[\#1e293b\] .dark\:hover\:bg-slate-800:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 亮色/粉色主题 Hover 反转 */
+[data-theme="light"] .glass-heavy .hover\:bg-slate-100:hover,
+[data-theme="light"] .glass-heavy .hover\:bg-slate-200:hover,
+[data-theme="light"] .glass-medium .hover\:bg-slate-100:hover,
+[data-theme="light"] .glass-medium .hover\:bg-slate-200:hover,
+[data-theme="light"] .bg-white .hover\:bg-slate-100:hover,
+[data-theme="light"] .bg-white .hover\:bg-slate-200:hover,
+[data-theme="pink"] .glass-heavy .hover\:bg-slate-100:hover,
+[data-theme="pink"] .glass-heavy .hover\:bg-slate-200:hover,
+[data-theme="pink"] .glass-medium .hover\:bg-slate-100:hover,
+[data-theme="pink"] .glass-medium .hover\:bg-slate-200:hover,
+[data-theme="pink"] .bg-white .hover\:bg-slate-100:hover,
+[data-theme="pink"] .bg-white .hover\:bg-slate-200:hover {
+  background-color: rgba(15, 23, 42, 0.05) !important;
 }

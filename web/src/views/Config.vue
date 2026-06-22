@@ -7,6 +7,7 @@ import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type ConfigData } from '../store/config'
 import { useOverviewStore } from '../store/overview'
+import FormSwitch from '../components/FormSwitch.vue'
 
 const { t, locale } = useI18n()
 const globalStore = useGlobalStore()
@@ -56,24 +57,7 @@ const fetchInterfaces = async () => {
   }
 }
 
-const mixedPortInput = ref<string>('')
-const portInput = ref<string>('')
-const socksPortInput = ref<string>('')
-const redirPortInput = ref<string>('')
-const tproxyPortInput = ref<string>('')
-
-const syncPortsFromConfigs = () => {
-  const cfg = configs.value
-  mixedPortInput.value = cfg['mixed-port'] ? String(cfg['mixed-port']) : ''
-  portInput.value = cfg.port ? String(cfg.port) : ''
-  socksPortInput.value = cfg['socks-port'] ? String(cfg['socks-port']) : ''
-  redirPortInput.value = cfg['redir-port'] ? String(cfg['redir-port']) : ''
-  tproxyPortInput.value = cfg['tproxy-port'] ? String(cfg['tproxy-port']) : ''
-}
-
-watch(() => configs.value, () => {
-  syncPortsFromConfigs()
-}, { deep: true, immediate: true })
+// 废弃局部端口 ref 和深度 watch，直接双向绑定 configs 对象
 
 
 // 统一修改配置
@@ -121,23 +105,18 @@ const savePorts = (e?: Event) => {
     return
   }
 
-  const getPortVal = (val: string) => {
-    const p = parseInt(val)
-    return isNaN(p) ? 0 : p
-  }
-
-  const port = getPortVal(portInput.value)
-  const socksPort = getPortVal(socksPortInput.value)
-  const redirPort = getPortVal(redirPortInput.value)
-  const tproxyPort = getPortVal(tproxyPortInput.value)
-  const mixedPort = getPortVal(mixedPortInput.value)
+  const port = configs.value.port || 0
+  const socksPort = configs.value['socks-port'] || 0
+  const redirPort = configs.value['redir-port'] || 0
+  const tproxyPort = configs.value['tproxy-port'] || 0
+  const mixedPort = configs.value['mixed-port'] || 0
 
   const ports = [port, socksPort, redirPort, tproxyPort, mixedPort]
 
   for (const p of ports) {
     if (p !== 0 && (p < 1025 || p > 65535)) {
       globalStore.showToast(t('config.port_invalid_hint'), 'error')
-      syncPortsFromConfigs()
+      fetchConfigs(true)
       return
     }
   }
@@ -145,18 +124,7 @@ const savePorts = (e?: Event) => {
   const activePorts = ports.filter(p => p !== 0)
   if (new Set(activePorts).size !== activePorts.length) {
     globalStore.showToast(t('config.port_duplicate_hint'), 'error')
-    syncPortsFromConfigs()
-    return
-  }
-
-  // 检查是否有实际变更，如果没有则不请求后端
-  if (
-    port === configs.value.port &&
-    socksPort === configs.value['socks-port'] &&
-    redirPort === configs.value['redir-port'] &&
-    tproxyPort === configs.value['tproxy-port'] &&
-    mixedPort === configs.value['mixed-port']
-  ) {
+    fetchConfigs(true)
     return
   }
 
@@ -414,20 +382,12 @@ onUnmounted(() => {
 
         <div class="flex items-center justify-between">
           <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.allow_lan') }}</label>
-          <button @click="configs['allow-lan'] = !configs['allow-lan']; toggleAllowLan()"
-            class="w-10 h-6 flex items-center rounded-full p-0.5 transition-all"
-            :class="configs['allow-lan'] ? 'bg-accent justify-end' : 'bg-slate-200 dark:bg-slate-700 justify-start'">
-            <span class="w-5 h-5 rounded-full bg-white shadow-md"></span>
-          </button>
+          <FormSwitch v-model="configs['allow-lan']" @update:model-value="toggleAllowLan" />
         </div>
 
         <div class="flex items-center justify-between">
           <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.ipv6_toggle') }}</label>
-          <button @click="configs.ipv6 = !configs.ipv6; toggleIPv6()"
-            class="w-10 h-6 flex items-center rounded-full p-0.5 transition-all"
-            :class="configs.ipv6 ? 'bg-accent justify-end' : 'bg-slate-200 dark:bg-slate-700 justify-start'">
-            <span class="w-5 h-5 rounded-full bg-white shadow-md"></span>
-          </button>
+          <FormSwitch v-model="configs.ipv6" @update:model-value="toggleIPv6" />
         </div>
 
         <div class="flex flex-col gap-1.5">
@@ -471,28 +431,28 @@ onUnmounted(() => {
         <div class="grid grid-cols-2 gap-4">
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.mixed_port') }}</label>
-            <input type="number" v-model="mixedPortInput" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+            <input type="number" v-model.number="configs['mixed-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
               class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
           </div>
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.http_port') }}</label>
-            <input type="number" v-model="portInput" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+            <input type="number" v-model.number="configs.port" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
               class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
           </div>
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.socks_port') }}</label>
-            <input type="number" v-model="socksPortInput" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+            <input type="number" v-model.number="configs['socks-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
               class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
           </div>
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.redir_port') }}</label>
-            <input type="number" v-model="redirPortInput" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+            <input type="number" v-model.number="configs['redir-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
               class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
           </div>
           <div class="flex flex-col gap-1 col-span-2">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tproxy_port')
               }}</label>
-            <input type="number" v-model="tproxyPortInput" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+            <input type="number" v-model.number="configs['tproxy-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
               class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
           </div>
         </div>
@@ -515,11 +475,7 @@ onUnmounted(() => {
 
         <div class="flex items-center justify-between">
           <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tun_enable') }}</label>
-          <button @click="configs.tun.enable = !configs.tun.enable; saveTun()"
-            class="w-10 h-6 flex items-center rounded-full p-0.5 transition-all"
-            :class="configs.tun.enable ? 'bg-accent justify-end' : 'bg-slate-200 dark:bg-slate-700 justify-start'">
-            <span class="w-5 h-5 rounded-full bg-white shadow-md"></span>
-          </button>
+          <FormSwitch v-model="configs.tun.enable" @update:model-value="() => saveTun()" />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="flex flex-col gap-1">

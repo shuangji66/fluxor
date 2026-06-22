@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
 import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline } from '@vicons/ionicons5'
@@ -63,51 +63,86 @@ const getHealthClass = (info?: SubscriptionInfo | null) => {
   return 'text-red-400'
 }
 
+// 记录正在轮询的定时器，避免多次触发或卸载泄露
+const activePolls = new Map<number, any>()
+
+const clearPoll = (index: number) => {
+  const timer = activePolls.get(index)
+  if (timer) {
+    clearInterval(timer)
+    activePolls.delete(index)
+  }
+}
+
 // 手动更新单个订阅
 const handleUpdateSub = async (index: number) => {
   const sub = currentConfig.value.subscriptions[index]
   if (!sub) return
   if (isUpdating.value[index]) return
+
+  // 记录初始的更新时间以比对
+  const initialTime = sub.info?.updatedAt || null
+
   isUpdating.value[index] = true
   globalStore.showToast(t('rules.updating'), 'info')
   try {
     const encoded = encodeURIComponent(sub.name)
-    let resp
-    if (currentConfig.value.mode === 'merge') {
-      // 融合模式：调用内核 provider 更新
-      resp = await apiFetch(`/providers/proxies/${encoded}`, { method: 'PUT' })
-      if (resp.ok) {
-        const info = await fetchSubscriptionInfo(sub.name)
-        currentConfig.value.subscriptions[index].info = info
-        // 持久化到后端
+    const resp = await apiFetch(`/subscribe/update/${encoded}`, { method: 'POST' })
+    const result = await resp.json()
+
+    if (!resp.ok) {
+      globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
+      isUpdating.value[index] = false
+      return
+    }
+
+    if (result.status === 'processing') {
+      // 融合模式：异步更新，前端轮询 2s 间隔，最长 30s
+      let retries = 0
+      const maxRetries = 15
+      clearPoll(index)
+
+      const timer = setInterval(async () => {
+        retries++
         try {
-          await apiFetch(`/subscribe/update-info/${encoded}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(info)
-          })
-        } catch (e) {
-          console.warn('持久化订阅信息失败', e)
+          await configStore.loadConfig()
+          const updatedSub = currentConfig.value.subscriptions.find(s => s.name === sub.name)
+          if (updatedSub && updatedSub.info?.updatedAt !== initialTime) {
+            clearPoll(index)
+            isUpdating.value[index] = false
+            globalStore.showToast(t('subscription.update_success', { name: sub.name }), 'success')
+          } else if (retries >= maxRetries) {
+            clearPoll(index)
+            isUpdating.value[index] = false
+            globalStore.showToast(`${t('subscription.operation_failed')}: ${t('proxies.timeout')}`, 'error')
+          }
+        } catch (pollErr) {
+          console.error('轮询订阅配置出错:', pollErr)
         }
-        globalStore.showToast(t('subscription.update_success', { name: sub.name }), 'success')
+      }, 2000)
+
+      activePolls.set(index, timer)
+    } else if (result.status === 'ok') {
+      // 切换模式：同步更新成功
+      globalStore.showToast(result.message || t('subscription.update_success', { name: sub.name }), 'success')
+      if (result.info) {
+        currentConfig.value.subscriptions[index].info = {
+          upload: result.info.Upload || 0,
+          download: result.info.Download || 0,
+          total: result.info.Total || 0,
+          expire: result.info.Expire || 0,
+          updatedAt: result.info.updatedAt || null,
+        }
       } else {
-        globalStore.showToast(`${t('common.operation_failed')}: ${resp.status}`, 'error')
-      }
-    } else {
-      // 切换模式：调用自定义更新 API
-      resp = await apiFetch(`/subscribe/update/${encoded}`, { method: 'POST' })
-      const result = await resp.json()
-      if (resp.ok && result.status === 'ok') {
-        globalStore.showToast(result.message || t('subscription.update_success', { name: sub.name }), 'success')
-        // 重新加载配置以获取新元数据
         await loadConfig()
-      } else {
-        globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
       }
+      isUpdating.value[index] = false
+    } else {
+      globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
+      isUpdating.value[index] = false
     }
   } catch (e) {
     globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
-  } finally {
     isUpdating.value[index] = false
   }
 }
@@ -271,6 +306,12 @@ onMounted(() => {
   configStore.fetchCoreStatus()
   loadConfig()
 })
+
+onUnmounted(() => {
+  // 清理所有未完成的订阅轮询定时器
+  activePolls.forEach(timer => clearInterval(timer))
+  activePolls.clear()
+})
 </script>
 
 <template>
@@ -371,7 +412,7 @@ onMounted(() => {
           }"
         >
           <!-- 正在更新/健康检查的卡片遮罩层 -->
-          <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 glass-light z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
+          <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 glass-light rounded-xl z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
             <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
             <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {{ isUpdating[idx] ? t('rules.updating') : t('subscription.health_check') + '...' }}
@@ -436,59 +477,63 @@ onMounted(() => {
       </div>
 
       <!-- 保存并应用全屏模糊加载浮层 -->
-      <div v-if="isApplying" class="fixed inset-0 glass-mask z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
-        <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
-          <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
+      <Teleport to="body">
+        <div v-if="isApplying" class="fixed inset-0 glass-mask z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
+          <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
+            <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
+            <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
+          </div>
         </div>
-      </div>
+      </Teleport>
     </div>
 
     <!-- Modal -->
-    <div v-if="showModal" class="fixed inset-0 glass-mask z-50 flex items-center justify-center p-4">
-      <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
-        <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-          <h2 class="text-lg font-bold">{{ modalTitle }}</h2>
-          <button @click="closeSubModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-            <CloseOutline class="w-5 h-5" />
-          </button>
-        </div>
+    <Teleport to="body">
+      <div v-if="showModal" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4">
+        <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
+          <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h2 class="text-lg font-bold">{{ modalTitle }}</h2>
+            <button @click="closeSubModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+              <CloseOutline class="w-5 h-5" />
+            </button>
+          </div>
 
-        <div class="space-y-4">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.name') }}</label>
-            <input type="text" v-model="editForm.name" :placeholder="t('subscription.name_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+          <div class="space-y-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.name') }}</label>
+              <input type="text" v-model="editForm.name" :placeholder="t('subscription.name_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.url') }}</label>
+              <input type="text" v-model="editForm.url" placeholder="https://example.com/sub" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.update_interval') }}</label>
+              <input type="number" v-model="editForm.update_interval" placeholder="86400" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.health_interval') }}</label>
+              <input type="number" v-model="editForm.health_interval" placeholder="300" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.prefix') }}</label>
+              <input type="text" v-model="editForm.prefix" :placeholder="t('subscription.prefix_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            </div>
           </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.url') }}</label>
-            <input type="text" v-model="editForm.url" placeholder="https://example.com/sub" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.update_interval') }}</label>
-            <input type="number" v-model="editForm.update_interval" placeholder="86400" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.health_interval') }}</label>
-            <input type="number" v-model="editForm.health_interval" placeholder="300" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.prefix') }}</label>
-            <input type="text" v-model="editForm.prefix" :placeholder="t('subscription.prefix_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-          </div>
-        </div>
 
-        <p class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ t('subscription.modal_hint') }}</p>
+          <p class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ t('subscription.modal_hint') }}</p>
 
-        <div class="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-          <button @click="closeSubModal" class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
-            {{ t('subscription.cancel') }}
-          </button>
-          <button @click="saveSubToList" class="px-4 py-2 text-sm font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
-            {{ t('subscription.save_to_list') }}
-          </button>
+          <div class="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button @click="closeSubModal" class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
+              {{ t('subscription.cancel') }}
+            </button>
+            <button @click="saveSubToList" class="px-4 py-2 text-sm font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
+              {{ t('subscription.save_to_list') }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 

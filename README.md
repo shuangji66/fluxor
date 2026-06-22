@@ -20,6 +20,8 @@ fluxor/
     ├── package.json, vite.config.js, tailwind.config.js, ...
     └── src/
         ├── main.ts, App.vue, i18n.ts
+        ├── components/                      # 公共及细粒度组件 (ProxyGroupCard, FormSwitch)
+        ├── composables/                     # 全局解耦组合式函数 (useTheme, useLanguage)
         ├── utils/
         │   ├── api.ts                           # HTTP/WS 网络工具
         │   └── mock.ts                          # 离线开发模拟器（Mock 数据与 Mock WS 连接）

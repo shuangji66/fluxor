@@ -321,6 +321,13 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
     }
     text := string(content)
 
+    // 清理可能冲突的顶层单端口定义，防止重复端口绑定导致内核崩溃
+    conflictKeys := []string{"port", "socks-port", "redir-port", "tproxy-port"}
+    for _, k := range conflictKeys {
+        reConflict := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(k) + `:\s*\d+\s*$`)
+        text = reConflict.ReplaceAllString(text, "# "+k+" removed by Fluxor")
+    }
+
     // 定义待替换/添加的字段
     rules := []struct {
         key   string
@@ -528,7 +535,7 @@ func ensureSubscriptionFiles(cfg *SubscribeConfig) error {
                 needDownload = true
             } else {
                 // 文件存在且非空，检查元数据是否缺失
-                if cfg.Subscriptions[idx].SubscriptionInfo == nil || len(cfg.Subscriptions[idx].SubscriptionInfo) == 0 {
+                if len(cfg.Subscriptions[idx].SubscriptionInfo) == 0 {
                     needDownload = true
                     // 为保险，先删除旧文件，确保重新下载
                     if err := os.Remove(targetFile); err != nil && !os.IsNotExist(err) {
@@ -681,43 +688,129 @@ func handleSubscribeUpdate(w http.ResponseWriter, r *http.Request) {
 
     log.Printf("[UPDATE] 收到更新请求: %s", name)
 
-    var needsReload bool
-    var err2 error // 注意：这里不能用 err，因为 err 已被用作解码返回值
-    subscribeMu.Lock()
-    if subscribeConfig.Mode != "switch" {
+    subscribeMu.RLock()
+    mode := subscribeConfig.Mode
+    subscribeMu.RUnlock()
+
+    var targetSub Subscription
+    var found bool
+
+    if mode == "merge" {
+        // 先在主线程快速判断订阅是否存在，保证基本参数合法
+        subscribeMu.RLock()
+        for _, s := range subscribeConfig.Subscriptions {
+            if s.Name == name {
+                found = true
+                break
+            }
+        }
+        subscribeMu.RUnlock()
+
+        if !found {
+            writeJSONError(w, http.StatusNotFound, "未找到该订阅")
+            return
+        }
+
+        // 启动后台协程异步调用内核更新并拉取元数据，避免阻塞 HTTP 主线程导致 504
+        go func(subName string) {
+            log.Printf("[ASYNC-UPDATE] 后台启动更新订阅: %s", subName)
+            encoded := url.QueryEscape(subName)
+            resp, err := coreRequest("PUT", "/providers/proxies/"+encoded, nil)
+            if err != nil {
+                log.Printf("[ASYNC-UPDATE][ERROR] 调用内核更新失败 %s: %v", subName, err)
+                return
+            }
+            resp.Body.Close()
+
+            // 从主内核拉取最新的元数据
+            updatedAt, subInfo, err := fetchSubscriptionMetadataFromCore(subName)
+            if err != nil {
+                log.Printf("[ASYNC-UPDATE][ERROR] 获取订阅元数据失败 %s: %v", subName, err)
+                return
+            }
+
+            // 更新内存配置数据
+            subscribeMu.Lock()
+            for i := range subscribeConfig.Subscriptions {
+                if subscribeConfig.Subscriptions[i].Name == subName {
+                    subscribeConfig.Subscriptions[i].UpdatedAt = updatedAt
+                    subscribeConfig.Subscriptions[i].SubscriptionInfo = subInfo
+                    break
+                }
+            }
+            subscribeMu.Unlock()
+
+            // 持久化保存到 subscribe.json
+            if err := saveSubscribeConfig(); err != nil {
+                log.Printf("[ASYNC-UPDATE][ERROR] 保存订阅配置失败 %s: %v", subName, err)
+            } else {
+                log.Printf("[ASYNC-UPDATE] 订阅 %s 后台更新并保存元数据成功", subName)
+            }
+        }(name)
+
+        // 立即向前端回传 processing 状态
+        respondJSON(w, http.StatusOK, map[string]string{
+            "status":  "processing",
+            "message": "订阅更新已在后台启动",
+        })
+        return
+    } else {
+        // 切换模式：启动临时下载
+        var needsReload bool
+        var err2 error
+        subscribeMu.Lock()
+        needsReload, err2 = updateSubscriptionInSwitchMode(&subscribeConfig, name)
+        for _, s := range subscribeConfig.Subscriptions {
+            if s.Name == name {
+                targetSub = s
+                found = true
+                break
+            }
+        }
         subscribeMu.Unlock()
-        writeJSONError(w, http.StatusBadRequest, "当前非切换模式")
-        return
-    }
-    needsReload, err2 = updateSubscriptionInSwitchMode(&subscribeConfig, name)
-    subscribeMu.Unlock()
-    if err2 != nil {
-        writeJSONError(w, http.StatusInternalServerError, "更新失败: "+err2.Error())
-        return
+
+        if err2 != nil {
+            writeJSONError(w, http.StatusInternalServerError, "更新失败: "+err2.Error())
+            return
+        }
+        if !found {
+            writeJSONError(w, http.StatusNotFound, "未找到该订阅")
+            return
+        }
+
+        // 如果需要重载，在锁外调用
+        if needsReload {
+            log.Printf("[UPDATE] 开始重载内核")
+            if err := reloadCore(); err != nil {
+                log.Printf("[UPDATE] 重载内核失败: %v", err)
+            }
+        }
+
+        // 重置定时器
+        stopAllTimers()
+        startAllTimers()
     }
 
-    // 保存配置（元数据已更新）
+    // 保存配置到 subscribe.json
     if err := saveSubscribeConfig(); err != nil {
         log.Printf("保存配置失败: %v", err)
     }
 
-    // 如果需要重载，在锁外调用
-    if needsReload {
-        log.Printf("[UPDATE] 开始重载内核")
-        if err := reloadCore(); err != nil {
-            log.Printf("[UPDATE] 重载内核失败: %v", err)
-        } else {
-            log.Printf("[UPDATE] 重载内核成功")
+    var info interface{}
+    if targetSub.SubscriptionInfo != nil {
+        info = map[string]interface{}{
+            "Upload":    targetSub.SubscriptionInfo["Upload"],
+            "Download":  targetSub.SubscriptionInfo["Download"],
+            "Total":     targetSub.SubscriptionInfo["Total"],
+            "Expire":    targetSub.SubscriptionInfo["Expire"],
+            "updatedAt": targetSub.UpdatedAt,
         }
     }
 
-    // 重置定时器
-    stopAllTimers()
-    startAllTimers()
-
-    respondJSON(w, http.StatusOK, map[string]string{
+    respondJSON(w, http.StatusOK, map[string]interface{}{
         "status":  "ok",
         "message": "订阅 " + name + " 更新成功",
+        "info":    info,
     })
 }
 // startSubscriptionTimer 为指定订阅启动定时更新（仅切换模式）
