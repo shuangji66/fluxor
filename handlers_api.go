@@ -497,8 +497,8 @@ func handleProxyIPv4(w http.ResponseWriter, r *http.Request) {
 	proxyAddr := fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
 	urls := []string{
 		"https://api.ipify.org?format=json",
-		"https://icanhazip.com",
-		"https://ifconfig.me/ip",
+		"https://ipv4.icanhazip.com",
+		"https://v4.ident.me",
 	}
 	ip, err := fetchPublicIPWithFallback(urls, proxyAddr)
 	if err != nil {
@@ -655,13 +655,20 @@ func testDelayThroughProxy(targetURL string, timeout time.Duration) (int, error)
 	client := &http.Client{
 		Transport: transport,
 		Timeout:   timeout,
-		// 禁止重定向，因为HEAD请求不需要
+		// 禁止重定向，测速只需要首包响应即可
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
+	req, err := http.NewRequest("HEAD", targetURL, nil)
+	if err != nil {
+		return 0, err
+	}
+	// 强制通知代理与源站发送完报头后立即关闭连接，防止因无结束标记挂起超时
+	req.Close = true
+
 	start := time.Now()
-	resp, err := client.Head(targetURL)
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}

@@ -351,29 +351,16 @@ const ipInfo = ref<IpInfo>({
   error: false
 })
 
-// 获取公网 IP 信息（全部更新，并发调用四个独立刷新）
-const fetchPublicIP = async () => {
-  ipInfo.value.loading = true
-  ipInfo.value.error = false
+const isAnyIpLoading = computed(() => {
+  return loadingLocalV4.value || loadingLocalV6.value || loadingProxyV4.value || loadingProxyV6.value
+})
 
-  try {
-    await Promise.all([
-      refreshLocalIPv4(),
-      refreshLocalIPv6(),
-      refreshProxyIPv4(),
-      refreshProxyIPv6()
-    ])
-    // 如果所有字段都为空，标记为错误
-    if (!ipInfo.value.localIPv4 && !ipInfo.value.localIPv6 && 
-        !ipInfo.value.proxyIPv4 && !ipInfo.value.proxyIPv6) {
-      ipInfo.value.error = true
-    }
-  } catch (e) {
-    console.warn('全部更新 IP 信息失败:', e)
-    ipInfo.value.error = true
-  } finally {
-    ipInfo.value.loading = false
-  }
+// 获取公网 IP 信息（并发流式拉取，互不阻塞）
+const fetchPublicIP = async () => {
+  refreshLocalIPv4()
+  refreshLocalIPv6()
+  refreshProxyIPv4()
+  refreshProxyIPv6()
 }
 
 // 独立刷新本机 IPv4
@@ -682,23 +669,15 @@ onUnmounted(() => {
             </h4>
             <button 
                 @click="fetchPublicIP" 
-                :disabled="ipInfo.loading"
+                :disabled="isAnyIpLoading"
                 class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
                 :title="t('common.refresh')"
             >
-                <SyncOutline class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" :class="{ 'animate-spin': ipInfo.loading }" />
+                <SyncOutline class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" :class="{ 'animate-spin': isAnyIpLoading }" />
             </button>
         </div>
         
-        <div v-if="ipInfo.loading" class="flex items-center justify-center py-6">
-            <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
-        </div>
-        
-        <div v-else-if="ipInfo.error" class="text-center py-6 text-sm text-slate-400">
-            {{ t('overview.ip_fetch_failed') }}
-        </div>
-        
-        <div v-else class="space-y-1.5 text-sm">
+        <div class="space-y-1.5 text-sm">
             <!-- 本机 IPv4 -->
             <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
                 <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">{{ t('overview.local_ip') }} (IPv4)</span>
