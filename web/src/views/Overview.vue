@@ -444,28 +444,31 @@ interface DelayTestResult {
   url: string
   delay: number | null
   loading: boolean
+  tested: boolean  
 }
 
 const delayTargets = [
   { name: 'Google', url: 'https://www.gstatic.com/generate_204' },
-  { name: 'Microsoft', url: 'https://www.microsoft.com' },
-  { name: 'Apple', url: 'https://www.apple.com' },
+  { name: 'GitHub', url: 'https://github.com' },
   { name: 'YouTube', url: 'https://www.youtube.com' }
 ]
+
+const delayApiMap: Record<string, string> = {
+    'Google': '/delaytest/google',
+    'GitHub': '/delaytest/github',
+    'YouTube': '/delaytest/youtube'
+}
 
 const delayResults = ref<DelayTestResult[]>(
   delayTargets.map(t => ({ ...t, delay: null, loading: false }))
 )
 
-const isTestingDelay = ref(false)
+const customUrl = ref('https://www.baidu.com')
+const customDelay = ref<number | null>(null)
+const customLoading = ref(false)
+const customTested = ref(false) 
 
-// 目标名称到后端API路径的映射
-const delayApiMap: Record<string, string> = {
-    'Google': '/delaytest/google',
-    'Microsoft': '/delaytest/microsoft',
-    'Apple': '/delaytest/apple',
-    'YouTube': '/delaytest/youtube'
-}
+const isTestingDelay = ref(false)
 
 // 测试单个目标的延迟（通过后端代理）
 const testSingleDelay = async (index: number) => {
@@ -497,7 +500,34 @@ const testSingleDelay = async (index: number) => {
         item.delay = null
     } finally {
         item.loading = false
+        item.tested = true
     }
+}
+
+// 自定义目标测试延迟
+const testCustomDelay = async () => {
+  if (!customUrl.value.trim()) return
+  customLoading.value = true
+  customDelay.value = null
+  try {
+    const resp = await apiFetch(`/delaytest/custom?url=${encodeURIComponent(customUrl.value)}&timeout=5000`)
+    if (resp.ok) {
+      const data = await resp.json()
+      if (data.delay !== undefined && data.delay !== null && data.delay > 0) {
+        customDelay.value = data.delay
+      } else {
+        customDelay.value = null
+      }
+    } else {
+      customDelay.value = null
+    }
+  } catch (e) {
+    console.warn('自定义测试失败:', e)
+    customDelay.value = null
+  } finally {
+    customLoading.value = false
+    customTested.value = true
+  }
 }
 
 // 测试全部目标
@@ -522,6 +552,7 @@ const testAllDelays = async () => {
 
 // 获取延迟显示
 const getDelayDisplay = (result: DelayTestResult) => {
+  if (!result.tested) return { text: '---', color: 'text-slate-400' }
   if (result.loading) return { text: t('proxies.testing'), color: 'text-slate-400' }
   if (result.delay === null) return { text: t('proxies.timeout'), color: 'text-red-500' }
   if (result.delay < 150) return { text: `${result.delay}ms`, color: 'text-success' }
@@ -758,53 +789,86 @@ onUnmounted(() => {
         </div>
     </div>
 
-      <!-- 代理延迟测试卡 -->
-      <div class="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-          <div class="flex items-center justify-between mb-3">
-              <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
-                  {{ t('overview.proxy_delay_test') }}
-              </h4>
-              <button 
-                  @click="testAllDelays" 
-                  :disabled="isTestingDelay"
-                  class="px-3 py-1 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                  {{ isTestingDelay ? t('overview.testing') : t('overview.test_all') }}
-              </button>
-          </div>
-          
-          <div class="space-y-2">
-              <div 
-                  v-for="(result, idx) in delayResults" 
-                  :key="result.name"
-                  class="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-              >
-                  <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">{{ result.name }}</span>
-                  <div class="flex items-center gap-3">
-                      <span 
-                          class="text-sm font-mono font-bold cursor-pointer hover:underline"
-                          :class="getDelayDisplay(result).color"
-                          @click="testSingleDelay(idx)"
-                      >
-                          {{ getDelayDisplay(result).text }}
-                      </span>
+    <!-- 代理延迟测试卡 -->
+    <div class="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+        <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                {{ t('overview.proxy_delay_test') }}
+            </h4>
+            <button 
+                @click="testAllDelays" 
+                :disabled="isTestingDelay"
+                class="px-3 py-1 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                {{ isTestingDelay ? t('overview.testing') : t('overview.test_all') }}
+            </button>
+        </div>
+        
+        <div class="space-y-2">
+            <!-- 自定义测试项（置顶） -->
+            <div class="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div class="flex-1 min-w-0 mr-2">
+                    <input 
+                        v-model="customUrl" 
+                        type="text" 
+                        :placeholder="t('overview.custom_placeholder')"
+                        class="w-full px-2 py-0.5 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-transparent border-b border-slate-200 dark:border-slate-700 focus:border-accent outline-none transition-colors"
+                        @keyup.enter="testCustomDelay"
+                    />
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <span 
+                        class="text-sm font-mono font-bold cursor-pointer hover:underline"
+                        :class="customLoading ? 'text-slate-400' : (customTested ? (customDelay !== null ? (customDelay < 150 ? 'text-success' : customDelay < 300 ? 'text-amber-500' : 'text-red-400') : 'text-red-500') : 'text-slate-400')"
+                        @click="testCustomDelay"
+                    >
+                        {{ customLoading ? t('proxies.testing') : (customTested ? (customDelay !== null ? customDelay + 'ms' : t('proxies.timeout')) : '---') }}
+                    </span>
+                    <button 
+                        @click="testCustomDelay" 
+                        :disabled="customLoading || !customUrl.trim()"
+                        class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-50"
+                        :title="t('overview.test_custom_title')"
+                    >
+                        <svg v-if="!customLoading" class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <div v-else class="w-3 h-3 border-2 border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
+                    </button>
+                </div>
+            </div>
 
-                      <button 
-                          @click="testSingleDelay(idx)" 
-                          :disabled="result.loading"
-                          class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-50"
-                          :title="t('overview.test_single_title', { name: result.name })"
-                      >
-                          <svg v-if="!result.loading" class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          <div v-else class="w-3 h-3 border-2 border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
-                      </button>
-                  </div>
-              </div>
-          </div>
-      </div>
+            <!-- 固定测试项：Google、GitHub、YouTube -->
+            <div 
+                v-for="(result, idx) in delayResults" 
+                :key="result.name"
+                class="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+            >
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">{{ result.name }}</span>
+                <div class="flex items-center gap-3">
+                    <span 
+                        class="text-sm font-mono font-bold cursor-pointer hover:underline"
+                        :class="getDelayDisplay(result).color"
+                        @click="testSingleDelay(idx)"
+                    >
+                        {{ getDelayDisplay(result).text }}
+                    </span>
+                    <button 
+                        @click="testSingleDelay(idx)" 
+                        :disabled="result.loading"
+                        class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center transition-all disabled:opacity-50"
+                        :title="t('overview.test_single_title', { name: result.name })"
+                    >
+                        <svg v-if="!result.loading" class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <div v-else class="w-3 h-3 border-2 border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     </div>
   </div>
 </template>

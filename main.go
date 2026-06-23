@@ -158,9 +158,9 @@ func main() {
     mux.HandleFunc(baseURL+"/ipinfo/proxy/v6", handleProxyIPv6)
 
     mux.HandleFunc(baseURL+"/delaytest/google", handleDelayTestGoogle)
-    mux.HandleFunc(baseURL+"/delaytest/microsoft", handleDelayTestMicrosoft)
-    mux.HandleFunc(baseURL+"/delaytest/apple", handleDelayTestApple)
     mux.HandleFunc(baseURL+"/delaytest/youtube", handleDelayTestYouTube)
+	mux.HandleFunc(baseURL+"/delaytest/github", handleDelayTestGitHub)
+    mux.HandleFunc(baseURL+"/delaytest/custom", handleDelayTestCustom)
 
 	// 代理 API
 	mux.HandleFunc(baseURL+"/proxies", handleProxies)

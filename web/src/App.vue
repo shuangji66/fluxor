@@ -403,7 +403,7 @@ onUnmounted(() => {
               <span class="font-bold text-slate-500 dark:text-slate-400">{{ t('about.github') }}</span>
               <a href="https://github.com/shuangji66/fluxor" target="_blank" class="flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-accent dark:hover:text-accent font-bold transition-colors">
                 <LogoGithub class="w-3.5 h-3.5" />
-                <span>shuangji66/fluxor</span>
+                <span>Github</span>
               </a>
             </div>
           </div>
