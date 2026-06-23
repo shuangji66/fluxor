@@ -689,45 +689,33 @@ onUnmounted(() => {
 
       <!-- 当前节点与流量趋势图左右布局 -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- 当前节点卡片 -->
-        <div class="lg:col-span-1 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all flex flex-col justify-between h-full min-h-[160px] lg:min-h-0 relative overflow-hidden">
-          <!-- 背景装饰水印 -->
-          <GlobeOutline class="absolute right-[-14px] bottom-[-14px] w-32 h-32 text-slate-400/[0.04] dark:text-slate-500/[0.04] pointer-events-none rotate-12 z-0" />
-          
-          <div class="space-y-3 z-10 relative">
-            <div class="flex justify-start w-full">
-              <span class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
-                {{ t('overview.current_node') }}
-              </span>
+                <!-- 当前节点卡片 -->
+        <div class="lg:col-span-1 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all flex flex-col h-full min-h-[160px] lg:min-h-0 relative overflow-hidden">
+            <!-- 背景装饰水印 -->
+            <GlobeOutline class="absolute right-[-14px] bottom-[-14px] w-32 h-32 text-slate-400/[0.04] dark:text-slate-500/[0.04] pointer-events-none rotate-12 z-0" />
+            
+            <div class="z-10 relative flex-1 flex flex-col">
+                <!-- 标题 -->
+                <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 mb-3">{{ t('overview.proxy_info') }}</h4>
+                
+                <div class="flex-1 flex flex-col justify-center gap-3">
+                    <!-- 订阅 -->
+                    <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.subscription') }}</span>
+                        <span class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]" :title="currentSubscriptionDisplay">{{ currentSubscriptionDisplay }}</span>
+                    </div>
+                    <!-- 代理组 -->
+                    <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.proxy_group') }}</span>
+                        <span class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]" :title="stats.currentGroup">{{ stats.currentGroup }}</span>
+                    </div>
+                    <!-- 当前节点 -->
+                    <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.current_node') }}</span>
+                        <span class="font-semibold text-accent overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]" :title="currentNodeDisplay">{{ currentNodeDisplay }}</span>
+                    </div>
+                </div>
             </div>
-            <!-- 节点名字背景框（支持过长单行截断与Hover提示） -->
-            <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 truncate font-semibold text-accent text-sm leading-snug" :title="currentNodeDisplay">
-              {{ currentNodeDisplay }}
-            </div>
-          </div>
-          
-          <!-- 节点出口网络多维信息 -->
-          <div class="text-sm text-slate-500 dark:text-slate-400 border-t border-slate-200/10 dark:border-slate-800/20 pt-3.5 mt-3 flex flex-col gap-2.5 shrink-0 z-10 relative">
-            <div class="flex justify-between items-center">
-              <span>{{ t('overview.subscription') }}</span>
-              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="currentSubscriptionDisplay">{{ currentSubscriptionDisplay }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-              <span>{{ t('overview.proxy_group') }}</span>
-              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="stats.currentGroup">{{ stats.currentGroup }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-              <span>{{ t('overview.country') }}</span>
-              <span class="font-bold text-slate-800 dark:text-slate-100">{{ ipInfo.proxyCountry || '--' }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-              <span>{{ t('overview.isp') }}</span>
-              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="ipInfo.proxyIsp || ''">
-                {{ ipInfo.proxyIsp || '--' }}
-              </span>
-            </div>
-          </div>
         </div>
 
         <!-- 流量趋势图 -->
@@ -816,7 +804,7 @@ onUnmounted(() => {
                 <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
                     <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv4</span>
                     <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[160px] sm:max-w-[240px] md:max-w-full" :title="showLocalGroup ? (ipInfo.localIPv4 || '--') : (ipInfo.localIPv4 ? '••••••••' : '--')">
                             {{ showLocalGroup ? (ipInfo.localIPv4 || '--') : (ipInfo.localIPv4 ? '••••••••' : '--') }}
                         </span>
                     </div>
@@ -834,15 +822,12 @@ onUnmounted(() => {
             <div class="flex justify-between items-center py-1 mt-2 border-b border-slate-100 dark:border-slate-800/50">
                 <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv6</span>
                 <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[160px] sm:max-w-[240px] md:max-w-full" :title="showLocalGroup ? (ipInfo.localIPv6 || '--') : (ipInfo.localIPv6 ? '••••••••' : '--')">
                         {{ showLocalGroup ? (ipInfo.localIPv6 || '--') : (ipInfo.localIPv6 ? '••••••••' : '--') }}
                     </span>
                 </div>
             </div>
         </div>
-
-        <!-- 分隔线 -->
-        <div class="border-t border-slate-200/40 dark:border-slate-800/40 my-3"></div>
 
         <!-- 代理 IP 信息组 -->
         <div>
@@ -874,7 +859,7 @@ onUnmounted(() => {
                 <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
                     <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv4</span>
                     <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[160px] sm:max-w-[240px] md:max-w-full" :title="showProxyGroup ? (ipInfo.proxyIPv4 || '--') : (ipInfo.proxyIPv4 ? '••••••••' : '--')">
                             {{ showProxyGroup ? (ipInfo.proxyIPv4 || '--') : (ipInfo.proxyIPv4 ? '••••••••' : '--') }}
                         </span>
                     </div>
@@ -892,7 +877,7 @@ onUnmounted(() => {
             <div class="flex justify-between items-center py-1 mt-2 border-b border-slate-100 dark:border-slate-800/50">
                 <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv6</span>
                 <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[160px] sm:max-w-[240px] md:max-w-full" :title="showProxyGroup ? (ipInfo.proxyIPv6 || '--') : (ipInfo.proxyIPv6 ? '••••••••' : '--')">
                         {{ showProxyGroup ? (ipInfo.proxyIPv6 || '--') : (ipInfo.proxyIPv6 ? '••••••••' : '--') }}
                     </span>
                 </div>
