@@ -85,7 +85,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-160px)] md:h-[calc(100vh-140px)] flex flex-col gap-4 relative">
+  <div class="h-[calc(100vh-165px)] md:h-[calc(100vh-68px)] flex flex-col gap-4 relative">
     <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-4 items-center justify-between transition-all">
       <!-- 标题和状态 -->
       <h3 class="text-base font-semibold flex items-center gap-2 shrink-0">
@@ -167,15 +167,15 @@ onUnmounted(() => {
         <div
           v-for="log in filteredLogs"
           :key="log.id"
-          class="flex items-start gap-1.5 sm:gap-2 break-all hover:bg-slate-900/60 py-0.5 px-1 rounded transition-colors"
+          class="break-all hover:bg-slate-900/60 py-0.5 px-1 rounded transition-colors text-slate-300"
         >
           <!-- 桌面端显示完整毫秒 -->
-          <span class="text-slate-500 shrink-0 select-none hidden sm:inline">[{{ log.time }}]</span>
+          <span class="text-slate-500 select-none hidden sm:inline mr-1.5 sm:mr-2">[{{ log.time }}]</span>
           <!-- 移动端隐藏毫秒以节省极窄的空间 -->
-          <span class="text-slate-500 shrink-0 select-none sm:hidden">[{{ log.time.split('.')[0] }}]</span>
+          <span class="text-slate-500 select-none sm:hidden mr-1.5 sm:mr-2">[{{ log.time.split('.')[0] }}]</span>
           
           <span
-            class="shrink-0 font-bold uppercase text-[9px] sm:text-[10px] px-1 py-0.5 rounded tracking-wider text-center min-w-[45px] sm:min-w-[56px] select-none"
+            class="inline-block align-middle font-bold uppercase text-[9px] sm:text-[10px] px-1 py-0.5 rounded tracking-wider text-center min-w-[45px] sm:min-w-[56px] select-none mr-1.5 sm:mr-2"
             :class="{
               'bg-blue-500/20 text-blue-400': log.type === 'info' || log.type === 'debug',
               'bg-amber-500/20 text-amber-400': log.type === 'warning',
