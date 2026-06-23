@@ -723,7 +723,7 @@ onUnmounted(() => {
             </div>
             <div class="flex justify-between items-center">
               <span>{{ t('overview.isp') }}</span>
-              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="proxyIsp || ''">
+              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="ipInfo.proxyIsp || ''">
                 {{ ipInfo.proxyIsp || '--' }}
               </span>
             </div>
