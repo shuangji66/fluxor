@@ -85,8 +85,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-165px)] md:h-[calc(100vh-68px)] flex flex-col gap-4 relative">
-    <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-4 items-center justify-between transition-all">
+  <div class="flex flex-col flex-1 min-h-0 gap-4 h-full relative">
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
       <!-- 标题和状态 -->
       <h3 class="text-base font-semibold flex items-center gap-2 shrink-0">
         <DocumentTextOutline class="w-5 h-5 text-accent" />
@@ -158,7 +158,7 @@ onUnmounted(() => {
     <div
       ref="terminalRef"
       @scroll.passive="handleScroll"
-      class="flex-1 bg-slate-950 text-slate-300 font-mono text-xs p-3 sm:p-5 rounded-2xl overflow-y-auto leading-relaxed border border-slate-800 shadow-2xl relative select-text"
+      class="flex-1 bg-slate-950 text-slate-300 font-mono text-xs p-3 sm:p-5 rounded-xl overflow-y-auto leading-relaxed border border-slate-800/50 relative select-text"
     >
       <div v-if="filteredLogs.length === 0" class="text-slate-600 flex items-center justify-center h-full">
         {{ t('logs.waiting') }}

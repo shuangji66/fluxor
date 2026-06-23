@@ -25,7 +25,8 @@ import {
   CheckmarkCircleOutline,
   CloseCircleOutline,
   AlertCircleOutline,
-  CloseOutline
+  CloseOutline,
+  ApertureOutline
 } from '@vicons/ionicons5'
 
 // 视图组件导入
@@ -36,7 +37,6 @@ import Connections from './views/Connections.vue'
 import Logs from './views/Logs.vue'
 import Config from './views/Config.vue'
 import Subscription from './views/Subscription.vue'
-
 const appVersion = __APP_VERSION__
 
 import { useTheme } from './composables/useTheme'
@@ -135,156 +135,207 @@ onUnmounted(() => {
   <div class="flex h-screen w-screen overflow-hidden bg-[#f1f5f9] dark:bg-[#0f172a] transition-colors duration-200 relative">
     
     <!-- 侧边栏 aside -->
-    <aside class="hidden md:flex md:static inset-y-0 left-0 glass-heavy border-r border-slate-200 dark:border-slate-800/80 z-50 flex-col justify-between transition-all duration-200 overflow-y-auto overflow-x-hidden"
+    <aside class="hidden md:flex md:static my-4 ml-4 mr-0 h-[calc(100vh-32px)] glass-medium border border-slate-200/60 dark:border-slate-800/60 rounded-[24px] z-50 flex-col justify-between transition-all duration-300 overflow-y-auto overflow-x-hidden shadow-md"
       :class="[
         globalStore.isSidebarCollapsed ? 'md:w-16' : 'md:w-60'
       ]">
-      <div class="p-4 flex items-center border-b border-slate-100 dark:border-slate-800/60 transition-all duration-200"
-        :class="globalStore.isSidebarCollapsed ? 'justify-center' : 'justify-between'">
-        <span class="font-bold text-accent tracking-wider text-base select-none transition-all duration-200 whitespace-nowrap overflow-hidden"
-          :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">Fluxor</span>
-        <button @click="toggleSidebar" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded transition-all flex items-center justify-center" aria-label="Toggle Sidebar">
-          <ChevronBackOutline v-if="!globalStore.isSidebarCollapsed" class="w-5 h-5 transition-all duration-200 hover:scale-110" />
-          <ChevronForwardOutline v-else class="w-5 h-5 transition-all duration-200 hover:scale-110" />
+      <div class="flex items-center border-b border-slate-100 dark:border-slate-800/60 transition-all duration-200"
+        :class="globalStore.isSidebarCollapsed ? 'px-2 py-4 justify-center' : 'p-4 justify-between'">
+        <!-- Logo + Title 组合区域 -->
+        <div class="flex items-center select-none cursor-pointer group/logo"
+             @click="toggleSidebar"
+             :title="globalStore.isSidebarCollapsed ? '点击展开侧边栏' : '点击折叠侧边栏'">
+          <!-- 应用 Logo 图标 -->
+          <div class="w-8 h-8 flex items-center justify-center shrink-0 transform group-hover/logo:rotate-45 transition-all duration-500 text-accent">
+            <ApertureOutline class="w-5.5 h-5.5" />
+          </div>
+          <!-- 标题，随折叠平滑收缩 -->
+          <span class="font-bold text-sm text-slate-700 dark:text-slate-200 tracking-wider transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-2.5'">
+            Fluxor
+          </span>
+        </div>
+        <!-- 折叠/展开按钮 -->
+        <button v-if="!globalStore.isSidebarCollapsed" @click="toggleSidebar" 
+          class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center justify-center animate-[fadeIn_0.2s]" aria-label="Toggle Sidebar">
+          <ChevronBackOutline class="w-4 h-4 transition-all duration-200 hover:scale-110" />
         </button>
       </div>
 
       <!-- 导航项目 -->
-      <nav class="flex-1 px-3 py-4 space-y-1">
+      <nav class="flex-1 px-3 py-4 space-y-1.5">
         <!-- 概览 -->
-        <button @click="selectTab('overview')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
+        <button @click="selectTab('overview')" 
+          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'overview' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-            globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
-          ]">
+            globalStore.isSidebarCollapsed 
+              ? 'justify-center px-0 hover:scale-105' 
+              : 'px-3 hover:translate-x-1'
+          ]"
+          :title="globalStore.isSidebarCollapsed ? t('nav.overview') : ''">
           <GridOutline class="w-5 h-5 shrink-0" />
-          <span class="transition-all duration-200 whitespace-nowrap overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">
+          <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-3'">
             {{ t('nav.overview') }}
           </span>
         </button>
 
         <!-- 代理 -->
-        <button @click="selectTab('proxies')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
+        <button @click="selectTab('proxies')" 
+          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'proxies' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-            globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
-          ]">
+            globalStore.isSidebarCollapsed 
+              ? 'justify-center px-0 hover:scale-105' 
+              : 'px-3 hover:translate-x-1'
+          ]"
+          :title="globalStore.isSidebarCollapsed ? t('nav.proxies') : ''">
           <GlobeOutline class="w-5 h-5 shrink-0" />
-          <span class="transition-all duration-200 whitespace-nowrap overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">
+          <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-3'">
             {{ t('nav.proxies') }}
           </span>
         </button>
 
         <!-- 订阅 -->
-        <button @click="selectTab('subscription')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
+        <button @click="selectTab('subscription')" 
+          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'subscription' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-            globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
-          ]">
+            globalStore.isSidebarCollapsed 
+              ? 'justify-center px-0 hover:scale-105' 
+              : 'px-3 hover:translate-x-1'
+          ]"
+          :title="globalStore.isSidebarCollapsed ? t('nav.subscription') : ''">
           <MailOutline class="w-5 h-5 shrink-0" />
-          <span class="transition-all duration-200 whitespace-nowrap overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">
+          <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-3'">
             {{ t('nav.subscription') }}
           </span>
         </button>
 
         <!-- 规则 -->
-        <button @click="selectTab('rules')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
+        <button @click="selectTab('rules')" 
+          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'rules' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-            globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
-          ]">
+            globalStore.isSidebarCollapsed 
+              ? 'justify-center px-0 hover:scale-105' 
+              : 'px-3 hover:translate-x-1'
+          ]"
+          :title="globalStore.isSidebarCollapsed ? t('nav.rules') : ''">
           <LayersOutline class="w-5 h-5 shrink-0" />
-          <span class="transition-all duration-200 whitespace-nowrap overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">
+          <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-3'">
             {{ t('nav.rules') }}
           </span>
         </button>
 
         <!-- 连接 -->
-        <button @click="selectTab('connections')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
+        <button @click="selectTab('connections')" 
+          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'connections' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-            globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
-          ]">
+            globalStore.isSidebarCollapsed 
+              ? 'justify-center px-0 hover:scale-105' 
+              : 'px-3 hover:translate-x-1'
+          ]"
+          :title="globalStore.isSidebarCollapsed ? t('nav.connections') : ''">
           <LinkOutline class="w-5 h-5 shrink-0" />
-          <span class="transition-all duration-200 whitespace-nowrap overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">
+          <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-3'">
             {{ t('nav.connections') }}
           </span>
         </button>
 
         <!-- 日志 -->
-        <button @click="selectTab('logs')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
+        <button @click="selectTab('logs')" 
+          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'logs' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-            globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
-          ]">
+            globalStore.isSidebarCollapsed 
+              ? 'justify-center px-0 hover:scale-105' 
+              : 'px-3 hover:translate-x-1'
+          ]"
+          :title="globalStore.isSidebarCollapsed ? t('nav.logs') : ''">
           <DocumentTextOutline class="w-5 h-5 shrink-0" />
-          <span class="transition-all duration-200 whitespace-nowrap overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">
+          <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-3'">
             {{ t('nav.logs') }}
           </span>
         </button>
 
         <!-- 配置 -->
-        <button @click="selectTab('config')" class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95"
+        <button @click="selectTab('config')" 
+          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'config' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-            globalStore.isSidebarCollapsed ? 'justify-center px-0' : 'px-3 gap-3'
-          ]">
+            globalStore.isSidebarCollapsed 
+              ? 'justify-center px-0 hover:scale-105' 
+              : 'px-3 hover:translate-x-1'
+          ]"
+          :title="globalStore.isSidebarCollapsed ? t('nav.config') : ''">
           <SettingsOutline class="w-5 h-5 shrink-0" />
-          <span class="transition-all duration-200 whitespace-nowrap overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'">
+          <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+            :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-3'">
             {{ t('nav.config') }}
           </span>
         </button>
       </nav>
 
       <!-- 底部操作：关于、中英文与主题 -->
-      <div class="p-3 border-t border-slate-100 dark:border-slate-800/60 flex flex-col gap-2 transition-all duration-200">
-        <!-- 语言与主题 -->
-        <div class="flex gap-2 w-full transition-all duration-200"
-          :class="globalStore.isSidebarCollapsed ? 'flex-col items-center' : 'flex-row'">
-          <!-- 切换语言 -->
-          <button @click="toggleLanguage" 
-            class="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group"
+      <div class="p-3 border-t border-slate-100 dark:border-slate-800/60 transition-all duration-200">
+        <!-- 底部聚合容器卡片，在展开时提供整合的质感，折叠时自适应为常规的垂直排列 -->
+        <div :class="[
+          globalStore.isSidebarCollapsed 
+            ? 'flex flex-col items-center gap-2' 
+            : 'bg-slate-100/40 dark:bg-slate-800/10 p-2 rounded-2xl border border-slate-200/20 dark:border-slate-800/30 flex flex-col gap-2 transition-all duration-200'
+        ]">
+          <!-- 语言与主题 -->
+          <div class="flex gap-2 w-full transition-all duration-200"
+            :class="globalStore.isSidebarCollapsed ? 'flex-col items-center' : 'flex-row'">
+            <!-- 切换语言 -->
+            <button @click="toggleLanguage" 
+              class="flex-1 flex items-center justify-center py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
+              :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+              :title="locale === 'zh' ? '切换语言' : 'Switch Language'">
+              <LanguageOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:rotate-12" />
+              <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+                :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-20 ml-1.5'">
+                {{ currentLangDisplay }}
+              </span>
+            </button>
+            <!-- 切换主题 -->
+            <button @click="switchThemeCycle" 
+              class="flex-1 flex items-center justify-center py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
+              :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+              aria-label="Toggle Theme"
+              :title="t('config.theme')">
+              <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 transition-all text-amber-500 group-hover:rotate-45 duration-300" />
+              <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 shrink-0 transition-all text-indigo-400 group-hover:-rotate-12 duration-300" />
+              <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 transition-all text-purple-500 dark:text-purple-400 group-hover:scale-110 duration-300" />
+              <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 shrink-0 transition-all text-rose-500 group-hover:scale-110 duration-300" />
+              <DesktopOutline v-else class="w-4 h-4 shrink-0 transition-all text-slate-500 dark:text-slate-400 group-hover:scale-110 duration-300" />
+              <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+                :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-20 ml-1.5'">
+                {{ t('config.theme_' + globalStore.theme) }}
+              </span>
+            </button>
+          </div>
+
+          <!-- 关于 Fluxor -->
+          <button @click="showAbout = true" 
+            class="flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
             :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
-            :title="locale === 'zh' ? '切换语言' : 'Switch Language'">
-            <LanguageOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:rotate-12" />
-            <span v-if="!globalStore.isSidebarCollapsed" class="ml-1.5 whitespace-nowrap overflow-hidden transition-all duration-200">
-              {{ currentLangDisplay }}
-            </span>
-          </button>
-          <!-- 切换主题 -->
-          <button @click="switchThemeCycle" 
-            class="flex-1 flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group"
-            :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
-            aria-label="Toggle Theme"
-            :title="t('config.theme')">
-            <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 transition-all text-amber-500 group-hover:rotate-45 duration-300" />
-            <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 shrink-0 transition-all text-indigo-400 group-hover:-rotate-12 duration-300" />
-            <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 transition-all text-purple-500 dark:text-purple-400 group-hover:scale-110 duration-300" />
-            <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 shrink-0 transition-all text-rose-500 group-hover:scale-110 duration-300" />
-            <DesktopOutline v-else class="w-4 h-4 shrink-0 transition-all text-slate-500 dark:text-slate-400 group-hover:scale-110 duration-300" />
-            <span v-if="!globalStore.isSidebarCollapsed" class="ml-1.5 whitespace-nowrap overflow-hidden transition-all duration-200">
-              {{ t('config.theme_' + globalStore.theme) }}
+            :title="t('about.title')">
+            <InformationCircleOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
+            <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+              :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-24 ml-1.5'">
+              {{ t('about.title') }}
             </span>
           </button>
         </div>
-
-        <!-- 关于 Fluxor -->
-        <button @click="showAbout = true" 
-          class="flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group"
-          :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
-          :title="t('about.title')">
-          <InformationCircleOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
-          <span v-if="!globalStore.isSidebarCollapsed" class="ml-1.5 whitespace-nowrap overflow-hidden transition-all duration-200">
-            {{ t('about.title') }}
-          </span>
-        </button>
       </div>
     </aside>
 
@@ -322,10 +373,10 @@ onUnmounted(() => {
       </header>
 
       <!-- 主工作区容器 -->
-      <main class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 select-none">
-        <div class="max-w-7xl mx-auto w-full">
+      <main class="flex-1 my-4 mx-4 h-[calc(100vh-88px)] md:h-[calc(100vh-32px)] flex flex-col min-h-0 select-none overflow-hidden pb-20 md:pb-0">
+        <div class="max-w-7xl mx-auto w-full flex flex-col flex-1 min-h-0">
           <KeepAlive :max="6">
-            <component :is="activeComponent" />
+            <component :is="activeComponent" class="flex flex-col flex-1 min-h-0" />
           </KeepAlive>
         </div>
       </main>

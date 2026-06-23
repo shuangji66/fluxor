@@ -181,49 +181,35 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- 顶部栏 -->
-    <div class="sticky top-0 z-20 glass-medium shadow-sm p-4 rounded-xl border transition-all">
-      <!-- 移动端：flex-col，桌面端：flex-row -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <!-- 第一行：标题 + 全部测速（移动端显示） -->
-        <div class="flex items-center justify-between w-full md:w-auto">
-          <h3 class="text-base font-semibold flex items-center gap-2">
-            <GlobeOutline class="w-5 h-5 text-accent" />
-            {{ t('proxies.title') }}
-          </h3>
-          <!-- 移动端全部测速按钮 -->
+  <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
+    <!-- 顶部工具栏 -->
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
+      <!-- 左侧：标题与模式切换 -->
+      <div class="flex items-center gap-4 flex-wrap">
+        <h3 class="text-base font-semibold flex items-center gap-2">
+          <GlobeOutline class="w-5 h-5 text-accent" />
+          {{ t('proxies.title') }}
+        </h3>
+        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
           <button
-            @click="handleTestAll"
-            :disabled="isTestingAll"
-            class="md:hidden px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            v-for="modeOption in ['Rule', 'Global', 'Direct']"
+            :key="modeOption"
+            @click="changeMode(modeOption)"
+            :disabled="!coreStatus.running"
+            class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
           >
-            <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
-            {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
+            {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
           </button>
         </div>
+      </div>
 
-        <!-- 第二行：模式切换滑块（移动端占满，桌面端正常） -->
-        <div class="flex items-center w-full md:w-auto">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full md:w-auto transition-all">
-            <button
-              v-for="modeOption in ['Rule', 'Global', 'Direct']"
-              :key="modeOption"
-              @click="changeMode(modeOption)"
-              :disabled="!coreStatus.running"
-              class="flex-1 md:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
-            </button>
-          </div>
-        </div>
-
-        <!-- 桌面端全部测速按钮 -->
+      <!-- 右侧：按钮合并容器（在大屏下横向右对齐，绝不换行） -->
+      <div class="flex items-center gap-3 flex-1 justify-end min-w-[120px] sm:min-w-0 flex-nowrap">
         <button
           @click="handleTestAll"
           :disabled="isTestingAll"
-          class="hidden md:flex px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
           {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
@@ -231,79 +217,82 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 骨架屏 -->
-    <div v-if="isLoading && proxyGroups.length === 0" class="flex flex-col lg:flex-row gap-6 items-start">
-      <div class="flex-1 space-y-6 w-full min-w-0">
-        <div v-for="i in 2" :key="'skeleton-l-' + i" class="bg-white dark:bg-[#1e293b] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 animate-pulse select-none">
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2.5 min-w-0 flex-1">
-              <div class="w-3.5 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
-              <div class="flex-1 space-y-2">
-                <div class="flex items-center gap-2">
-                  <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-24"></div>
-                  <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-16"></div>
+    <!-- 内容区域内滚动容器 (已升级为统一大内容卡片) -->
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6 space-y-6 pr-4">
+      <!-- 骨架屏 -->
+      <div v-if="isLoading && proxyGroups.length === 0" class="flex flex-col lg:flex-row gap-4 items-start">
+        <div class="flex-1 space-y-4 w-full min-w-0">
+          <div v-for="i in 2" :key="'skeleton-l-' + i" class="bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 space-y-4 animate-pulse select-none">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <div class="w-3.5 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
+                <div class="flex-1 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-24"></div>
+                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-16"></div>
+                  </div>
+                  <div class="h-3 bg-slate-200 dark:bg-slate-800 rounded w-32 mt-1"></div>
                 </div>
-                <div class="h-3 bg-slate-200 dark:bg-slate-800 rounded w-32 mt-1"></div>
               </div>
+              <div class="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
             </div>
-            <div class="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
+            <div class="h-1.5 bg-slate-100 dark:bg-slate-800/50 rounded w-full"></div>
           </div>
-          <div class="h-1.5 bg-slate-100 dark:bg-slate-800/50 rounded w-full"></div>
+        </div>
+        <div class="flex-1 space-y-4 w-full min-w-0">
+          <div v-for="i in 2" :key="'skeleton-r-' + i" class="bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 space-y-4 animate-pulse select-none">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <div class="w-3.5 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
+                <div class="flex-1 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-28"></div>
+                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-14"></div>
+                  </div>
+                  <div class="h-3 bg-slate-200 dark:bg-slate-800 rounded w-36 mt-1"></div>
+                </div>
+              </div>
+              <div class="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
+            </div>
+            <div class="h-1.5 bg-slate-100 dark:bg-slate-800/50 rounded w-full"></div>
+          </div>
         </div>
       </div>
-      <div class="flex-1 space-y-6 w-full min-w-0">
-        <div v-for="i in 2" :key="'skeleton-r-' + i" class="bg-white dark:bg-[#1e293b] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 animate-pulse select-none">
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2.5 min-w-0 flex-1">
-              <div class="w-3.5 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
-              <div class="flex-1 space-y-2">
-                <div class="flex items-center gap-2">
-                  <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-28"></div>
-                  <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-14"></div>
-                </div>
-                <div class="h-3 bg-slate-200 dark:bg-slate-800 rounded w-36 mt-1"></div>
-              </div>
-            </div>
-            <div class="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
-          </div>
-          <div class="h-1.5 bg-slate-100 dark:bg-slate-800/50 rounded w-full"></div>
-        </div>
-      </div>
-    </div>
 
-    <!-- 空状态 -->
-    <div v-else-if="filteredGroups.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
-      <span v-if="configs.mode === 'Direct'">{{ t('proxies.empty_direct') }}</span>
-      <span v-else-if="configs.mode === 'Global'">{{ t('proxies.empty_global') }}</span>
-      <span v-else>{{ t('proxies.empty') }}</span>
-    </div>
-
-    <!-- 代理组列表（单列或双列） -->
-    <div v-else>
-      <!-- 单列模式（组数 <= 6） -->
-      <div v-if="isSingleColumn" class="space-y-6 w-full">
-        <ProxyGroupCard
-          v-for="group in filteredGroups"
-          :key="group.name"
-          :group="group"
-        />
+      <!-- 空状态 -->
+      <div v-else-if="filteredGroups.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+        <span v-if="configs.mode === 'Direct'">{{ t('proxies.empty_direct') }}</span>
+        <span v-else-if="configs.mode === 'Global'">{{ t('proxies.empty_global') }}</span>
+        <span v-else>{{ t('proxies.empty') }}</span>
       </div>
 
-      <!-- 双列模式（组数 > 6） -->
-      <div v-else class="flex flex-col lg:flex-row gap-6 items-start">
-        <div class="flex-1 space-y-6 w-full min-w-0">
+      <!-- 代理组列表（单列或双列） -->
+      <div v-else>
+        <!-- 单列模式（组数 <= 6） -->
+        <div v-if="isSingleColumn" class="space-y-4 w-full">
           <ProxyGroupCard
-            v-for="group in leftGroups"
+            v-for="group in filteredGroups"
             :key="group.name"
             :group="group"
           />
         </div>
-        <div class="flex-1 space-y-6 w-full min-w-0">
-          <ProxyGroupCard
-            v-for="group in rightGroups"
-            :key="group.name"
-            :group="group"
-          />
+
+        <!-- 双列模式（组数 > 6） -->
+        <div v-else class="flex flex-col lg:flex-row gap-4 items-start">
+          <div class="flex-1 space-y-4 w-full min-w-0">
+            <ProxyGroupCard
+              v-for="group in leftGroups"
+              :key="group.name"
+              :group="group"
+            />
+          </div>
+          <div class="flex-1 space-y-4 w-full min-w-0">
+            <ProxyGroupCard
+              v-for="group in rightGroups"
+              :key="group.name"
+              :group="group"
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -348,13 +348,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1px] duration-300 transition-all">
-      <h3 class="text-lg font-semibold mb-6 flex items-center gap-2">
+  <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
+    <!-- 顶部操作栏 -->
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
+      <h3 class="text-base font-semibold flex items-center gap-2">
         <MailOutline class="w-5 h-5 text-accent" />
         {{ t('subscription.title') }}
       </h3>
+      <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+        <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
+        {{ isApplying ? '保存并应用中...' : t('subscription.save_and_apply') }}
+      </button>
+    </div>
 
+    <!-- 内容区域内滚动容器 -->
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none p-6 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.proxy_port') }}</label>
@@ -431,7 +439,7 @@ onUnmounted(() => {
           v-for="(sub, idx) in currentConfig.subscriptions" 
           :key="sub.name" 
           @click="selectSubscription(sub.name)"
-          class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden cursor-pointer"
+          class="p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden cursor-pointer"
           :class="{
             'border-accent ring-2 ring-accent/30': currentConfig.mode === 'switch' && currentConfig.active_subscription === sub.name
           }"
@@ -493,24 +501,17 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-
-      <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6 flex items-center gap-4">
-        <button @click="saveAndApply" :disabled="isApplying" class="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-          <SyncOutline v-if="isApplying" class="w-4 h-4 animate-spin inline-block" />
-          {{ isApplying ? '正在保存并应用...' : t('subscription.save_and_apply') }}
-        </button>
-      </div>
-
-      <!-- 保存并应用全屏模糊加载浮层 -->
-      <Teleport to="body">
-        <div v-if="isApplying" class="fixed inset-0 glass-mask z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
-          <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
-            <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
-            <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
-          </div>
-        </div>
-      </Teleport>
     </div>
+
+    <!-- 保存并应用全屏模糊加载浮层 -->
+    <Teleport to="body">
+      <div v-if="isApplying" class="fixed inset-0 glass-mask z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
+        <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
+          <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
+          <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Modal -->
     <Teleport to="body">

@@ -1,6 +1,6 @@
 import { handleMockFetch, MockWebSocket } from './mock';
 
-const BASE = window.BASE_URL || '';
+const BASE = window.BASE_URL || import.meta.env.BASE_URL || '';
 
 function isMockEnabled(): boolean {
   const devMode = import.meta.env.DEV && localStorage.getItem('MOCK_BACKEND') !== 'false';
@@ -8,7 +8,7 @@ function isMockEnabled(): boolean {
   return devMode || forceMock;
 }
 
-function withBase(path: string): string {
+export function withBase(path: string): string {
   if (!BASE || BASE === '/') return path;
   return BASE.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
 }

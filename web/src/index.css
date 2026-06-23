@@ -422,6 +422,10 @@ input:focus, select:focus, textarea:focus {
   will-change: backdrop-filter;
 }
 
+.glass-medium.shadow-none, [data-theme] .glass-medium.shadow-none {
+  box-shadow: none !important;
+}
+
 .glass-light, [data-theme] .glass-light {
   background-color: var(--bg-glass-light) !important;
   backdrop-filter: blur(10px);

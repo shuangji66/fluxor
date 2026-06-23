@@ -127,7 +127,7 @@ const getDelayText = (delay?: number) => {
 </script>
 
 <template>
-  <div class="bg-white dark:bg-[#1e293b] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all space-y-4">
+  <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all space-y-4">
     <!-- Accordion Header -->
     <div @click="expandedState[group.name] = !expandedState[group.name]" class="flex flex-col gap-2 cursor-pointer select-none pb-2">
       <div class="flex items-center justify-between gap-4">

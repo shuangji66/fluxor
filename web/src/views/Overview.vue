@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { OpenOutline, SyncOutline, EyeOutline, EyeOffOutline } from '@vicons/ionicons5'
+import { OpenOutline, SyncOutline, EyeOutline, EyeOffOutline, GridOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useOverviewStore } from '../store/overview'
 import { useConnectionsStore } from '../store/connections'
@@ -595,56 +595,66 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- 8 个统计卡片 -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_speed') }}</div>
-        <div class="text-base sm:text-lg font-extrabold text-blue-500 mt-1 select-all">{{ formatBytes(stats.uploadSpeed) }}/s</div>
-      </div>
-      <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_speed') }}</div>
-        <div class="text-base sm:text-lg font-extrabold text-success mt-1 select-all">{{ formatBytes(stats.downloadSpeed) }}/s</div>
-      </div>
-      <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_total') }}</div>
-        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(uploadTotal) }}</div>
-      </div>
-      <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_total') }}</div>
-        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(downloadTotal) }}</div>
-      </div>
-      <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.memory_usage') }}</div>
-        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ stats.memory > 0 ? formatBytes(stats.memory) : 'N/A' }}</div>
-      </div>
-      <div @click="globalStore.activeTab = 'connections'" class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all cursor-pointer hover:border-accent/40 hover:shadow-md active:scale-[0.98]">
-        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.active_connections') }}</div>
-        <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ connectionsCount }}</div>
-      </div>
-      <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.core_version') }}</div>
-        <div class="text-base sm:text-lg font-extrabold mt-1 select-all truncate" :title="coreVersionDisplay">{{ coreVersionDisplay }}</div>
-      </div>
-      <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <a :href="`${base}${uiPanel === 'zashboard' ? '/zash/' : '/meta/'}`" target="_blank" class="block text-slate-800 dark:text-slate-100 decoration-transparent">
-          <div class="flex justify-between items-center">
-            <span class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.external_control') }}</span>
-            <OpenOutline class="w-3.5 h-3.5 text-slate-400" />
-          </div>
-          <div class="text-base sm:text-lg font-extrabold text-accent mt-1 select-none">{{ uiPanel === 'zashboard' ? 'Zashboard' : 'MetaCubeXD' }}</div>
-        </a>
-      </div>
+  <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
+    <!-- 顶部独立悬浮操作栏 -->
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
+      <h3 class="text-base font-semibold flex items-center gap-2">
+        <GridOutline class="w-5 h-5 text-accent" />
+        {{ t('nav.overview') }}
+      </h3>
     </div>
 
-    <!-- 当前节点 -->
-    <div class="bg-white dark:bg-[#1e293b] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all flex items-center justify-between gap-4">
-      <span class="text-sm font-extrabold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
-      <div class="text-base font-bold text-accent break-all select-all">{{ currentNodeDisplay }}</div>
-    </div>
+    <!-- 内容区域内滚动容器 (已升级为统一大内容卡片) -->
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6 space-y-6 pr-4">
+      <!-- 8 个统计卡片 -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+          <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_speed') }}</div>
+          <div class="text-base sm:text-lg font-extrabold text-blue-500 mt-1 select-all">{{ formatBytes(stats.uploadSpeed) }}/s</div>
+        </div>
+        <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+          <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_speed') }}</div>
+          <div class="text-base sm:text-lg font-extrabold text-success mt-1 select-all">{{ formatBytes(stats.downloadSpeed) }}/s</div>
+        </div>
+        <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+          <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_total') }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(uploadTotal) }}</div>
+        </div>
+        <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+          <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_total') }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(downloadTotal) }}</div>
+        </div>
+        <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+          <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.memory_usage') }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ stats.memory > 0 ? formatBytes(stats.memory) : 'N/A' }}</div>
+        </div>
+        <div @click="globalStore.activeTab = 'connections'" class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all cursor-pointer hover:border-accent/40 active:scale-[0.98]">
+          <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.active_connections') }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ connectionsCount }}</div>
+        </div>
+        <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+          <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.core_version') }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1 select-all truncate" :title="coreVersionDisplay">{{ coreVersionDisplay }}</div>
+        </div>
+        <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+          <a :href="`${base}${uiPanel === 'zashboard' ? '/zash/' : '/meta/'}`" target="_blank" class="block text-slate-800 dark:text-slate-100 decoration-transparent">
+            <div class="flex justify-between items-center">
+              <span class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.external_control') }}</span>
+              <OpenOutline class="w-3.5 h-3.5 text-slate-400" />
+            </div>
+            <div class="text-base sm:text-lg font-extrabold text-accent mt-1 select-none">{{ uiPanel === 'zashboard' ? 'Zashboard' : 'MetaCubeXD' }}</div>
+          </a>
+        </div>
+      </div>
+
+      <!-- 当前节点 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all flex items-center justify-between gap-4">
+        <span class="text-sm font-extrabold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
+        <div class="text-base font-bold text-accent break-all select-all">{{ currentNodeDisplay }}</div>
+      </div>
 
     <!-- 流量趋势图 -->
-    <div class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all space-y-4">
+    <div class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all space-y-4">
       <div class="flex justify-between items-center">
         <h4 class="font-bold text-sm">{{ t('overview.traffic_trend') }}</h4>
         <div class="flex gap-4 text-xs font-semibold">
@@ -696,8 +706,8 @@ onUnmounted(() => {
     <!-- 双列卡片：IP 信息 + 延迟测试 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-        <!-- IP 信息卡 -->
-    <div class="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+      <!-- IP 信息卡 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
         <div class="flex items-center justify-between mb-3">
             <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
                 <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
@@ -787,10 +797,10 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
-    </div>
+      </div>
 
-    <!-- 代理延迟测试卡 -->
-    <div class="bg-white dark:bg-[#1e293b] p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+      <!-- 代理延迟测试卡 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
         <div class="flex items-center justify-between mb-3">
             <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
                 <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
@@ -868,6 +878,7 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
+      </div>
     </div>
     </div>
   </div>

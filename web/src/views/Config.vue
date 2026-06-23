@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { CloudDownloadOutline, OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SearchOutline, SyncOutline, ColorPaletteOutline } from '@vicons/ionicons5'
+import { CloudDownloadOutline, OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SearchOutline, SyncOutline, ColorPaletteOutline, SettingsOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type ConfigData } from '../store/config'
@@ -351,321 +351,331 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-full min-h-[60vh] flex flex-col justify-start">
+  <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
+    <!-- 顶部操作栏 -->
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
+      <h3 class="text-base font-semibold flex items-center gap-2">
+        <SettingsOutline class="w-5 h-5 text-accent" />
+        {{ t('nav.config') }}
+      </h3>
+    </div>
+
     <!-- 核心状态加载中的优雅 Loading 占位 -->
-    <div v-if="coreStatus.loading" class="flex-1 flex flex-col items-center justify-center min-h-[50vh] gap-3 select-none">
+    <div v-if="coreStatus.loading" class="flex-1 flex flex-col items-center justify-center gap-3 select-none">
       <div class="w-7 h-7 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
       <span class="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider">正在加载系统参数...</span>
     </div>
 
-    <!-- 加载完成后的内容区（渐入显示，消除高度闪现晃动） -->
-    <div v-else class="grid grid-cols-1 gap-6 items-start w-full animate-[fadeIn_0.25s_ease-out]"
-      :class="[
-        coreStatus.running 
-          ? 'md:grid-cols-2 lg:grid-cols-3' 
-          : 'md:grid-cols-2 max-w-4xl mx-auto'
-      ]">
-      <!-- 1. 配置参数面板区（常规参数，内核启动时显示） -->
-      <div v-if="coreStatus.running"
-        class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
-        <!-- 同步配置遮罩屏 -->
-        <div v-if="configsLoading"
-          class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
-          <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
-        </div>
-
-        <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-          <OptionsOutline class="w-4 h-4 text-accent" />
-          {{ t('config.general_settings') }}
-        </h4>
-
-        <div class="flex items-center justify-between">
-          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.allow_lan') }}</label>
-          <FormSwitch v-model="configs['allow-lan']" @update:model-value="toggleAllowLan" />
-        </div>
-
-        <div class="flex items-center justify-between">
-          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.ipv6_toggle') }}</label>
-          <FormSwitch v-model="configs.ipv6" @update:model-value="toggleIPv6" />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.mode') }}</label>
-          <select v-model="configs.mode" @change="changeMode"
-            class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-            <option value="Rule">{{ t('config.mode_rule') }}</option>
-            <option value="Global">{{ t('config.mode_global') }}</option>
-            <option value="Direct">{{ t('config.mode_direct') }}</option>
-          </select>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.log_level') }}</label>
-          <select v-model="configs['log-level']" @change="changeLogLevel"
-            class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-            <option value="silent">Silent</option>
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="error">Error</option>
-            <option value="debug">Debug</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- 2. 端口设置（内核启动时显示） -->
-      <div v-if="coreStatus.running"
-        class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
-        <!-- 同步配置遮罩屏 -->
-        <div v-if="configsLoading"
-          class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
-          <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
-        </div>
-
-        <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-          <HardwareChipOutline class="w-4 h-4 text-accent" />
-          {{ t('config.port_settings') }}
-        </h4>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.mixed_port') }}</label>
-            <input type="number" v-model.number="configs['mixed-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
-              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+    <!-- 加载完成后的内滚动内容区 (已升级为统一大内容卡片) -->
+    <div v-else class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6">
+      <div class="grid grid-cols-1 gap-6 items-start w-full animate-[fadeIn_0.25s_ease-out]"
+        :class="[
+          coreStatus.running 
+            ? 'md:grid-cols-2 lg:grid-cols-3' 
+            : 'md:grid-cols-2 max-w-4xl mx-auto'
+        ]">
+        <!-- 1. 配置参数面板区（常规参数，内核启动时显示） -->
+        <div v-if="coreStatus.running"
+          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
+          <!-- 同步配置遮罩屏 -->
+          <div v-if="configsLoading"
+            class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
+            <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
           </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.http_port') }}</label>
-            <input type="number" v-model.number="configs.port" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
-              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.socks_port') }}</label>
-            <input type="number" v-model.number="configs['socks-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
-              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.redir_port') }}</label>
-            <input type="number" v-model.number="configs['redir-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
-              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
-          </div>
-          <div class="flex flex-col gap-1 col-span-2">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tproxy_port')
-              }}</label>
-            <input type="number" v-model.number="configs['tproxy-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
-              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
-          </div>
-        </div>
-      </div>
 
-      <!-- 3. TUN与网卡设置（内核启动时显示） -->
-      <div v-if="coreStatus.running"
-        class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
-        <!-- 同步配置遮罩屏 -->
-        <div v-if="configsLoading"
-          class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
-          <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
-        </div>
+          <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
+            <OptionsOutline class="w-4 h-4 text-accent" />
+            {{ t('config.general_settings') }}
+          </h4>
 
-        <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-          <ShieldCheckmarkOutline class="w-4 h-4 text-accent" />
-          {{ t('config.tun') }}
-        </h4>
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.allow_lan') }}</label>
+            <FormSwitch v-model="configs['allow-lan']" @update:model-value="toggleAllowLan" />
+          </div>
 
-        <div class="flex items-center justify-between">
-          <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tun_enable') }}</label>
-          <FormSwitch v-model="configs.tun.enable" @update:model-value="() => saveTun()" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tun_stack') }}</label>
-            <select v-model="configs.tun.stack" @change="saveTun"
-              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-              <option value="gVisor">gVisor</option>
-              <option value="System">System</option>
-              <option value="Mixed">Mixed</option>
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.ipv6_toggle') }}</label>
+            <FormSwitch v-model="configs.ipv6" @update:model-value="toggleIPv6" />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.mode') }}</label>
+            <select v-model="configs.mode" @change="changeMode"
+              class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
+              <option value="Rule">{{ t('config.mode_rule') }}</option>
+              <option value="Global">{{ t('config.mode_global') }}</option>
+              <option value="Direct">{{ t('config.mode_direct') }}</option>
             </select>
           </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tun_device') }}</label>
-            <input type="text" v-model="configs.tun.device" @blur="saveTun" @keyup.enter="saveTun" :placeholder="t('config.interface_name_placeholder')"
-              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.log_level') }}</label>
+            <select v-model="configs['log-level']" @change="changeLogLevel"
+              class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
+              <option value="silent">Silent</option>
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+              <option value="debug">Debug</option>
+            </select>
           </div>
         </div>
 
-        <!-- 分割线 -->
-        <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
+        <!-- 2. 端口设置（内核启动时显示） -->
+        <div v-if="coreStatus.running"
+          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
+          <!-- 同步配置遮罩屏 -->
+          <div v-if="configsLoading"
+            class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
+            <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
+          </div>
 
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.interface_name') }}</label>
-          <select v-model="configs['interface-name']" @change="saveInterface"
-            class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-            <option value="">{{ t('config.interface_name_auto') }}</option>
-            <option v-for="iface in interfaces" :key="iface" :value="iface">{{ iface }}</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- 4. 运维控制（始终显示） -->
-      <div
-        class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col">
-        <div class="border-b border-slate-100 dark:border-slate-800 pb-4">
-          <h4 class="font-bold text-sm flex items-center gap-2">
-            <BuildOutline class="w-4 h-4 text-accent" />
-            {{ t('config.advanced_maintenance') }}
+          <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
+            <HardwareChipOutline class="w-4 h-4 text-accent" />
+            {{ t('config.port_settings') }}
           </h4>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.mixed_port') }}</label>
+              <input type="number" v-model.number="configs['mixed-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.http_port') }}</label>
+              <input type="number" v-model.number="configs.port" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.socks_port') }}</label>
+              <input type="number" v-model.number="configs['socks-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.redir_port') }}</label>
+              <input type="number" v-model.number="configs['redir-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+            </div>
+            <div class="flex flex-col gap-1 col-span-2">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tproxy_port')
+                }}</label>
+              <input type="number" v-model.number="configs['tproxy-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+            </div>
+          </div>
         </div>
 
-        <div class="space-y-4 flex-1 flex flex-col justify-between">
-          <!-- 内核状态 -->
-          <div class="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/80">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('config.core_status') }}</span>
-            <div class="flex items-center gap-2.5 text-xs">
-              <span class="w-2 h-2 rounded-full flex shrink-0"
-                :class="coreStatus.loading ? 'bg-slate-400 animate-pulse' : (coreStatus.running ? 'bg-success' : 'bg-red-500')"></span>
-              <span class="font-bold text-slate-700 dark:text-slate-200">
-                {{ coreStatus.loading ? t('config.core_checking') : (coreStatus.running ? t('config.core_running') : t('config.core_stopped')) }}
-              </span>
-              <span v-if="coreStatus.running && stats.coreVersion !== '未知' && stats.coreVersion !== '加载中...'"
-                class="px-1.5 py-0.5 font-mono text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded">
-                {{ coreVersion }}
-              </span>
+        <!-- 3. TUN与网卡设置（内核启动时显示） -->
+        <div v-if="coreStatus.running"
+          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
+          <!-- 同步配置遮罩屏 -->
+          <div v-if="configsLoading"
+            class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
+            <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">{{ t('config.syncing_configs') }}</span>
+          </div>
+
+          <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
+            <ShieldCheckmarkOutline class="w-4 h-4 text-accent" />
+            {{ t('config.tun') }}
+          </h4>
+
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tun_enable') }}</label>
+            <FormSwitch v-model="configs.tun.enable" @update:model-value="() => saveTun()" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tun_stack') }}</label>
+              <select v-model="configs.tun.stack" @change="saveTun"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
+                <option value="gVisor">gVisor</option>
+                <option value="System">System</option>
+                <option value="Mixed">Mixed</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tun_device') }}</label>
+              <input type="text" v-model="configs.tun.device" @blur="saveTun" @keyup.enter="saveTun" :placeholder="t('config.interface_name_placeholder')"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
             </div>
           </div>
 
-          <!-- 内核核心控制 -->
-          <div class="grid gap-3 w-full"
-            :class="coreStatus.running ? 'grid-cols-3' : 'grid-cols-2'">
-            <button v-if="!coreStatus.running" @click="handleStartCore" :disabled="coreStatus.loading"
-              class="py-2 bg-success hover:bg-success-hover text-white text-xs font-semibold rounded-xl shadow-md shadow-success/15 hover:shadow-success/25 transition-all flex items-center justify-center gap-1.5 w-full">
-              <SyncOutline v-if="coreStatus.loading" class="w-3.5 h-3.5 animate-spin inline-block" />
-              {{ coreStatus.loading ? t('config.core_starting') : t('config.start_core') }}
-            </button>
-            <template v-else>
-              <button @click="handleStopCore" :disabled="coreStatus.loading"
-                class="py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-red-500/15 hover:shadow-red-500/25 transition-all flex items-center justify-center gap-1.5 w-full">
-                <SyncOutline v-if="coreStatus.loading" class="w-3.5 h-3.5 animate-spin inline-block" />
-                {{ coreStatus.loading ? t('config.core_stopping') : t('config.stop_core') }}
-              </button>
-              <button @click="handleRestartCore" :disabled="coreStatus.loading"
-                class="py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-amber-500/15 hover:shadow-amber-500/25 transition-all flex items-center justify-center w-full">
-                {{ t('config.restart') }}
-              </button>
-            </template>
-            <button @click="handleUpgradeCore" :disabled="isUpgrading"
-              class="py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-xl shadow-md shadow-accent/15 hover:shadow-accent/25 transition-all flex items-center justify-center w-full">
-              {{ isUpgrading ? t('config.upgrading_core') : t('config.upgrade_core') }}
-            </button>
-          </div>
- 
           <!-- 分割线 -->
           <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
- 
-          <!-- 常规运维 -->
-          <div class="grid grid-cols-2 gap-3">
-            <button @click="handleReloadConfig" :disabled="!coreStatus.running || isReloading"
-              class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
-              <div v-if="isReloading" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
-              {{ isReloading ? t('config.reloading') : t('config.reload') }}
-            </button>
-            <button @click="handleFlushFakeIP" :disabled="!coreStatus.running || isFlushingFakeIP"
-              class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
-              <div v-if="isFlushingFakeIP" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
-              {{ isFlushingFakeIP ? t('config.flushing') : t('config.flush_fakeip') }}
-            </button>
-            <button @click="handleFlushDNS" :disabled="!coreStatus.running || isFlushingDNS"
-              class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
-              <div v-if="isFlushingDNS" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
-              {{ isFlushingDNS ? t('config.flushing') : t('config.flush_dns') }}
-            </button>
-            <button @click="handleUpdateGeo" :disabled="!coreStatus.running || isUpdatingGeo"
-              class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
-              <div v-if="isUpdatingGeo" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
-              {{ isUpdatingGeo ? t('config.upgrading_core') : t('config.update_geo') }}
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <!-- 5. 界面设置（始终显示） -->
-      <div
-        class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-5 h-full transition-all flex flex-col">
-        <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-          <ColorPaletteOutline class="w-4 h-4 text-accent" />
-          {{ t('config.interface_settings') }}
-        </h4>
-
-        <div class="space-y-4 flex-1">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.language') }}</label>
-            <select v-model="locale" @change="changeLang"
-              class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-              <option value="zh">{{ t('config.lang_zh') }}</option>
-              <option value="en">{{ t('config.lang_en') }}</option>
-            </select>
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.theme') }}</label>
-            <select v-model="globalStore.theme"
-              class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-              <option value="light">{{ t('config.theme_light') }}</option>
-              <option value="dark">{{ t('config.theme_dark') }}</option>
-              <option value="purple">{{ t('config.theme_purple') }}</option>
-              <option value="pink">{{ t('config.theme_pink') }}</option>
-              <option value="system">{{ t('config.theme_system') }}</option>
-            </select>
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.start_page') }}</label>
-            <select v-model="globalStore.startPage"
-              class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-              <option value="last">{{ t('config.start_page_last') }}</option>
-              <option value="overview">{{ t('nav.overview') }}</option>
-              <option value="proxies">{{ t('nav.proxies') }}</option>
-              <option value="subscription">{{ t('nav.subscription') }}</option>
-              <option value="rules">{{ t('nav.rules') }}</option>
-              <option value="connections">{{ t('nav.connections') }}</option>
-              <option value="logs">{{ t('nav.logs') }}</option>
-              <option value="config">{{ t('nav.config') }}</option>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.interface_name') }}</label>
+            <select v-model="configs['interface-name']" @change="saveInterface"
+              class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
+              <option value="">{{ t('config.interface_name_auto') }}</option>
+              <option v-for="iface in interfaces" :key="iface" :value="iface">{{ iface }}</option>
             </select>
           </div>
         </div>
-      </div>
 
-      <!-- 6. DNS 查询（内核启动时显示） -->
-      <div v-if="coreStatus.running"
-        class="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:-translate-y-[1.5px] duration-300 space-y-4 h-full transition-all flex flex-col">
-        <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-          <SearchOutline class="w-4 h-4 text-accent" />
-          {{ t('config.dns_query') }}
-        </h4>
+        <!-- 4. 运维控制（始终显示） -->
+        <div
+          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col">
+          <div class="border-b border-slate-100 dark:border-slate-800 pb-4">
+            <h4 class="font-bold text-sm flex items-center gap-2">
+              <BuildOutline class="w-4 h-4 text-accent" />
+              {{ t('config.advanced_maintenance') }}
+            </h4>
+          </div>
 
-        <div class="flex-1 flex flex-col justify-between gap-4">
-          <div class="flex flex-col gap-2">
-            <input type="text" v-model="dnsQuery.name" :placeholder="t('config.dns_placeholder')"
-              @keyup.enter="handleDNSQuery"
-              class="w-full px-4 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none" />
-            <div class="flex gap-2">
-              <select v-model="dnsQuery.type"
-                class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none">
-                <option value="A">A</option>
-                <option value="AAAA">AAAA</option>
-                <option value="MX">MX</option>
-                <option value="TXT">TXT</option>
-              </select>
-              <button @click="handleDNSQuery" :disabled="dnsQuery.loading"
-                class="flex-[2] py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-1">
-                {{ dnsQuery.loading ? t('config.dns_querying') : t('config.dns_query_btn') }}
+          <div class="space-y-4 flex-1 flex flex-col justify-between">
+            <!-- 内核状态 -->
+            <div class="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/80">
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('config.core_status') }}</span>
+              <div class="flex items-center gap-2.5 text-xs">
+                <span class="w-2 h-2 rounded-full flex shrink-0"
+                  :class="coreStatus.loading ? 'bg-slate-400 animate-pulse' : (coreStatus.running ? 'bg-success' : 'bg-red-500')"></span>
+                <span class="font-bold text-slate-700 dark:text-slate-200">
+                  {{ coreStatus.loading ? t('config.core_checking') : (coreStatus.running ? t('config.core_running') : t('config.core_stopped')) }}
+                </span>
+                <span v-if="coreStatus.running && stats.coreVersion !== '未知' && stats.coreVersion !== '加载中...'"
+                  class="px-1.5 py-0.5 font-mono text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded">
+                  {{ coreVersion }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 内核核心控制 -->
+            <div class="grid gap-3 w-full"
+              :class="coreStatus.running ? 'grid-cols-3' : 'grid-cols-2'">
+              <button v-if="!coreStatus.running" @click="handleStartCore" :disabled="coreStatus.loading"
+                class="py-2 bg-success hover:bg-success-hover text-white text-xs font-semibold rounded-xl shadow-md shadow-success/15 hover:shadow-success/25 transition-all flex items-center justify-center gap-1.5 w-full">
+                <SyncOutline v-if="coreStatus.loading" class="w-3.5 h-3.5 animate-spin inline-block" />
+                {{ coreStatus.loading ? t('config.core_starting') : t('config.start_core') }}
+              </button>
+              <template v-else>
+                <button @click="handleStopCore" :disabled="coreStatus.loading"
+                  class="py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-red-500/15 hover:shadow-red-500/25 transition-all flex items-center justify-center gap-1.5 w-full">
+                  <SyncOutline v-if="coreStatus.loading" class="w-3.5 h-3.5 animate-spin inline-block" />
+                  {{ coreStatus.loading ? t('config.core_stopping') : t('config.stop_core') }}
+                </button>
+                <button @click="handleRestartCore" :disabled="coreStatus.loading"
+                  class="py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-amber-500/15 hover:shadow-amber-500/25 transition-all flex items-center justify-center w-full">
+                  {{ t('config.restart') }}
+                </button>
+              </template>
+              <button @click="handleUpgradeCore" :disabled="isUpgrading"
+                class="py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-xl shadow-md shadow-accent/15 hover:shadow-accent/25 transition-all flex items-center justify-center w-full">
+                {{ isUpgrading ? t('config.upgrading_core') : t('config.upgrade_core') }}
+              </button>
+            </div>
+   
+            <!-- 分割线 -->
+            <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
+   
+            <!-- 常规运维 -->
+            <div class="grid grid-cols-2 gap-3">
+              <button @click="handleReloadConfig" :disabled="!coreStatus.running || isReloading"
+                class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
+                <div v-if="isReloading" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
+                {{ isReloading ? t('config.reloading') : t('config.reload') }}
+              </button>
+              <button @click="handleFlushFakeIP" :disabled="!coreStatus.running || isFlushingFakeIP"
+                class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
+                <div v-if="isFlushingFakeIP" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
+                {{ isFlushingFakeIP ? t('config.flushing') : t('config.flush_fakeip') }}
+              </button>
+              <button @click="handleFlushDNS" :disabled="!coreStatus.running || isFlushingDNS"
+                class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
+                <div v-if="isFlushingDNS" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
+                {{ isFlushingDNS ? t('config.flushing') : t('config.flush_dns') }}
+              </button>
+              <button @click="handleUpdateGeo" :disabled="!coreStatus.running || isUpdatingGeo"
+                class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 transition-all border border-slate-200/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
+                <div v-if="isUpdatingGeo" class="w-3 h-3 border border-slate-300 dark:border-slate-600 !border-t-accent rounded-full animate-spin"></div>
+                {{ isUpdatingGeo ? t('config.upgrading_core') : t('config.update_geo') }}
               </button>
             </div>
           </div>
+        </div>
 
-          <pre
-            class="p-4 bg-slate-50 dark:bg-slate-900/50 font-mono text-xs rounded-xl overflow-y-auto whitespace-pre-wrap break-all h-28 border border-slate-200 dark:border-slate-800 transition-all flex-1"
-            :class="dnsQuery.result ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500 italic flex items-center justify-center select-none'">{{ dnsQuery.result || t('config.dns_result_default') }}</pre>
+        <!-- 5. 界面设置（始终显示） -->
+        <div
+          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col">
+          <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
+            <ColorPaletteOutline class="w-4 h-4 text-accent" />
+            {{ t('config.interface_settings') }}
+          </h4>
+
+          <div class="space-y-4 flex-1">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.language') }}</label>
+              <select v-model="locale" @change="changeLang"
+                class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
+                <option value="zh">{{ t('config.lang_zh') }}</option>
+                <option value="en">{{ t('config.lang_en') }}</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.theme') }}</label>
+              <select v-model="globalStore.theme"
+                class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
+                <option value="light">{{ t('config.theme_light') }}</option>
+                <option value="dark">{{ t('config.theme_dark') }}</option>
+                <option value="purple">{{ t('config.theme_purple') }}</option>
+                <option value="pink">{{ t('config.theme_pink') }}</option>
+                <option value="system">{{ t('config.theme_system') }}</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.start_page') }}</label>
+              <select v-model="globalStore.startPage"
+                class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
+                <option value="last">{{ t('config.start_page_last') }}</option>
+                <option value="overview">{{ t('nav.overview') }}</option>
+                <option value="proxies">{{ t('nav.proxies') }}</option>
+                <option value="subscription">{{ t('nav.subscription') }}</option>
+                <option value="rules">{{ t('nav.rules') }}</option>
+                <option value="connections">{{ t('nav.connections') }}</option>
+                <option value="logs">{{ t('nav.logs') }}</option>
+                <option value="config">{{ t('nav.config') }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. DNS 查询（内核启动时显示） -->
+        <div v-if="coreStatus.running"
+          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-4 h-full transition-all flex flex-col">
+          <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
+            <SearchOutline class="w-4 h-4 text-accent" />
+            {{ t('config.dns_query') }}
+          </h4>
+
+          <div class="flex-1 flex flex-col justify-between gap-4">
+            <div class="flex flex-col gap-2">
+              <input type="text" v-model="dnsQuery.name" :placeholder="t('config.dns_placeholder')"
+                @keyup.enter="handleDNSQuery"
+                class="w-full px-4 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none" />
+              <div class="flex gap-2">
+                <select v-model="dnsQuery.type"
+                  class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none">
+                  <option value="A">A</option>
+                  <option value="AAAA">AAAA</option>
+                  <option value="MX">MX</option>
+                  <option value="TXT">TXT</option>
+                </select>
+                <button @click="handleDNSQuery" :disabled="dnsQuery.loading"
+                  class="flex-[2] py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-1">
+                  {{ dnsQuery.loading ? t('config.dns_querying') : t('config.dns_query_btn') }}
+                </button>
+              </div>
+            </div>
+
+            <pre
+              class="p-4 bg-slate-50 dark:bg-slate-900/50 font-mono text-xs rounded-xl overflow-y-auto whitespace-pre-wrap break-all h-28 border border-slate-200 dark:border-slate-800 transition-all flex-1"
+              :class="dnsQuery.result ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500 italic flex items-center justify-center select-none'">{{ dnsQuery.result || t('config.dns_result_default') }}</pre>
+          </div>
         </div>
       </div>
     </div>

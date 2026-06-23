@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { ArrowDownOutline, ArrowUpOutline } from '@vicons/ionicons5'
+import { ArrowDownOutline, ArrowUpOutline, LinkOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useConnectionsStore } from '../store/connections'
 import { useGlobalStore } from '../store/global'
@@ -195,10 +195,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="sticky top-0 z-20 glass-medium shadow-sm p-4 rounded-xl border flex flex-wrap gap-4 items-center justify-between transition-all">
+  <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
       <div class="flex items-center gap-4 flex-wrap">
         <h3 class="text-base font-semibold flex items-center gap-2">
+          <LinkOutline class="w-5 h-5 text-accent" />
           {{ t('connections.title') }}
         </h3>
         <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
@@ -229,7 +230,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="bg-white dark:bg-[#1e293b] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-1">
       <!-- 桌面端表格视图 -->
       <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
