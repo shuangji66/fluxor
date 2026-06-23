@@ -559,7 +559,7 @@ const testCustomDelay = async () => {
   }
 }
 
-// 测试全部目标
+// 测试全部目标（包括固定项和自定义项）
 const testAllDelays = async () => {
   if (isTestingDelay.value) return
   isTestingDelay.value = true
@@ -575,6 +575,11 @@ const testAllDelays = async () => {
     }
   })
   await Promise.all(workers)
+
+  // 固定测试完成后，测试自定义地址（如果有）
+  if (customUrl.value.trim()) {
+    await testCustomDelay()
+  }
 
   isTestingDelay.value = false
 }
