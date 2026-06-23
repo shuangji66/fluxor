@@ -460,7 +460,7 @@ const delayApiMap: Record<string, string> = {
 }
 
 const delayResults = ref<DelayTestResult[]>(
-  delayTargets.map(t => ({ ...t, delay: null, loading: false }))
+  delayTargets.map(t => ({ ...t, delay: null, loading: false, tested: false }))
 )
 
 const customUrl = ref('https://www.baidu.com')

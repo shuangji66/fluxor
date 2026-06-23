@@ -16,7 +16,7 @@ import (
 // ---------- 仪表盘数据 API ----------
 
 // handleVersion 返回内核版本信息（代理 /version）
-func handleVersion(w http.ResponseWriter, r *http.Request) {
+func handleVersion(w http.ResponseWriter, _ *http.Request) {
 	resp, err := coreRequest("GET", "/version", nil)
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, "无法获取内核版本: "+err.Error())
@@ -28,7 +28,7 @@ func handleVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTraffic 返回实时流量信息（代理 /traffic）
-func handleTraffic(w http.ResponseWriter, r *http.Request) {
+func handleTraffic(w http.ResponseWriter, _ *http.Request) {
 	resp, err := coreRequest("GET", "/traffic", nil)
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, "无法获取流量信息: "+err.Error())
@@ -40,7 +40,7 @@ func handleTraffic(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleMemory 返回内存使用信息（代理 /memory）
-func handleMemory(w http.ResponseWriter, r *http.Request) {
+func handleMemory(w http.ResponseWriter, _ *http.Request) {
 	resp, err := coreRequest("GET", "/memory", nil)
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, "无法获取内存信息: "+err.Error())
@@ -52,7 +52,7 @@ func handleMemory(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleConnections 返回连接信息（代理 /connections）
-func handleConnections(w http.ResponseWriter, r *http.Request) {
+func handleConnections(w http.ResponseWriter, _ *http.Request) {
 	resp, err := coreRequest("GET", "/connections", nil)
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, "无法获取连接信息: "+err.Error())
