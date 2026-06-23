@@ -35,11 +35,6 @@ const currentNodeDisplay = computed(() => {
 
 const base = window.BASE_URL || ''
 
-const showLocalV4 = ref(false)
-const showLocalV6 = ref(false)
-const showProxyV4 = ref(true)
-const showProxyV6 = ref(true)
-
 // 流量数据点 (最多65个)
 const maxPoints = 65
 let cachedMaxY = 1024
@@ -338,6 +333,12 @@ interface IpInfo {
   localIPv6: string | null
   proxyIPv4: string | null
   proxyIPv6: string | null
+  localCountry: string | null
+  localRegion: string | null
+  localIsp: string | null
+  proxyCountry: string | null
+  proxyRegion: string | null
+  proxyIsp: string | null
   proxyPort: number | null
   loading: boolean
   error: boolean
@@ -354,21 +355,34 @@ const ipInfo = ref<IpInfo>({
   localIPv6: null,
   proxyIPv4: null,
   proxyIPv6: null,
+  localCountry: null,
+  localRegion: null,
+  localIsp: null,
+  proxyCountry: null,
+  proxyRegion: null,
+  proxyIsp: null,
   proxyPort: null,
   loading: true,
   error: false
 })
 
-const isAnyIpLoading = computed(() => {
-  return loadingLocalV4.value || loadingLocalV6.value || loadingProxyV4.value || loadingProxyV6.value
-})
+const showLocalGroup = ref(false)   // 本地组默认密文
+const showProxyGroup = ref(true)    // 代理组默认明文
 
-// 获取公网 IP 信息（并发流式拉取，互不阻塞）
-const fetchPublicIP = async () => {
-  refreshLocalIPv4()
-  refreshLocalIPv6()
-  refreshProxyIPv4()
-  refreshProxyIPv6()
+// 刷新本地组（IPv4 + IPv6）
+const refreshLocalGroup = async () => {
+  await Promise.all([
+    refreshLocalIPv4(),
+    refreshLocalIPv6()
+  ])
+}
+
+// 刷新代理组（IPv4 + IPv6）
+const refreshProxyGroup = async () => {
+  await Promise.all([
+    refreshProxyIPv4(),
+    refreshProxyIPv6()
+  ])
 }
 
 // 独立刷新本机 IPv4
@@ -379,6 +393,9 @@ const refreshLocalIPv4 = async () => {
     if (resp.ok) {
       const data = await resp.json()
       ipInfo.value.localIPv4 = data.ip || null
+      ipInfo.value.localCountry = data.country || null
+      ipInfo.value.localRegion = data.region || null
+      ipInfo.value.localIsp = data.isp || null
     }
   } catch (e) {
     console.warn('刷新本机 IPv4 失败:', e)
@@ -411,12 +428,21 @@ const refreshProxyIPv4 = async () => {
     if (resp.ok) {
       const data = await resp.json()
       ipInfo.value.proxyIPv4 = data.ip || null
+      ipInfo.value.proxyCountry = data.country || null
+      ipInfo.value.proxyRegion = data.region || null
+      ipInfo.value.proxyIsp = data.isp || null
     } else {
       ipInfo.value.proxyIPv4 = null
+      ipInfo.value.proxyCountry = null
+      ipInfo.value.proxyRegion = null
+      ipInfo.value.proxyIsp = null
     }
   } catch (e) {
     console.warn('刷新代理 IPv4 失败:', e)
     ipInfo.value.proxyIPv4 = null
+    ipInfo.value.proxyCountry = null
+    ipInfo.value.proxyRegion = null
+    ipInfo.value.proxyIsp = null
   } finally {
     loadingProxyV4.value = false
   }
@@ -563,60 +589,7 @@ const getDelayDisplay = (result: DelayTestResult) => {
   return { text: `${result.delay}ms`, color: 'text-red-400' }
 }
 
-const proxyCountry = ref<string | null>(null)
-const proxyCountryCode = ref<string | null>(null)
-const proxyIsp = ref<string | null>(null)
-const proxyAsn = ref<string | null>(null)
-const proxyCity = ref<string | null>(null)
-const proxyRegion = ref<string | null>(null)
-const loadingCountry = ref(false)
 
-// 重置查询缓存
-const clearCountryInfo = () => {
-  proxyCountry.value = null
-  proxyCountryCode.value = null
-  proxyIsp.value = null
-  proxyAsn.value = null
-  proxyCity.value = null
-  proxyRegion.value = null
-}
-
-// 请求 ip.sb 获取 IP 地理归属和自治系统信息
-const fetchCountryInfo = async (ip: string) => {
-  if (!ip || ip === '--') return
-  loadingCountry.value = true
-  try {
-    const response = await fetch(`https://api.ip.sb/geoip/${ip}`)
-    if (response.ok) {
-      const data = await response.json()
-      proxyCountry.value = data.country || null
-      proxyCountryCode.value = data.country_code || null
-      proxyIsp.value = data.isp || data.asn_organization || null
-      proxyAsn.value = data.asn ? `AS${data.asn}` : null
-      proxyCity.value = data.city || null
-      proxyRegion.value = data.region || null
-    } else {
-      clearCountryInfo()
-    }
-  } catch (e) {
-    console.warn('[GeoIP] 获取失败:', e)
-    clearCountryInfo()
-  } finally {
-    loadingCountry.value = false
-  }
-}
-
-// 监听代理 IP 变化自动查询
-watch(
-  () => ipInfo.value.proxyIPv4,
-  (newIp) => {
-    if (newIp && newIp !== '--') {
-      fetchCountryInfo(newIp)
-    } else {
-      clearCountryInfo()
-    }
-  }
-)
 
 // 格式化当前订阅名称
 const currentSubscriptionDisplay = computed(() => {
@@ -641,13 +614,13 @@ onMounted(() => {
     configStore.loadConfig()
     initCanvas()
     observeTheme()
-
     overviewStore.subscribeStatus()
     overviewStore.subscribeTraffic()
     overviewStore.subscribeMemory()
     connectionsStore.subscribe()
+    refreshLocalGroup()
+    refreshProxyGroup()
   })
-  fetchPublicIP()
 })
 
 onUnmounted(() => {
@@ -746,12 +719,12 @@ onUnmounted(() => {
             </div>
             <div class="flex justify-between items-center">
               <span>{{ t('overview.country') }}</span>
-              <span class="font-bold text-slate-800 dark:text-slate-100">{{ proxyCountry || (loadingCountry ? '查询中...' : '--') }}</span>
+              <span class="font-bold text-slate-800 dark:text-slate-100">{{ ipInfo.proxyCountry || '--' }}</span>
             </div>
             <div class="flex justify-between items-center">
               <span>{{ t('overview.isp') }}</span>
               <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="proxyIsp || ''">
-                {{ proxyIsp || (loadingCountry ? '查询中...' : '--') }}
+                {{ ipInfo.proxyIsp || '--' }}
               </span>
             </div>
           </div>
@@ -811,98 +784,121 @@ onUnmounted(() => {
     <!-- 双列卡片：IP 信息 + 延迟测试 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-      <!-- IP 信息卡 -->
-      <div class="bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
-        <div class="flex items-center justify-between mb-3">
-            <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
-                {{ t('overview.ip_info') }}
-            </h4>
-            <button 
-                @click="fetchPublicIP" 
-                :disabled="isAnyIpLoading"
-                class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
-                :title="t('common.refresh')"
-            >
-                <SyncOutline class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" :class="{ 'animate-spin': isAnyIpLoading }" />
-            </button>
-        </div>
-        
-        <div class="space-y-1.5 text-sm">
-            <!-- 本机 IPv4 -->
-            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
-                    {{ t('overview.local_ip') }} (IPv4)
-                    <button @click="showLocalV4 = !showLocalV4" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showLocalV4 ? t('common.hide') : t('common.show')">
-                        <EyeOutline v-if="showLocalV4" class="w-3.5 h-3.5" />
-                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
+    <!-- IP 信息卡（分组设计） -->
+    <div class="bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
+        <!-- 本地 IP 信息组 -->
+        <div class="mb-4">
+            <div class="flex items-center justify-between mb-2">
+                <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                    {{ t('overview.local_ip_info') }}
+                </h4>
+                <div class="flex items-center gap-1.5">
+                    <!-- 眼睛按钮 -->
+                    <button @click="showLocalGroup = !showLocalGroup" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" :title="showLocalGroup ? t('common.hide') : t('common.show')">
+                        <EyeOutline v-if="showLocalGroup" class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+                        <EyeOffOutline v-else class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
                     </button>
-                </span>
-                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ showLocalV4 ? (ipInfo.localIPv4 || '--') : (ipInfo.localIPv4 ? '••••••••' : '--') }}
-                    </span>
-                    <button @click="refreshLocalIPv4" :disabled="loadingLocalV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
-                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV4 }" />
+                    <!-- 刷新按钮 -->
+                    <button 
+                        @click="refreshLocalGroup" 
+                        :disabled="loadingLocalV4 || loadingLocalV6"
+                        class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+                        :title="t('common.refresh')"
+                    >
+                        <SyncOutline class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" :class="{ 'animate-spin': loadingLocalV4 || loadingLocalV6 }" />
                     </button>
                 </div>
             </div>
-            <!-- 本机 IPv6 -->
-            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
-                    {{ t('overview.local_ip') }} (IPv6)
-                    <button @click="showLocalV6 = !showLocalV6" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showLocalV6 ? t('common.hide') : t('common.show')">
-                        <EyeOutline v-if="showLocalV6" class="w-3.5 h-3.5" />
-                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
-                    </button>
-                </span>
-                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ showLocalV6 ? (ipInfo.localIPv6 || '--') : (ipInfo.localIPv6 ? '••••••••' : '--') }}
+
+            <!-- 本地 IPv4 行 -->
+            <div class="space-y-1">
+                <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
+                    <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv4</span>
+                    <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                            {{ showLocalGroup ? (ipInfo.localIPv4 || '--') : (ipInfo.localIPv4 ? '••••••••' : '--') }}
+                        </span>
+                    </div>
+                </div>
+                <!-- 本地 IPv4 地理信息 -->
+                <div class="flex justify-between items-center py-1 text-xs text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/30">
+                    <span>{{ t('overview.geo_info') }}</span>
+                    <span>
+                        {{ (ipInfo.localCountry || '---') + ' / ' + (ipInfo.localRegion || '---') + ' / ' + (ipInfo.localIsp || '---') }}
                     </span>
-                    <button @click="refreshLocalIPv6" :disabled="loadingLocalV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
-                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingLocalV6 }" />
-                    </button>
                 </div>
             </div>
-            <!-- 代理 IPv4 -->
-            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
-                    {{ t('overview.proxy_ip') }} (IPv4)
-                    <button @click="showProxyV4 = !showProxyV4" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showProxyV4 ? t('common.hide') : t('common.show')">
-                        <EyeOutline v-if="showProxyV4" class="w-3.5 h-3.5" />
-                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
-                    </button>
-                </span>
+
+            <!-- 本地 IPv6 行 -->
+            <div class="flex justify-between items-center py-1 mt-2 border-b border-slate-100 dark:border-slate-800/50">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv6</span>
                 <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
                     <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ showProxyV4 ? (ipInfo.proxyIPv4 || '--') : (ipInfo.proxyIPv4 ? '••••••••' : '--') }}
+                        {{ showLocalGroup ? (ipInfo.localIPv6 || '--') : (ipInfo.localIPv6 ? '••••••••' : '--') }}
                     </span>
-                    <button @click="refreshProxyIPv4" :disabled="loadingProxyV4" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
-                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV4 }" />
-                    </button>
-                </div>
-            </div>
-            <!-- 代理 IPv6 -->
-            <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
-                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">
-                    {{ t('overview.proxy_ip') }} (IPv6)
-                    <button @click="showProxyV6 = !showProxyV6" class="ml-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showProxyV6 ? t('common.hide') : t('common.show')">
-                        <EyeOutline v-if="showProxyV6" class="w-3.5 h-3.5" />
-                        <EyeOffOutline v-else class="w-3.5 h-3.5" />
-                    </button>
-                </span>
-                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
-                        {{ showProxyV6 ? (ipInfo.proxyIPv6 || '--') : (ipInfo.proxyIPv6 ? '••••••••' : '--') }}
-                    </span>
-                    <button @click="refreshProxyIPv6" :disabled="loadingProxyV6" class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50 flex-shrink-0" :title="t('common.refresh')">
-                        <SyncOutline class="w-3.5 h-3.5 text-slate-400" :class="{ 'animate-spin': loadingProxyV6 }" />
-                    </button>
                 </div>
             </div>
         </div>
-      </div>
+
+        <!-- 分隔线 -->
+        <div class="border-t border-slate-200/40 dark:border-slate-800/40 my-3"></div>
+
+        <!-- 代理 IP 信息组 -->
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+                    {{ t('overview.proxy_ip_info') }}
+                </h4>
+                <div class="flex items-center gap-1.5">
+                    <!-- 眼睛按钮 -->
+                    <button @click="showProxyGroup = !showProxyGroup" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" :title="showProxyGroup ? t('common.hide') : t('common.show')">
+                        <EyeOutline v-if="showProxyGroup" class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+                        <EyeOffOutline v-else class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+                    </button>
+                    <!-- 刷新按钮 -->
+                    <button 
+                        @click="refreshProxyGroup" 
+                        :disabled="loadingProxyV4 || loadingProxyV6"
+                        class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+                        :title="t('common.refresh')"
+                    >
+                        <SyncOutline class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" :class="{ 'animate-spin': loadingProxyV4 || loadingProxyV6 }" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- 代理 IPv4 行 -->
+            <div class="space-y-1">
+                <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/50">
+                    <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv4</span>
+                    <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                        <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                            {{ showProxyGroup ? (ipInfo.proxyIPv4 || '--') : (ipInfo.proxyIPv4 ? '••••••••' : '--') }}
+                        </span>
+                    </div>
+                </div>
+                <!-- 代理 IPv4 地理信息 -->
+                <div class="flex justify-between items-center py-1 text-xs text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/30">
+                    <span>{{ t('overview.geo_info') }}</span>
+                    <span>
+                        {{ (ipInfo.proxyCountry || '---') + ' / ' + (ipInfo.proxyRegion || '---') + ' / ' + (ipInfo.proxyIsp || '---') }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- 代理 IPv6 行 -->
+            <div class="flex justify-between items-center py-1 mt-2 border-b border-slate-100 dark:border-slate-800/50">
+                <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">IPv6</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span class="font-mono font-bold text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap max-w-[140px] sm:max-w-[200px] md:max-w-full">
+                        {{ showProxyGroup ? (ipInfo.proxyIPv6 || '--') : (ipInfo.proxyIPv6 ? '••••••••' : '--') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
 
       <!-- 代理延迟测试卡 -->
       <div class="bg-slate-50/50 dark:bg-slate-900/30 p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">

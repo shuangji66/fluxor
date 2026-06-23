@@ -432,7 +432,7 @@ func handleInterfaces(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(names)
 }
 
-// handleLocalIPv4 获取本机 IPv4
+// handleLocalIPv4 获取本机 IPv4 及地理信息
 func handleLocalIPv4(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
@@ -453,8 +453,15 @@ func handleLocalIPv4(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// 获取地理信息
+	country, region, isp := fetchGeoInfo(ip)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
+	json.NewEncoder(w).Encode(map[string]string{
+		"ip":      ip,
+		"country": country,
+		"region":  region,
+		"isp":     isp,
+	})
 }
 
 // handleLocalIPv6 获取本机 IPv6
@@ -483,7 +490,7 @@ func handleLocalIPv6(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
 }
 
-// handleProxyIPv4 获取代理 IPv4
+// handleProxyIPv4 获取代理 IPv4 及地理信息
 func handleProxyIPv4(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
@@ -505,8 +512,15 @@ func handleProxyIPv4(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusServiceUnavailable, "获取代理 IPv4 失败: "+err.Error())
 		return
 	}
+	// 获取地理信息
+	country, region, isp := fetchGeoInfo(ip)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
+	json.NewEncoder(w).Encode(map[string]string{
+		"ip":      ip,
+		"country": country,
+		"region":  region,
+		"isp":     isp,
+	})
 }
 
 // handleProxyIPv6 获取代理 IPv6
@@ -566,6 +580,31 @@ func getProxyPortFromConfig() int {
 		}
 	}
 	return 0
+}
+
+// fetchGeoInfo 查询 IP 地理信息，返回 country, region, isp
+func fetchGeoInfo(ip string) (string, string, string) {
+	if ip == "" {
+		return "", "", ""
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("https://api.ip.sb/geoip/" + ip)
+	if err != nil {
+		return "", "", ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", "", ""
+	}
+	var data struct {
+		Country string `json:"country"`
+		Region  string `json:"region"`
+		Isp     string `json:"isp"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", "", ""
+	}
+	return data.Country, data.Region, data.Isp
 }
 
 // fetchPublicIP 支持通过代理获取 IP，兼容 JSON 与纯文本，带正则表达式提取和校验
