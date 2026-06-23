@@ -316,19 +316,7 @@
 
 /* 3. 全局样式与交互 */
 
-/* 避免点击时选中文字 */
-button,
-select,
-nav,
-aside,
-svg,
-.cursor-pointer {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-
+/* 全局禁用文本选择，防止交互误触变蓝 */
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
@@ -338,6 +326,22 @@ body {
   transition: background-color 0.2s, color 0.2s;
   overflow: hidden;
   font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* 允许复制与输入的区域 */
+input,
+textarea,
+pre,
+code,
+.select-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
 }
 
 /* 输入控件聚焦 */
@@ -370,7 +374,7 @@ input:focus, select:focus, textarea:focus {
   opacity: 0.45;
 }
 
-/* 滚动条 */
+/* 滚动条整体配置 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -380,19 +384,31 @@ input:focus, select:focus, textarea:focus {
   background: transparent;
 }
 
+/* 默认滑块透明 */
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
+  background-color: transparent;
   border-radius: 9999px;
-  transition: background 0.2s ease-in-out;
+  transition: background-color 0.25s ease-in-out;
 }
 
+/* 容器悬停时显示滑块 */
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+}
+
+/* 滑块悬停高亮 */
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
+  background-color: var(--scrollbar-thumb-hover) !important;
 }
 
-/* Firefox 兼容 */
+/* Firefox 悬停渐显兼容 */
 * {
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.25s ease-in-out;
+}
+
+*:hover {
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
@@ -617,4 +633,15 @@ main .dark\:bg-slate-800,
 [data-theme="pink"] .bg-white .hover\:bg-slate-100:hover,
 [data-theme="pink"] .bg-white .hover\:bg-slate-200:hover {
   background-color: rgba(15, 23, 42, 0.05) !important;
+}
+
+/* 折叠状态下侧边栏隐藏滚动条，但仍然允许滚轮滚动 */
+.sidebar-collapsed::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.sidebar-collapsed {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
 }

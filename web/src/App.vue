@@ -137,7 +137,7 @@ onUnmounted(() => {
     <!-- 侧边栏 aside -->
     <aside class="hidden md:flex md:static my-4 ml-4 mr-0 h-[calc(100vh-32px)] glass-medium border border-slate-200/60 dark:border-slate-800/60 rounded-[24px] z-50 flex-col justify-between transition-all duration-300 overflow-y-auto overflow-x-hidden shadow-md"
       :class="[
-        globalStore.isSidebarCollapsed ? 'md:w-16' : 'md:w-60'
+        globalStore.isSidebarCollapsed ? 'md:w-16 sidebar-collapsed' : 'md:w-60'
       ]">
       <div class="flex items-center border-b border-slate-100 dark:border-slate-800/60 transition-all duration-200"
         :class="globalStore.isSidebarCollapsed ? 'px-2 py-4 justify-center' : 'p-4 justify-between'">
@@ -163,15 +163,16 @@ onUnmounted(() => {
       </div>
 
       <!-- 导航项目 -->
-      <nav class="flex-1 px-3 py-4 space-y-1.5">
+      <nav class="flex-1 px-3 space-y-1 transition-all duration-200"
+        :class="globalStore.isSidebarCollapsed ? 'py-2' : 'py-4'">
         <!-- 概览 -->
         <button @click="selectTab('overview')" 
-          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
+          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'overview' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed 
-              ? 'justify-center px-0 hover:scale-105' 
-              : 'px-3 hover:translate-x-1'
+              ? 'justify-center px-0 hover:scale-105 py-2' 
+              : 'px-3 py-2.5 hover:translate-x-1'
           ]"
           :title="globalStore.isSidebarCollapsed ? t('nav.overview') : ''">
           <GridOutline class="w-5 h-5 shrink-0" />
@@ -183,12 +184,12 @@ onUnmounted(() => {
 
         <!-- 代理 -->
         <button @click="selectTab('proxies')" 
-          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
+          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'proxies' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed 
-              ? 'justify-center px-0 hover:scale-105' 
-              : 'px-3 hover:translate-x-1'
+              ? 'justify-center px-0 hover:scale-105 py-2' 
+              : 'px-3 py-2.5 hover:translate-x-1'
           ]"
           :title="globalStore.isSidebarCollapsed ? t('nav.proxies') : ''">
           <GlobeOutline class="w-5 h-5 shrink-0" />
@@ -200,12 +201,12 @@ onUnmounted(() => {
 
         <!-- 订阅 -->
         <button @click="selectTab('subscription')" 
-          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
+          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'subscription' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed 
-              ? 'justify-center px-0 hover:scale-105' 
-              : 'px-3 hover:translate-x-1'
+              ? 'justify-center px-0 hover:scale-105 py-2' 
+              : 'px-3 py-2.5 hover:translate-x-1'
           ]"
           :title="globalStore.isSidebarCollapsed ? t('nav.subscription') : ''">
           <MailOutline class="w-5 h-5 shrink-0" />
@@ -217,12 +218,12 @@ onUnmounted(() => {
 
         <!-- 规则 -->
         <button @click="selectTab('rules')" 
-          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
+          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'rules' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed 
-              ? 'justify-center px-0 hover:scale-105' 
-              : 'px-3 hover:translate-x-1'
+              ? 'justify-center px-0 hover:scale-105 py-2' 
+              : 'px-3 py-2.5 hover:translate-x-1'
           ]"
           :title="globalStore.isSidebarCollapsed ? t('nav.rules') : ''">
           <LayersOutline class="w-5 h-5 shrink-0" />
@@ -234,12 +235,12 @@ onUnmounted(() => {
 
         <!-- 连接 -->
         <button @click="selectTab('connections')" 
-          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
+          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'connections' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed 
-              ? 'justify-center px-0 hover:scale-105' 
-              : 'px-3 hover:translate-x-1'
+              ? 'justify-center px-0 hover:scale-105 py-2' 
+              : 'px-3 py-2.5 hover:translate-x-1'
           ]"
           :title="globalStore.isSidebarCollapsed ? t('nav.connections') : ''">
           <LinkOutline class="w-5 h-5 shrink-0" />
@@ -251,12 +252,12 @@ onUnmounted(() => {
 
         <!-- 日志 -->
         <button @click="selectTab('logs')" 
-          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
+          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'logs' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed 
-              ? 'justify-center px-0 hover:scale-105' 
-              : 'px-3 hover:translate-x-1'
+              ? 'justify-center px-0 hover:scale-105 py-2' 
+              : 'px-3 py-2.5 hover:translate-x-1'
           ]"
           :title="globalStore.isSidebarCollapsed ? t('nav.logs') : ''">
           <DocumentTextOutline class="w-5 h-5 shrink-0" />
@@ -268,12 +269,12 @@ onUnmounted(() => {
 
         <!-- 配置 -->
         <button @click="selectTab('config')" 
-          class="w-full flex items-center py-2.5 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
+          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 group relative"
           :class="[
             globalStore.activeTab === 'config' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
             globalStore.isSidebarCollapsed 
-              ? 'justify-center px-0 hover:scale-105' 
-              : 'px-3 hover:translate-x-1'
+              ? 'justify-center px-0 hover:scale-105 py-2' 
+              : 'px-3 py-2.5 hover:translate-x-1'
           ]"
           :title="globalStore.isSidebarCollapsed ? t('nav.config') : ''">
           <SettingsOutline class="w-5 h-5 shrink-0" />
@@ -285,20 +286,23 @@ onUnmounted(() => {
       </nav>
 
       <!-- 底部操作：关于、中英文与主题 -->
-      <div class="p-3 border-t border-slate-100 dark:border-slate-800/60 transition-all duration-200">
+      <div class="border-t border-slate-100 dark:border-slate-800/60 transition-all duration-200"
+        :class="globalStore.isSidebarCollapsed ? 'p-1.5' : 'p-3'">
         <!-- 底部聚合容器卡片，在展开时提供整合的质感，折叠时自适应为常规的垂直排列 -->
         <div :class="[
           globalStore.isSidebarCollapsed 
-            ? 'flex flex-col items-center gap-2' 
+            ? 'flex flex-col items-center gap-1.5' 
             : 'bg-slate-100/40 dark:bg-slate-800/10 p-2 rounded-2xl border border-slate-200/20 dark:border-slate-800/30 flex flex-col gap-2 transition-all duration-200'
         ]">
           <!-- 语言与主题 -->
-          <div class="flex gap-2 w-full transition-all duration-200"
-            :class="globalStore.isSidebarCollapsed ? 'flex-col items-center' : 'flex-row'">
+          <div class="flex w-full transition-all duration-200"
+            :class="globalStore.isSidebarCollapsed ? 'flex-col items-center gap-1.5' : 'flex-row gap-2'">
             <!-- 切换语言 -->
             <button @click="toggleLanguage" 
-              class="flex-1 flex items-center justify-center py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
-              :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+              class="flex-1 flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
+              :class="[
+                globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none rounded-xl' : 'w-full py-2 px-2.5'
+              ]"
               :title="locale === 'zh' ? '切换语言' : 'Switch Language'">
               <LanguageOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:rotate-12" />
               <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
@@ -308,8 +312,10 @@ onUnmounted(() => {
             </button>
             <!-- 切换主题 -->
             <button @click="switchThemeCycle" 
-              class="flex-1 flex items-center justify-center py-2 px-2.5 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
-              :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+              class="flex-1 flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
+              :class="[
+                globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none rounded-xl' : 'w-full py-2 px-2.5'
+              ]"
               aria-label="Toggle Theme"
               :title="t('config.theme')">
               <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 transition-all text-amber-500 group-hover:rotate-45 duration-300" />
@@ -326,8 +332,10 @@ onUnmounted(() => {
 
           <!-- 关于 Fluxor -->
           <button @click="showAbout = true" 
-            class="flex items-center justify-center py-2 px-3 text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
-            :class="globalStore.isSidebarCollapsed ? 'w-10 h-10 flex-none rounded-xl' : 'w-full'"
+            class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
+            :class="[
+              globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none rounded-xl' : 'w-full py-2 px-3'
+            ]"
             :title="t('about.title')">
             <InformationCircleOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
             <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
@@ -373,7 +381,7 @@ onUnmounted(() => {
       </header>
 
       <!-- 主工作区容器 -->
-      <main class="flex-1 my-4 mx-4 h-[calc(100vh-88px)] md:h-[calc(100vh-32px)] flex flex-col min-h-0 select-none overflow-hidden pb-20 md:pb-0">
+      <main class="flex-1 my-3 mx-3 md:my-4 md:mx-4 h-[calc(100vh-80px)] md:h-[calc(100vh-32px)] flex flex-col min-h-0 select-none overflow-hidden pb-14 md:pb-0">
         <div class="max-w-7xl mx-auto w-full flex flex-col flex-1 min-h-0">
           <KeepAlive :max="6">
             <component :is="activeComponent" class="flex flex-col flex-1 min-h-0" />

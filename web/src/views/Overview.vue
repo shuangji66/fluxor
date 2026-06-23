@@ -677,31 +677,31 @@ onUnmounted(() => {
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
           <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_speed') }}</div>
-          <div class="text-base sm:text-lg font-extrabold text-blue-500 mt-1 select-all">{{ formatBytes(stats.uploadSpeed) }}/s</div>
+          <div class="text-base sm:text-lg font-extrabold text-blue-500 mt-1">{{ formatBytes(stats.uploadSpeed) }}/s</div>
         </div>
         <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
           <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_speed') }}</div>
-          <div class="text-base sm:text-lg font-extrabold text-success mt-1 select-all">{{ formatBytes(stats.downloadSpeed) }}/s</div>
+          <div class="text-base sm:text-lg font-extrabold text-success mt-1">{{ formatBytes(stats.downloadSpeed) }}/s</div>
         </div>
         <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
           <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.upload_total') }}</div>
-          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(uploadTotal) }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1">{{ formatBytes(uploadTotal) }}</div>
         </div>
         <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
           <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.download_total') }}</div>
-          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ formatBytes(downloadTotal) }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1">{{ formatBytes(downloadTotal) }}</div>
         </div>
         <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
           <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.memory_usage') }}</div>
-          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ stats.memory > 0 ? formatBytes(stats.memory) : 'N/A' }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1">{{ stats.memory > 0 ? formatBytes(stats.memory) : 'N/A' }}</div>
         </div>
         <div @click="globalStore.activeTab = 'connections'" class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all cursor-pointer hover:border-accent/40 active:scale-[0.98]">
           <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.active_connections') }}</div>
-          <div class="text-base sm:text-lg font-extrabold mt-1 select-all">{{ connectionsCount }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1">{{ connectionsCount }}</div>
         </div>
         <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
           <div class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400">{{ t('overview.core_version') }}</div>
-          <div class="text-base sm:text-lg font-extrabold mt-1 select-all truncate" :title="coreVersionDisplay">{{ coreVersionDisplay }}</div>
+          <div class="text-base sm:text-lg font-extrabold mt-1 truncate" :title="coreVersionDisplay">{{ coreVersionDisplay }}</div>
         </div>
         <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all">
           <a :href="`${base}${uiPanel === 'zashboard' ? '/zash/' : '/meta/'}`" target="_blank" class="block text-slate-800 dark:text-slate-100 decoration-transparent">
@@ -729,7 +729,7 @@ onUnmounted(() => {
               </span>
             </div>
             <!-- 节点名字背景框（支持过长单行截断与Hover提示） -->
-            <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 truncate select-all font-semibold text-accent text-sm leading-snug" :title="currentNodeDisplay">
+            <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 truncate font-semibold text-accent text-sm leading-snug" :title="currentNodeDisplay">
               {{ currentNodeDisplay }}
             </div>
           </div>

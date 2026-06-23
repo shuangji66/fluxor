@@ -183,13 +183,26 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <!-- 顶部工具栏 -->
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <!-- 左侧：标题与模式切换 -->
-      <div class="flex items-center gap-4 flex-wrap">
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col md:flex-row gap-3 md:gap-4 md:items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
+      <!-- 左侧：标题与移动端测速按钮 -->
+      <div class="flex items-center justify-between w-full md:w-auto">
         <h3 class="text-base font-semibold flex items-center gap-2">
           <GlobeOutline class="w-5 h-5 text-accent" />
           {{ t('proxies.title') }}
         </h3>
+        <!-- 移动端显示的全部测速按钮 -->
+        <button
+          @click="handleTestAll"
+          :disabled="isTestingAll"
+          class="md:hidden px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
+          {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
+        </button>
+      </div>
+
+      <!-- 右侧：模式切换与桌面端测速按钮 -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 md:justify-end w-full md:w-auto">
         <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
           <button
             v-for="modeOption in ['Rule', 'Global', 'Direct']"
@@ -202,14 +215,11 @@ onUnmounted(() => {
             {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
           </button>
         </div>
-      </div>
-
-      <!-- 右侧：按钮合并容器（在大屏下横向右对齐，绝不换行） -->
-      <div class="flex items-center gap-3 flex-1 justify-end min-w-[120px] sm:min-w-0 flex-nowrap">
+        <!-- 桌面端显示的全部测速按钮 -->
         <button
           @click="handleTestAll"
           :disabled="isTestingAll"
-          class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          class="hidden md:flex px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
           {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
