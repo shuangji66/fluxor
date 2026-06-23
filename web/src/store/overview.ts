@@ -11,6 +11,7 @@ export interface DashboardStats {
   connectionsCount: number
   coreVersion: string
   currentNode: string
+  currentGroup: string
 }
 
 export const useOverviewStore = defineStore('overview', () => {
@@ -22,7 +23,8 @@ export const useOverviewStore = defineStore('overview', () => {
     memory: 0,
     connectionsCount: 0,
     coreVersion: '加载中...',
-    currentNode: '加载中...'
+    currentNode: '加载中...',
+    currentGroup: '加载中...'
   })
 
   const uploadHistory = ref<number[]>([])
@@ -223,6 +225,7 @@ export const useOverviewStore = defineStore('overview', () => {
 
       if (!isRunning) {
         stats.value.currentNode = '内核未启动'
+        stats.value.currentGroup = '内核未启动'
         stats.value.uploadSpeed = 0
         stats.value.downloadSpeed = 0
         stats.value.memory = 0
@@ -251,14 +254,17 @@ export const useOverviewStore = defineStore('overview', () => {
           if (targetGroup) {
             const selected = targetGroup[1].now || '-'
             stats.value.currentNode = recursiveResolveNode(data.proxies, selected)
+            stats.value.currentGroup = targetGroup[0]
           } else {
             stats.value.currentNode = '暂无选择'
+            stats.value.currentGroup = '暂无选择'
           }
         }
       }
     } catch (e) {
       console.warn('定时获取状态异常', e)
       stats.value.currentNode = '内核未启动'
+      stats.value.currentGroup = '内核未启动'
       stats.value.uploadSpeed = 0
       stats.value.downloadSpeed = 0
       stats.value.memory = 0

@@ -2,17 +2,20 @@
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { OpenOutline, SyncOutline, EyeOutline, EyeOffOutline, GridOutline } from '@vicons/ionicons5'
+import { OpenOutline, SyncOutline, EyeOutline, EyeOffOutline, GridOutline, GlobeOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useOverviewStore } from '../store/overview'
 import { useConnectionsStore } from '../store/connections'
 import { useGlobalStore } from '../store/global'
+import { useConfigStore } from '../store/config'
 
 const { t } = useI18n()
 
 const overviewStore = useOverviewStore()
 const { stats, uiPanel, uploadHistory, downloadHistory, timeHistory } = storeToRefs(overviewStore)
 const globalStore = useGlobalStore()
+const configStore = useConfigStore()
+const { currentConfig } = storeToRefs(configStore)
 
 const connectionsStore = useConnectionsStore()
 const { connectionsCount, uploadTotal, downloadTotal } = storeToRefs(connectionsStore)
@@ -313,7 +316,7 @@ const initCanvas = () => {
     if (!parent) return
     const w = parent.clientWidth
     if (w === 0) return
-    const h = 260
+    const h = 200
     canvas.style.width = w + 'px'
     canvas.style.height = h + 'px'
     canvas.width = w * dpr
@@ -560,6 +563,69 @@ const getDelayDisplay = (result: DelayTestResult) => {
   return { text: `${result.delay}ms`, color: 'text-red-400' }
 }
 
+const proxyCountry = ref<string | null>(null)
+const proxyCountryCode = ref<string | null>(null)
+const proxyIsp = ref<string | null>(null)
+const proxyAsn = ref<string | null>(null)
+const proxyCity = ref<string | null>(null)
+const proxyRegion = ref<string | null>(null)
+const loadingCountry = ref(false)
+
+// 重置查询缓存
+const clearCountryInfo = () => {
+  proxyCountry.value = null
+  proxyCountryCode.value = null
+  proxyIsp.value = null
+  proxyAsn.value = null
+  proxyCity.value = null
+  proxyRegion.value = null
+}
+
+// 请求 ip.sb 获取 IP 地理归属和自治系统信息
+const fetchCountryInfo = async (ip: string) => {
+  if (!ip || ip === '--') return
+  loadingCountry.value = true
+  try {
+    const response = await fetch(`https://api.ip.sb/geoip/${ip}`)
+    if (response.ok) {
+      const data = await response.json()
+      proxyCountry.value = data.country || null
+      proxyCountryCode.value = data.country_code || null
+      proxyIsp.value = data.isp || data.asn_organization || null
+      proxyAsn.value = data.asn ? `AS${data.asn}` : null
+      proxyCity.value = data.city || null
+      proxyRegion.value = data.region || null
+    } else {
+      clearCountryInfo()
+    }
+  } catch (e) {
+    console.warn('[GeoIP] 获取失败:', e)
+    clearCountryInfo()
+  } finally {
+    loadingCountry.value = false
+  }
+}
+
+// 监听代理 IP 变化自动查询
+watch(
+  () => ipInfo.value.proxyIPv4,
+  (newIp) => {
+    if (newIp && newIp !== '--') {
+      fetchCountryInfo(newIp)
+    } else {
+      clearCountryInfo()
+    }
+  }
+)
+
+// 格式化当前订阅名称
+const currentSubscriptionDisplay = computed(() => {
+  if (currentConfig.value.mode === 'merge') {
+    return t('subscription.mode_merge') || 'Merge'
+  }
+  return currentConfig.value.active_subscription || '--'
+})
+
 // 监听主题变化
 const observeTheme = () => {
   if (themeObserver) themeObserver.disconnect()
@@ -572,6 +638,7 @@ const observeTheme = () => {
 onMounted(() => {
   nextTick(() => {
     fetchSubscribeConfig()
+    configStore.loadConfig()
     initCanvas()
     observeTheme()
 
@@ -647,61 +714,99 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- 当前节点 -->
-      <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all flex items-center justify-between gap-4">
-        <span class="text-sm font-extrabold text-slate-700 dark:text-slate-300">{{ t('overview.current_node') }}</span>
-        <div class="text-base font-bold text-accent break-all select-all">{{ currentNodeDisplay }}</div>
-      </div>
+      <!-- 当前节点与流量趋势图左右布局 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 当前节点卡片 -->
+        <div class="lg:col-span-1 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all flex flex-col justify-between h-full min-h-[160px] lg:min-h-0 relative overflow-hidden">
+          <!-- 背景装饰水印 -->
+          <GlobeOutline class="absolute right-[-14px] bottom-[-14px] w-32 h-32 text-slate-400/[0.04] dark:text-slate-500/[0.04] pointer-events-none rotate-12 z-0" />
+          
+          <div class="space-y-3 z-10 relative">
+            <div class="flex justify-start w-full">
+              <span class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                {{ t('overview.current_node') }}
+              </span>
+            </div>
+            <!-- 节点名字背景框（支持过长单行截断与Hover提示） -->
+            <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 truncate select-all font-semibold text-accent text-sm leading-snug" :title="currentNodeDisplay">
+              {{ currentNodeDisplay }}
+            </div>
+          </div>
+          
+          <!-- 节点出口网络多维信息 -->
+          <div class="text-sm text-slate-500 dark:text-slate-400 border-t border-slate-200/10 dark:border-slate-800/20 pt-3.5 mt-3 flex flex-col gap-2.5 shrink-0 z-10 relative">
+            <div class="flex justify-between items-center">
+              <span>{{ t('overview.subscription') }}</span>
+              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="currentSubscriptionDisplay">{{ currentSubscriptionDisplay }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span>{{ t('overview.proxy_group') }}</span>
+              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="stats.currentGroup">{{ stats.currentGroup }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span>{{ t('overview.country') }}</span>
+              <span class="font-bold text-slate-800 dark:text-slate-100">{{ proxyCountry || (loadingCountry ? '查询中...' : '--') }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span>{{ t('overview.isp') }}</span>
+              <span class="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px]" :title="proxyIsp || ''">
+                {{ proxyIsp || (loadingCountry ? '查询中...' : '--') }}
+              </span>
+            </div>
+          </div>
+        </div>
 
-    <!-- 流量趋势图 -->
-    <div class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all space-y-4">
-      <div class="flex justify-between items-center">
-        <h4 class="font-bold text-sm">{{ t('overview.traffic_trend') }}</h4>
-        <div class="flex gap-4 text-xs font-semibold">
-          <span class="flex items-center gap-1.5 text-blue-500">
-            <span class="w-3 h-3 bg-blue-500/20 border border-blue-500/40 rounded"></span> {{ t('overview.upload') }}
-          </span>
-          <span class="flex items-center gap-1.5 text-success">
-            <span class="w-3 h-3 bg-success/20 border border-success/40 rounded"></span> {{ t('overview.download') }}
-          </span>
-        </div>
-      </div>
-      <div class="relative overflow-visible">
-        <canvas
-          ref="canvasRef"
-          @mousemove="handleMouseMove"
-          @mouseleave="handleMouseLeave"
-          @touchmove="handleTouchMove"
-          @touchend="handleMouseLeave"
-          class="cursor-crosshair block w-full"
-        ></canvas>
-        
-        <!-- Tooltip -->
-        <div
-          v-show="tooltip.show"
-          :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
-          class="absolute pointer-events-none transform -translate-x-1/2 -translate-y-[100%] z-30 transition-[left,top] duration-75 min-w-[125px] rounded-xl px-3 py-2 text-[11px] font-medium glass-medium shadow-xl border text-slate-800 dark:text-slate-200"
-        >
-          <div class="font-bold border-b border-slate-200/30 dark:border-slate-700/30 pb-1 mb-1 text-slate-500 dark:text-slate-400 text-[10px] text-center">
-            {{ tooltip.time }}
-          </div>
-          <div class="space-y-0.5">
-            <div class="flex justify-between items-center gap-4">
-              <span class="flex items-center gap-1 text-blue-500">
-                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>{{ t('overview.upload') }}
+        <!-- 流量趋势图 -->
+        <div class="lg:col-span-1 bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all space-y-4">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-sm">{{ t('overview.traffic_trend') }}</h4>
+            <div class="flex gap-4 text-xs font-semibold">
+              <span class="flex items-center gap-1.5 text-blue-500">
+                <span class="w-3 h-3 bg-blue-500/20 border border-blue-500/40 rounded"></span> {{ t('overview.upload') }}
               </span>
-              <span class="font-bold font-mono">{{ formatBytes(tooltip.up) }}/s</span>
-            </div>
-            <div class="flex justify-between items-center gap-4">
-              <span class="flex items-center gap-1 text-success">
-                <span class="w-1.5 h-1.5 rounded-full bg-success"></span>{{ t('overview.download') }}
+              <span class="flex items-center gap-1.5 text-success">
+                <span class="w-3 h-3 bg-success/20 border border-success/40 rounded"></span> {{ t('overview.download') }}
               </span>
-              <span class="font-bold font-mono">{{ formatBytes(tooltip.down) }}/s</span>
             </div>
           </div>
+          <div class="relative overflow-visible">
+            <canvas
+              ref="canvasRef"
+              @mousemove="handleMouseMove"
+              @mouseleave="handleMouseLeave"
+              @touchmove="handleTouchMove"
+              @touchend="handleMouseLeave"
+              class="cursor-crosshair block w-full"
+            ></canvas>
+            
+            <!-- Tooltip -->
+            <div
+              v-show="tooltip.show"
+              :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
+              class="absolute pointer-events-none transform -translate-x-1/2 -translate-y-[100%] z-30 transition-[left,top] duration-75 min-w-[125px] rounded-xl px-3 py-2 text-[11px] font-medium glass-medium shadow-xl border text-slate-800 dark:text-slate-200"
+            >
+              <div class="font-bold border-b border-slate-200/30 dark:border-slate-700/30 pb-1 mb-1 text-slate-500 dark:text-slate-400 text-[10px] text-center">
+                {{ tooltip.time }}
+              </div>
+              <div class="space-y-0.5">
+                <div class="flex justify-between items-center gap-4">
+                  <span class="flex items-center gap-1 text-blue-500">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>{{ t('overview.upload') }}
+                  </span>
+                  <span class="font-bold font-mono">{{ formatBytes(tooltip.up) }}/s</span>
+                </div>
+                <div class="flex justify-between items-center gap-4">
+                  <span class="flex items-center gap-1 text-success">
+                    <span class="w-1.5 h-1.5 rounded-full bg-success"></span>{{ t('overview.download') }}
+                  </span>
+                  <span class="font-bold font-mono">{{ formatBytes(tooltip.down) }}/s</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
     <!-- 双列卡片：IP 信息 + 延迟测试 -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
