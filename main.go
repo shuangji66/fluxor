@@ -118,6 +118,7 @@ func main() {
 
 	// 页面路由
 	mux.HandleFunc(baseURL+"/", handleIndex)
+	mux.HandleFunc(baseURL+"/whoami", handleWhoAmI)
 
 	// 内核控制
 	mux.HandleFunc(baseURL+"/core/status", handleCoreStatus)

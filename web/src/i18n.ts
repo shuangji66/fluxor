@@ -21,6 +21,7 @@ const messages = {
     'common.show': '显示',
     'common.hide': '隐藏',
     'common.copied': '已成功复制',
+    'welcome_back': '欢迎回来，{username}',
 
     'nav.overview': '概览',
     'nav.overview_desc': '仪表盘',
@@ -353,6 +354,7 @@ const messages = {
     'common.show': 'Show',
     'common.hide': 'Hide',
     'common.copied': 'Copied successfully',
+    'welcome_back': 'Welcome back, {username}',
 
     'nav.overview': 'Overview',
     'nav.overview_desc': 'Dashboard',

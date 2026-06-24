@@ -902,7 +902,7 @@ onUnmounted(() => {
                   class="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/50 flex-1 min-w-0 ml-4 max-w-max flex justify-end shadow-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 active:scale-95 transition-all"
                   :title="ipInfo.localIPv4 && ipInfo.localIPv4 !== '--' ? `点击复制: ${ipInfo.localIPv4}` : ''">
                   <span
-                    class="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
+                    class="font-bold text-xs text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
                     {{ showLocalGroup ? (ipInfo.localIPv4 || '--') : (ipInfo.localIPv4 ? '••••••••' : '--') }}
                   </span>
                 </div>
@@ -916,7 +916,7 @@ onUnmounted(() => {
                   class="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/50 flex-1 min-w-0 ml-4 max-w-max flex justify-end shadow-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 active:scale-95 transition-all"
                   :title="ipInfo.localIPv6 && ipInfo.localIPv6 !== '--' ? `点击复制: ${ipInfo.localIPv6}` : ''">
                   <span
-                    class="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
+                    class="font-bold text-xs text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
                     {{ showLocalGroup ? (ipInfo.localIPv6 || '--') : (ipInfo.localIPv6 ? '••••••••' : '--') }}
                   </span>
                 </div>
@@ -931,7 +931,7 @@ onUnmounted(() => {
                   class="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/50 flex-1 min-w-0 ml-4 max-w-max flex justify-end shadow-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 active:scale-95 transition-all"
                   :title="ipInfo.localCountry ? '点击复制归属地' : ''">
                   <span
-                    class="font-bold text-xs text-slate-600 dark:text-slate-300 select-all overflow-x-auto whitespace-nowrap text-right">
+                    class="font-bold text-xs text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
                     {{ showLocalGroup ? ((ipInfo.localCountry || '---') + ' / ' + (ipInfo.localRegion || '---') + ' / '
                       + (ipInfo.localIsp || '---')) : '••••••••' }}
                   </span>
@@ -975,7 +975,7 @@ onUnmounted(() => {
                   class="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/50 flex-1 min-w-0 ml-4 max-w-max flex justify-end shadow-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 active:scale-95 transition-all"
                   :title="ipInfo.proxyIPv4 && ipInfo.proxyIPv4 !== '--' ? `点击复制: ${ipInfo.proxyIPv4}` : ''">
                   <span
-                    class="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
+                    class="font-bold text-xs text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
                     {{ showProxyGroup ? (ipInfo.proxyIPv4 || '--') : (ipInfo.proxyIPv4 ? '••••••••' : '--') }}
                   </span>
                 </div>
@@ -989,7 +989,7 @@ onUnmounted(() => {
                   class="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/50 flex-1 min-w-0 ml-4 max-w-max flex justify-end shadow-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 active:scale-95 transition-all"
                   :title="ipInfo.proxyIPv6 && ipInfo.proxyIPv6 !== '--' ? `点击复制: ${ipInfo.proxyIPv6}` : ''">
                   <span
-                    class="font-mono font-bold text-sm text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
+                    class="font-bold text-xs text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
                     {{ showProxyGroup ? (ipInfo.proxyIPv6 || '--') : (ipInfo.proxyIPv6 ? '••••••••' : '--') }}
                   </span>
                 </div>
@@ -1004,7 +1004,7 @@ onUnmounted(() => {
                   class="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/50 flex-1 min-w-0 ml-4 max-w-max flex justify-end shadow-sm cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 active:scale-95 transition-all"
                   :title="ipInfo.proxyCountry ? '点击复制代理归属地' : ''">
                   <span
-                    class="font-bold text-xs text-slate-600 dark:text-slate-300 select-all overflow-x-auto whitespace-nowrap text-right">
+                    class="font-bold text-xs text-slate-800 dark:text-slate-100 select-all overflow-x-auto whitespace-nowrap text-right">
                     {{ showProxyGroup ? ((ipInfo.proxyCountry || '---') + ' / ' + (ipInfo.proxyRegion || '---') + ' / '
                       + (ipInfo.proxyIsp || '---')) : '••••••••' }}
                   </span>

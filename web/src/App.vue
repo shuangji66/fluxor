@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useGlobalStore } from './store/global'
 import { useConfigStore } from './store/config'
 import { useOverviewStore } from './store/overview'
+import { apiFetch } from './utils/api'
 import {
   LanguageOutline,
   SunnyOutline,
@@ -166,6 +167,16 @@ onMounted(() => {
   configStore.fetchCoreStatus()
   configStore.fetchConfigs()
   configStore.loadConfig()
+
+  // 获取当前用户信息并显示欢迎
+  apiFetch('/whoami')
+    .then(res => res.ok ? res.json() : null)
+    .then(data => {
+      if (data && data.username) {
+        globalStore.showToast(t('welcome_back', { username: data.username }), 'success')
+      }
+    })
+    .catch(() => {}) // 静默失败，不影响正常使用
 })
 
 onUnmounted(() => {
