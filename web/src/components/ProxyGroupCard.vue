@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { apiFetch } from '../utils/api'
@@ -61,6 +61,30 @@ const getGroupDotSegments = computed(() => {
     return { name, isSelected, colorClass }
   })
 })
+
+const gridRef = ref<HTMLElement | null>(null)
+// 监听展开状态，当展开且节点数 > 10 时，滚动到选中节点
+watch(
+  () => expandedState.value[props.group.name],
+  (isExpanded) => {
+    if (isExpanded && props.group.all.length > 10) {
+      nextTick(() => {
+        if (!gridRef.value) return
+        // 查找当前选中的节点（拥有 border-accent 类的元素）
+        const selectedEl = gridRef.value.querySelector('.border-accent')
+        if (selectedEl) {
+          // 检查是否在视口内，若不在则滚动到视口中央
+          const rect = selectedEl.getBoundingClientRect()
+          const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight
+          if (!isVisible) {
+            selectedEl.scrollIntoView({ block: 'center', behavior: 'smooth' })
+          }
+        }
+      })
+    }
+  },
+  { immediate: true }  // 组件挂载时若已展开也立即执行
+)
 
 const handleSelectProxy = async (proxyName: string) => {
   if (delays.value[proxyName] === 0) {
@@ -175,7 +199,7 @@ const getDelayText = (delay?: number) => {
     </div>
 
     <!-- Accordion Body -->
-    <div v-if="expandedState[group.name]" class="grid grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+    <div v-if="expandedState[group.name]"   ref="gridRef" class="grid grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
       <div
         v-for="name in group.all"
         :key="name"

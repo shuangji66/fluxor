@@ -60,10 +60,6 @@ const filteredGroups = computed(() => {
   return proxyGroups.value.filter(g => g.name.toUpperCase() !== 'GLOBAL')
 })
 
-// 将过滤后的组拆分为左右两列（仅当组数 > 6 时使用）
-const leftGroups = computed(() => filteredGroups.value.filter((_, index) => index % 2 === 0))
-const rightGroups = computed(() => filteredGroups.value.filter((_, index) => index % 2 !== 0))
-
 // 是否使用单列布局（组数 <= 6）
 const isSingleColumn = computed(() => filteredGroups.value.length <= 6)
 
@@ -276,10 +272,13 @@ onUnmounted(() => {
         <span v-else>{{ t('proxies.empty') }}</span>
       </div>
 
-      <!-- 代理组列表（单列或双列） -->
+      <!-- 代理组列表 -->
       <div v-else>
-        <!-- 单列模式（组数 <= 6） -->
-        <div v-if="isSingleColumn" class="space-y-4 w-full">
+        <!-- 单列模式（组数 <= 6 或移动端） -->
+        <div
+          v-if="isSingleColumn"
+          class="space-y-4 w-full"
+        >
           <ProxyGroupCard
             v-for="group in filteredGroups"
             :key="group.name"
@@ -287,22 +286,16 @@ onUnmounted(() => {
           />
         </div>
 
-        <!-- 双列模式（组数 > 6） -->
-        <div v-else class="flex flex-col lg:flex-row gap-4 items-start">
-          <div class="flex-1 space-y-4 w-full min-w-0">
-            <ProxyGroupCard
-              v-for="group in leftGroups"
-              :key="group.name"
-              :group="group"
-            />
-          </div>
-          <div class="flex-1 space-y-4 w-full min-w-0">
-            <ProxyGroupCard
-              v-for="group in rightGroups"
-              :key="group.name"
-              :group="group"
-            />
-          </div>
+        <!-- 双列模式（组数 > 6，仅桌面端显示两列） -->
+        <div
+          v-else
+          class="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
+          <ProxyGroupCard
+            v-for="group in filteredGroups"
+            :key="group.name"
+            :group="group"
+          />
         </div>
       </div>
     </div>
