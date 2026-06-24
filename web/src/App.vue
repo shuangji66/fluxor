@@ -291,8 +291,8 @@ onUnmounted(() => {
               : 'bg-slate-100/40 dark:bg-slate-800/10 p-2 rounded-2xl border border-slate-200/20 dark:border-slate-800/30 gap-2'
           ]">
           <!-- 语言与主题：展开时左右并排，折叠时上下排布 -->
-          <div class="flex w-full transition-all duration-500 origin-center"
-            :class="globalStore.isSidebarCollapsed ? 'flex-col items-center gap-1.5 rotate-[360deg]' : 'flex-row gap-2 rotate-0'">
+          <div class="flex w-full transition-all duration-300"
+            :class="globalStore.isSidebarCollapsed ? 'flex-col items-center gap-1.5' : 'flex-row gap-2'">
             <!-- 切换语言 -->
             <button @click="toggleLanguage" 
               class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden shrink-0"
@@ -300,8 +300,7 @@ onUnmounted(() => {
                 globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none hover:scale-105 py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
               ]"
               :title="locale === 'zh' ? '切换语言' : 'Switch Language'">
-              <LanguageOutline class="w-4 h-4 shrink-0 transition-transform duration-500"
-                :class="globalStore.isSidebarCollapsed ? 'rotate-[360deg]' : 'rotate-0'" />
+              <LanguageOutline class="w-4 h-4 shrink-0 sidebar-bottom-icon group-hover:scale-110 group-hover:rotate-12" />
               <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
                 :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-20 ml-1.5'">
                 {{ currentLangDisplay }}
@@ -316,11 +315,11 @@ onUnmounted(() => {
               ]"
               aria-label="Toggle Theme"
               :title="t('config.theme')">
-              <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 transition-transform duration-500 text-amber-500" :class="globalStore.isSidebarCollapsed ? 'rotate-[360deg]' : 'rotate-0'" />
-              <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 shrink-0 transition-transform duration-500 text-indigo-400" :class="globalStore.isSidebarCollapsed ? 'rotate-[360deg]' : 'rotate-0'" />
-              <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 transition-transform duration-500 text-purple-500 dark:text-purple-400" :class="globalStore.isSidebarCollapsed ? 'rotate-[360deg]' : 'rotate-0'" />
-              <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 shrink-0 transition-transform duration-500 text-rose-500" :class="globalStore.isSidebarCollapsed ? 'rotate-[360deg]' : 'rotate-0'" />
-              <ContrastOutline v-else class="w-4 h-4 shrink-0 transition-transform duration-500 text-slate-500 dark:text-slate-400" :class="globalStore.isSidebarCollapsed ? 'rotate-[360deg]' : 'rotate-0'" />
+              <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-amber-500 group-hover:scale-110 group-hover:rotate-45" />
+              <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-indigo-400 group-hover:scale-110 group-hover:-rotate-12" />
+              <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-purple-500 dark:text-purple-400 group-hover:scale-110 group-hover:-rotate-12" />
+              <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-rose-500 group-hover:scale-110 group-hover:-rotate-12" />
+              <ContrastOutline v-else class="w-4 h-4 shrink-0 sidebar-bottom-icon text-slate-500 dark:text-slate-400 group-hover:scale-110 group-hover:-rotate-12" />
               <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
                 :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-20 ml-1.5'">
                 {{ t('config.theme_' + globalStore.theme) }}

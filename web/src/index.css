@@ -635,13 +635,18 @@ main .dark\:bg-slate-800,
   background-color: rgba(15, 23, 42, 0.05) !important;
 }
 
-/* 折叠状态下侧边栏隐藏滚动条，但仍然允许滚轮滚动 */
-.sidebar-collapsed::-webkit-scrollbar {
+/* 侧边栏隐藏滚动条，但仍然允许滚轮滚动 */
+aside::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
 }
-.sidebar-collapsed {
+aside {
   -ms-overflow-style: none !important;  /* IE and Edge */
   scrollbar-width: none !important;  /* Firefox */
+}
+
+/* 侧边栏底部按钮图标微交互，采用超缓动贝塞尔曲线缓和速度变化 */
+.sidebar-bottom-icon {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease !important;
 }

@@ -197,10 +197,10 @@ onUnmounted(() => {
         </h3>
         <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
           <button @click="activeTab = 'rules'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'rules' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
-            {{ t('rules.rules_tab') }}
+            {{ t('rules.rules_tab') }} ({{ rules.length }})
           </button>
           <button @click="activeTab = 'providers'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'providers' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
-            {{ t('rules.providers_tab') }}
+            {{ t('rules.providers_tab') }} ({{ providers.length }})
           </button>
         </div>
       </div>
