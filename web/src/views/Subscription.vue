@@ -403,30 +403,27 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mt-8 mb-4">
-        <h4 class="font-semibold text-base shrink-0">{{ t('subscription.subscription_list') }}</h4>
-        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
-          <!-- 模式切换滑块 -->
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
-            <button
-              @click="currentConfig.mode = 'merge'"
-              class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-              :class="currentConfig.mode === 'merge' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t('subscription.mode_merge') }}
-            </button>
-            <button
-              @click="currentConfig.mode = 'switch'"
-              class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-              :class="currentConfig.mode === 'switch' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t('subscription.mode_switch') }}
-            </button>
-          </div>
-          <button @click="openSubModal(-1)" class="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0">
-            <AddOutline class="w-4 h-4" /> {{ t('subscription.add_subscription') }}
+      <div class="flex flex-wrap gap-y-3 gap-x-4 items-center justify-between mt-8 mb-4">
+        <h4 class="font-semibold text-base shrink-0 order-1">{{ t('subscription.subscription_list') }}</h4>
+        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0 order-3 sm:order-2 w-full sm:w-auto sm:ml-auto">
+          <button
+            @click="currentConfig.mode = 'merge'"
+            class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+            :class="currentConfig.mode === 'merge' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+          >
+            {{ t('subscription.mode_merge') }}
+          </button>
+          <button
+            @click="currentConfig.mode = 'switch'"
+            class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+            :class="currentConfig.mode === 'switch' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+          >
+            {{ t('subscription.mode_switch') }}
           </button>
         </div>
+        <button @click="openSubModal(-1)" class="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 order-2 sm:order-3">
+          <AddOutline class="w-4 h-4" /> {{ t('subscription.add_subscription') }}
+        </button>
       </div>
 
       <div id="subList" class="space-y-4">

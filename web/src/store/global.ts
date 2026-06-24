@@ -43,6 +43,7 @@ export const useGlobalStore = defineStore('global', () => {
   
   const toasts = ref<ToastMessage[]>([])
   const confirmDialog = ref<ConfirmState | null>(null)
+  const showAbout = ref<boolean>(false)
 
   const showToast = (text: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
     const id = Date.now() + Math.random()
@@ -53,7 +54,8 @@ export const useGlobalStore = defineStore('global', () => {
   }
 
   const removeToast = (id: number) => {
-    toasts.value = toasts.value.filter(t => t.id !== id)
+    const targetId = id
+    toasts.value = toasts.value.filter(t => t.id !== targetId)
   }
 
   // 触发全局模态确认框
@@ -62,7 +64,7 @@ export const useGlobalStore = defineStore('global', () => {
   function showConfirm(options: ConfirmOptions): Promise<boolean>;
   function showConfirm(options: ConfirmOptions | string): Promise<any> {
     return new Promise((resolve) => {
-      // 防重入处理，避免 Promise 覆盖泄露
+      // 防止重复弹窗
       if (confirmDialog.value && confirmDialog.value.visible) {
         resolve(typeof options === 'object' && options.checkboxLabel ? { confirmed: false, checkboxChecked: false } : false);
         return;
@@ -136,7 +138,8 @@ export const useGlobalStore = defineStore('global', () => {
     isSidebarCollapsed, 
     theme, 
     toasts, 
-    confirmDialog, 
+    confirmDialog,
+    showAbout,
     showToast, 
     removeToast,
     showConfirm, 

@@ -13,7 +13,6 @@ import {
   DesktopOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
-  InformationCircleOutline,
   LogoGithub,
   GridOutline,
   GlobeOutline,
@@ -49,8 +48,6 @@ const overviewStore = useOverviewStore()
 
 const { initTheme, switchThemeCycle } = useTheme()
 const { locale, currentLangDisplay, toggleLanguage, updateTitle } = useLanguage()
-
-const showAbout = ref(false)
 
 const components: Record<string, any> = {
   overview: Overview,
@@ -329,59 +326,13 @@ onUnmounted(() => {
               </span>
             </button>
           </div>
-
-          <!-- 关于 Fluxor -->
-          <button @click="showAbout = true" 
-            class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden"
-            :class="[
-              globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none rounded-xl' : 'w-full py-2 px-3'
-            ]"
-            :title="t('about.title')">
-            <InformationCircleOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
-            <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
-              :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-24 ml-1.5'">
-              {{ t('about.title') }}
-            </span>
-          </button>
         </div>
       </div>
     </aside>
 
-    <!-- 移动端顶部标题栏 -->
+    <!-- 移动端主工作区容器 -->
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="md:hidden flex h-14 glass-medium border-b border-slate-200 dark:border-slate-800/80 px-4 justify-between items-center z-30 shadow-sm shrink-0">
-        <div class="flex items-center gap-3">
-          <span class="font-bold text-slate-800 dark:text-slate-100 text-base select-none">Fluxor</span>
-        </div>
-
-        <!-- 移动端快捷设置 -->
-        <div class="flex gap-2 items-center">
-          <!-- 语言 -->
-          <button @click="toggleLanguage" 
-            class="flex items-center justify-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
-            <span>{{ currentLangDisplay }}</span>
-          </button>
-          <!-- 主题 -->
-          <button @click="switchThemeCycle" 
-            class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all active:scale-95 group" 
-            aria-label="Toggle Theme">
-            <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 text-amber-500 transition-all group-hover:rotate-45 duration-300" />
-            <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 text-indigo-400 transition-all group-hover:-rotate-12 duration-300" />
-            <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 text-purple-500 dark:text-purple-400 transition-all group-hover:scale-110 duration-300" />
-            <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 text-rose-500 transition-all group-hover:scale-110 duration-300" />
-            <DesktopOutline v-else class="w-4 h-4 text-slate-500 dark:text-slate-400 transition-all group-hover:scale-110 duration-300" />
-          </button>
-          <!-- 关于 -->
-          <button @click="showAbout = true" 
-            class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all active:scale-95 group"
-            :title="t('about.title')">
-            <InformationCircleOutline class="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
-          </button>
-        </div>
-      </header>
-
-      <!-- 主工作区容器 -->
-      <main class="flex-1 my-3 mx-3 md:my-4 md:mx-4 h-[calc(100vh-80px)] md:h-[calc(100vh-32px)] flex flex-col min-h-0 select-none overflow-hidden pb-14 md:pb-0">
+      <main class="flex-1 my-3 mx-3 md:my-4 md:mx-4 h-[calc(100vh-24px)] md:h-[calc(100vh-32px)] flex flex-col min-h-0 select-none overflow-hidden pb-14 md:pb-0">
         <div class="max-w-7xl mx-auto w-full flex flex-col flex-1 min-h-0">
           <KeepAlive :max="6">
             <component :is="activeComponent" class="flex flex-col flex-1 min-h-0" />
@@ -431,7 +382,7 @@ onUnmounted(() => {
 
     <!-- 关于 Fluxor 模态弹窗 -->
     <Teleport to="body">
-      <div v-if="showAbout" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showAbout = false">
+      <div v-if="globalStore.showAbout" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="globalStore.showAbout = false">
         <div class="glass-heavy border w-full max-w-[92vw] sm:max-w-md rounded-[24px] shadow-2xl p-6 flex flex-col gap-6 animate-[zoomIn_0.15s_ease-out] relative overflow-hidden">
 
           <!-- 头部信息 -->
@@ -490,7 +441,7 @@ onUnmounted(() => {
 
           <!-- 底部关闭按钮 -->
           <div class="flex justify-center pt-2">
-            <button @click="showAbout = false" class="w-full py-2.5 text-xs font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 shadow-sm">
+            <button @click="globalStore.showAbout = false" class="w-full py-2.5 text-xs font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 shadow-sm">
               {{ t('common.close') }}
             </button>
           </div>

@@ -175,7 +175,7 @@ const getDelayText = (delay?: number) => {
     </div>
 
     <!-- Accordion Body -->
-    <div v-if="expandedState[group.name]" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+    <div v-if="expandedState[group.name]" class="grid grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
       <div
         v-for="name in group.all"
         :key="name"

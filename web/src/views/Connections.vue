@@ -197,16 +197,16 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <div class="flex items-center gap-4 flex-wrap">
+      <div class="flex items-center justify-between md:justify-start gap-4 flex-1 md:flex-initial">
         <h3 class="text-base font-semibold flex items-center gap-2">
           <LinkOutline class="w-5 h-5 text-accent" />
           {{ t('connections.title') }}
         </h3>
-        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
-          <button @click="activeTab = 'active'" class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'active' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
+        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
+          <button @click="activeTab = 'active'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'active' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
             {{ t('connections.active') }} ({{ activeConnections.length }})
           </button>
-          <button @click="activeTab = 'closed'" class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'closed' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
+          <button @click="activeTab = 'closed'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'closed' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
             {{ t('connections.closed') }} ({{ closedConnections.length }})
           </button>
         </div>
