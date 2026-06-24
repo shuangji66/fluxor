@@ -633,13 +633,13 @@ const getDelayDisplay = (result: DelayTestResult) => {
       class: `${baseBadge} bg-rose-500/10 text-rose-600 border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30`
     }
   }
-  if (result.delay < 150) {
+  if (result.delay < 200) {
     return {
       text: `${result.delay}ms`,
       class: `${baseBadge} bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30`
     }
   }
-  if (result.delay < 300) {
+  if (result.delay < 500) {
     return {
       text: `${result.delay}ms`,
       class: `${baseBadge} bg-amber-500/10 text-amber-600 border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30`

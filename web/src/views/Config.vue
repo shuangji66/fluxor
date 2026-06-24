@@ -384,7 +384,7 @@ onUnmounted(() => {
         ]">
         <!-- 1. 配置参数面板区（常规参数，内核启动时显示） -->
         <div v-if="coreStatus.running"
-          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
+          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-5 h-full transition-all flex flex-col relative">
           <!-- 同步配置遮罩屏 -->
           <div v-if="configsLoading"
             class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
@@ -432,7 +432,7 @@ onUnmounted(() => {
 
         <!-- 2. 端口设置（内核启动时显示） -->
         <div v-if="coreStatus.running"
-          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
+          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-5 h-full transition-all flex flex-col relative">
           <!-- 同步配置遮罩屏 -->
           <div v-if="configsLoading"
             class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
@@ -477,7 +477,7 @@ onUnmounted(() => {
 
         <!-- 3. TUN与网卡设置（内核启动时显示） -->
         <div v-if="coreStatus.running"
-          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col relative">
+          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-5 h-full transition-all flex flex-col relative">
           <!-- 同步配置遮罩屏 -->
           <div v-if="configsLoading"
             class="absolute inset-0 glass-light z-30 flex flex-col items-center justify-center rounded-2xl gap-2 select-none border shadow-sm transition-all duration-300">
@@ -526,7 +526,7 @@ onUnmounted(() => {
 
         <!-- 4. 运维控制（始终显示） -->
         <div
-          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col">
+          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-5 h-full transition-all flex flex-col">
           <div class="border-b border-slate-100 dark:border-slate-800 pb-4">
             <h4 class="font-bold text-sm flex items-center gap-2">
               <BuildOutline class="w-4 h-4 text-accent" />
@@ -607,7 +607,7 @@ onUnmounted(() => {
 
         <!-- 5. 界面设置（始终显示） -->
         <div
-          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-5 h-full transition-all flex flex-col">
+          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-5 h-full transition-all flex flex-col">
           <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
             <ColorPaletteOutline class="w-4 h-4 text-accent" />
             {{ t('config.interface_settings') }}
@@ -654,7 +654,7 @@ onUnmounted(() => {
 
         <!-- 6. DNS 查询（内核启动时显示） -->
         <div v-if="coreStatus.running"
-          class="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:-translate-y-[1px] duration-300 space-y-4 h-full transition-all flex flex-col">
+          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-4 h-full transition-all flex flex-col">
           <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
             <SearchOutline class="w-4 h-4 text-accent" />
             {{ t('config.dns_query') }}

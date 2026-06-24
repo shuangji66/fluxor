@@ -334,8 +334,8 @@ onUnmounted(() => {
         <div class="flex flex-col transition-all duration-300"
           :class="[
             globalStore.isSidebarCollapsed 
-              ? 'items-center gap-1.5 p-0 border-transparent bg-transparent' 
-              : 'glass-light border p-2 !rounded-2xl gap-2'
+              ? 'items-center gap-1.5' 
+              : 'gap-2'
           ]">
           <!-- 语言与主题：展开时左右并排，折叠时上下排布 -->
           <div class="flex w-full transition-all duration-300"

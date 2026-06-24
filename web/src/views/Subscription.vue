@@ -63,8 +63,8 @@ const fetchSubscriptionInfo = configStore.fetchSubscriptionInfo
 const getHealthClass = (info?: SubscriptionInfo | null) => {
   if (!info || info.aliveCount === 0) return 'text-red-500'
   if (info.avgDelay === undefined || info.avgDelay === 0) return 'text-slate-400'
-  if (info.avgDelay <= 150) return 'text-success'
-  if (info.avgDelay <= 300) return 'text-amber-500'
+  if (info.avgDelay <= 200) return 'text-success'
+  if (info.avgDelay <= 500) return 'text-amber-500'
   return 'text-red-400'
 }
 
@@ -436,7 +436,7 @@ onUnmounted(() => {
           v-for="(sub, idx) in currentConfig.subscriptions" 
           :key="sub.name" 
           @click="selectSubscription(sub.name)"
-          class="p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:-translate-y-[1px] hover:shadow-sm transition-all duration-300 relative overflow-hidden cursor-pointer"
+          class="live-card p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 transition-all duration-300 relative overflow-hidden cursor-pointer"
           :class="{
             'border-accent ring-2 ring-accent/30': currentConfig.mode === 'switch' && currentConfig.active_subscription === sub.name
           }"

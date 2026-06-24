@@ -32,8 +32,8 @@ const getGroupBarSegments = computed(() => {
     if (delay === undefined || delay === null) none++
     else if (delay === 0) black++
     else if (delay === -1) red++
-    else if (delay >= 1 && delay <= 150) green++
-    else if (delay <= 300) yellow++
+    else if (delay >= 1 && delay <= 200) green++
+    else if (delay <= 500) yellow++
     else red++
   })
   
@@ -55,9 +55,9 @@ const getGroupDotSegments = computed(() => {
     let colorClass = 'bg-slate-200 dark:bg-slate-800'
     if (delay === 0) colorClass = 'bg-[#1a1a1a]'
     else if (delay === -1) colorClass = 'bg-red-500'
-    else if (delay && delay >= 1 && delay <= 150) colorClass = 'bg-success'
-    else if (delay && delay <= 300) colorClass = 'bg-amber-500'
-    else if (delay && delay > 300) colorClass = 'bg-red-400'
+    else if (delay && delay >= 1 && delay <= 200) colorClass = 'bg-success'
+    else if (delay && delay <= 500) colorClass = 'bg-amber-500'
+    else if (delay && delay > 500) colorClass = 'bg-red-400'
     return { name, isSelected, colorClass }
   })
 })
@@ -113,8 +113,8 @@ const getDelayClass = (delay?: number) => {
   if (delay === undefined) return 'bg-slate-100/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-accent hover:text-white hover:border-accent'
   if (delay === 0) return 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 animate-pulse'
   if (delay === -1) return 'bg-red-500/10 border-red-500/20 text-red-500 dark:text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500'
-  if (delay <= 150) return 'bg-success/10 border-success/20 text-success dark:text-success hover:bg-success hover:text-white hover:border-success'
-  if (delay <= 300) return 'bg-amber-500/10 border-amber-500/20 text-amber-500 dark:text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500'
+  if (delay <= 200) return 'bg-success/10 border-success/20 text-success dark:text-success hover:bg-success hover:text-white hover:border-success'
+  if (delay <= 500) return 'bg-amber-500/10 border-amber-500/20 text-amber-500 dark:text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500'
   return 'bg-red-500/10 border-red-500/20 text-red-400 dark:text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500'
 }
 
@@ -180,10 +180,10 @@ const getDelayText = (delay?: number) => {
         v-for="name in group.all"
         :key="name"
         @click="handleSelectProxy(name)"
-        class="flex flex-col justify-between p-2.5 text-xs rounded-xl border transition-all duration-300 cursor-pointer min-h-[75px] relative"
+        class="live-card flex flex-col justify-between p-2.5 text-xs rounded-xl border transition-all duration-300 cursor-pointer min-h-[75px] relative"
         :class="group.now === name
-          ? 'bg-accent/5 border-accent text-accent shadow-sm ring-1 ring-accent/30 hover:-translate-y-[1.5px] hover:shadow-md'
-          : 'border-slate-200/60 dark:border-slate-800 hover:-translate-y-[1.5px] hover:shadow-sm hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300 hover:bg-slate-100/40 dark:hover:bg-slate-800/10'"
+          ? 'bg-accent/10 dark:bg-accent/15 border-accent text-accent shadow-sm ring-1 ring-accent/30 hover:-translate-y-[2px] hover:shadow-md'
+          : 'border-slate-200/60 dark:border-slate-800 hover:-translate-y-[2px] hover:shadow-md hover:border-slate-300/80 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
       >
         <!-- Name -->
         <div class="w-full text-left">

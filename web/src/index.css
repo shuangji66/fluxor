@@ -25,7 +25,7 @@
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --btn-secondary-bg: #2d3748;
   --btn-secondary-hover-bg: rgba(255, 255, 255, 0.12);
-  
+
   /* 默认磨砂玻璃 */
   --bg-glass-heavy: rgba(23, 31, 48, 0.65);
   --bg-glass-medium: rgba(23, 31, 48, 0.45);
@@ -65,7 +65,7 @@
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   --btn-secondary-bg: #e8ecf0;
   --btn-secondary-hover-bg: rgba(15, 23, 42, 0.08);
-  
+
   /* 浅色磨砂玻璃 */
   --bg-glass-heavy: rgba(255, 255, 255, 0.65);
   --bg-glass-medium: rgba(255, 255, 255, 0.45);
@@ -105,7 +105,7 @@
   --shadow: 0 8px 30px rgba(147, 51, 234, 0.12);
   --btn-secondary-bg: #1e113a;
   --btn-secondary-hover-bg: rgba(192, 132, 252, 0.18);
-  
+
   /* 紫色磨砂玻璃 */
   --bg-glass-heavy: rgba(10, 5, 22, 0.65);
   --bg-glass-medium: rgba(10, 5, 22, 0.45);
@@ -120,7 +120,8 @@
 
   /* 侧边栏激活高对比 */
   --sidebar-active-bg: var(--accent);
-  --sidebar-active-text: #0a0516; /* 深紫字色 */
+  --sidebar-active-text: #0a0516;
+  /* 深紫字色 */
   --sidebar-active-shadow: rgba(192, 132, 252, 0.25);
 }
 
@@ -145,7 +146,7 @@
   --shadow: 0 8px 30px rgba(244, 63, 94, 0.08);
   --btn-secondary-bg: #fff1f2;
   --btn-secondary-hover-bg: rgba(244, 63, 94, 0.12);
-  
+
   /* 粉色磨砂玻璃 */
   --bg-glass-heavy: rgba(255, 255, 255, 0.65);
   --bg-glass-medium: rgba(255, 255, 255, 0.45);
@@ -171,10 +172,12 @@
 [data-theme="purple"] .dark\:bg-\[\#1e293b\] {
   background-color: var(--bg-secondary) !important;
 }
+
 [data-theme="purple"] .bg-\[\#f1f5f9\],
 [data-theme="purple"] .dark\:bg-\[\#0f172a\] {
   background-color: var(--bg-primary) !important;
 }
+
 [data-theme="purple"] .bg-slate-50,
 [data-theme="purple"] .bg-slate-100,
 [data-theme="purple"] .dark\:bg-slate-800,
@@ -182,6 +185,7 @@
 [data-theme="purple"] .dark\:bg-slate-800\/50 {
   background-color: var(--btn-secondary-bg) !important;
 }
+
 [data-theme="purple"] .hover\:bg-slate-100:hover,
 [data-theme="purple"] .hover\:bg-slate-200:hover,
 [data-theme="purple"] .dark\:hover\:bg-slate-700:hover,
@@ -191,6 +195,7 @@
 [data-theme="purple"] .dark\:hover\:bg-slate-800\/80:hover {
   background-color: var(--btn-secondary-hover-bg) !important;
 }
+
 [data-theme="purple"] .border-slate-100,
 [data-theme="purple"] .border-slate-200,
 [data-theme="purple"] .border-slate-100\/50,
@@ -203,12 +208,14 @@
 [data-theme="purple"] .dark\:border-slate-800\/30 {
   border-color: var(--border-color) !important;
 }
+
 [data-theme="purple"] .text-slate-800,
 [data-theme="purple"] .dark\:text-slate-100,
 [data-theme="purple"] .text-slate-700,
 [data-theme="purple"] .dark\:text-slate-200 {
   color: var(--text-primary) !important;
 }
+
 [data-theme="purple"] .text-slate-400,
 [data-theme="purple"] .text-slate-500,
 [data-theme="purple"] .text-slate-600,
@@ -217,23 +224,28 @@
 [data-theme="purple"] .dark\:text-slate-500 {
   color: var(--text-secondary) !important;
 }
+
 [data-theme="purple"] .bg-slate-50\/50,
 [data-theme="purple"] .dark\:bg-slate-900\/30 {
   background-color: rgba(27, 15, 53, 0.45) !important;
 }
+
 [data-theme="purple"] .hover\:bg-slate-50\/50:hover,
 [data-theme="purple"] .dark\:hover\:bg-slate-900\/10:hover {
   background-color: rgba(168, 85, 247, 0.06) !important;
 }
+
 [data-theme="purple"] .bg-slate-200,
 [data-theme="purple"] .dark\:bg-slate-700 {
   background-color: var(--btn-secondary-hover-bg) !important;
 }
+
 [data-theme="purple"] .bg-white.shadow-sm,
 [data-theme="purple"] .dark\:bg-slate-700.shadow-sm {
   background-color: var(--hover-bg) !important;
   color: var(--text-primary) !important;
 }
+
 [data-theme="purple"] aside {
   background-color: var(--bg-glass-heavy) !important;
   backdrop-filter: blur(16px);
@@ -245,10 +257,12 @@
 [data-theme="pink"] .dark\:bg-\[\#1e293b\] {
   background-color: var(--bg-secondary) !important;
 }
+
 [data-theme="pink"] .bg-\[\#f1f5f9\],
 [data-theme="pink"] .dark\:bg-\[\#0f172a\] {
   background-color: var(--bg-primary) !important;
 }
+
 [data-theme="pink"] .bg-slate-50,
 [data-theme="pink"] .bg-slate-100,
 [data-theme="pink"] .dark\:bg-slate-800,
@@ -256,6 +270,7 @@
 [data-theme="pink"] .dark\:bg-slate-800\/50 {
   background-color: var(--btn-secondary-bg) !important;
 }
+
 [data-theme="pink"] .hover\:bg-slate-100:hover,
 [data-theme="pink"] .hover\:bg-slate-200:hover,
 [data-theme="pink"] .dark\:hover\:bg-slate-700:hover,
@@ -265,6 +280,7 @@
 [data-theme="pink"] .dark\:hover\:bg-slate-800\/80:hover {
   background-color: var(--btn-secondary-hover-bg) !important;
 }
+
 [data-theme="pink"] .border-slate-100,
 [data-theme="pink"] .border-slate-200,
 [data-theme="pink"] .border-slate-100\/50,
@@ -277,12 +293,14 @@
 [data-theme="pink"] .dark\:border-slate-800\/30 {
   border-color: var(--border-color) !important;
 }
+
 [data-theme="pink"] .text-slate-800,
 [data-theme="pink"] .dark\:text-slate-100,
 [data-theme="pink"] .text-slate-700,
 [data-theme="pink"] .dark\:text-slate-200 {
   color: var(--text-primary) !important;
 }
+
 [data-theme="pink"] .text-slate-400,
 [data-theme="pink"] .text-slate-500,
 [data-theme="pink"] .text-slate-600,
@@ -291,23 +309,28 @@
 [data-theme="pink"] .dark\:text-slate-500 {
   color: var(--text-secondary) !important;
 }
+
 [data-theme="pink"] .bg-slate-50\/50,
 [data-theme="pink"] .dark\:bg-slate-900\/30 {
   background-color: rgba(255, 241, 242, 0.50) !important;
 }
+
 [data-theme="pink"] .hover\:bg-slate-50\/50:hover,
 [data-theme="pink"] .dark\:hover\:bg-slate-900\/10:hover {
   background-color: rgba(244, 63, 94, 0.05) !important;
 }
+
 [data-theme="pink"] .bg-slate-200,
 [data-theme="pink"] .dark\:bg-slate-700 {
   background-color: var(--btn-secondary-hover-bg) !important;
 }
+
 [data-theme="pink"] .bg-white.shadow-sm,
 [data-theme="pink"] .dark\:bg-slate-700.shadow-sm {
   background-color: var(--bg-primary) !important;
   color: var(--text-primary) !important;
 }
+
 [data-theme="pink"] aside {
   background-color: var(--bg-glass-heavy) !important;
   backdrop-filter: blur(16px);
@@ -369,11 +392,15 @@ img,
 }
 
 /* 输入控件聚焦 */
-input, select, textarea {
+input,
+select,
+textarea {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: 2px solid transparent !important;
   outline-offset: 2px !important;
   border-color: var(--accent) !important;
@@ -385,14 +412,17 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-secondary) !important;
   opacity: 0.45;
 }
+
 :-moz-placeholder {
   color: var(--text-secondary) !important;
   opacity: 0.45;
 }
+
 ::-moz-placeholder {
   color: var(--text-secondary) !important;
   opacity: 0.45;
 }
+
 :-ms-input-placeholder {
   color: var(--text-secondary) !important;
   opacity: 0.45;
@@ -438,7 +468,8 @@ input:focus, select:focus, textarea:focus {
 
 /* 4. 磨砂玻璃与遮罩 */
 
-.glass-heavy, [data-theme] .glass-heavy {
+.glass-heavy,
+[data-theme] .glass-heavy {
   background-color: var(--bg-glass-heavy) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -450,7 +481,8 @@ input:focus, select:focus, textarea:focus {
   will-change: backdrop-filter;
 }
 
-.glass-medium, [data-theme] .glass-medium {
+.glass-medium,
+[data-theme] .glass-medium {
   background-color: var(--bg-glass-medium) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -462,11 +494,13 @@ input:focus, select:focus, textarea:focus {
   will-change: backdrop-filter;
 }
 
-.glass-medium.shadow-none, [data-theme] .glass-medium.shadow-none {
+.glass-medium.shadow-none,
+[data-theme] .glass-medium.shadow-none {
   box-shadow: none !important;
 }
 
-.glass-light, [data-theme] .glass-light {
+.glass-light,
+[data-theme] .glass-light {
   background-color: var(--bg-glass-light) !important;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -500,6 +534,7 @@ input:focus, select:focus, textarea:focus {
 [data-theme="purple"] .glass-heavy {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
+
 [data-theme="purple"] .glass-medium {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
@@ -507,6 +542,7 @@ input:focus, select:focus, textarea:focus {
 [data-theme="pink"] .glass-heavy {
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.06);
 }
+
 [data-theme="pink"] .glass-medium {
   box-shadow: 0 8px 32px rgba(15, 23, 42, 0.03);
 }
@@ -588,6 +624,7 @@ nav.md\:hidden button.text-accent {
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -665,12 +702,25 @@ aside::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
 }
+
 aside {
-  -ms-overflow-style: none !important;  /* IE and Edge */
-  scrollbar-width: none !important;  /* Firefox */
+  -ms-overflow-style: none !important;
+  /* IE and Edge */
+  scrollbar-width: none !important;
+  /* Firefox */
 }
 
 /* 侧边栏底部按钮图标微交互，采用超缓动贝塞尔曲线缓和速度变化 */
 .sidebar-bottom-icon {
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease !important;
+}
+
+/* 常驻硬件加速以防 hover translate 时抗锯齿重算导致文字发虚 */
+.live-card {
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
