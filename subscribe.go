@@ -14,6 +14,8 @@ import (
     "time"
 	"net/url"
 	"io"
+    "encoding/base64"
+    "strconv"
 )
 
 // SubscribeConfig 订阅配置结构体（与前端 JSON 完全对应）
@@ -822,10 +824,10 @@ func handleSubscribeUpdate(w http.ResponseWriter, r *http.Request) {
     var info interface{}
     if targetSub.SubscriptionInfo != nil {
         info = map[string]interface{}{
-            "Upload":    targetSub.SubscriptionInfo["Upload"],
-            "Download":  targetSub.SubscriptionInfo["Download"],
-            "Total":     targetSub.SubscriptionInfo["Total"],
-            "Expire":    targetSub.SubscriptionInfo["Expire"],
+            "upload":    targetSub.SubscriptionInfo["upload"],
+            "download":  targetSub.SubscriptionInfo["download"],
+            "total":     targetSub.SubscriptionInfo["total"],
+            "expire":    targetSub.SubscriptionInfo["expire"],
             "updatedAt": targetSub.UpdatedAt,
         }
     }
@@ -1043,4 +1045,142 @@ func stopAllTimers() {
         cancel()
         delete(timerCancel, name)
     }
+}
+
+// DownloadSubscriptionFile 下载单个订阅的节点文件，返回元数据
+// 优先尝试直接 HTTP 下载，失败则回退到临时内核方式
+func DownloadSubscriptionFile(sub Subscription, index int, targetFile string) (updatedAt string, subInfo map[string]interface{}, err error) {
+    // 1. 尝试直接下载
+    directUpdatedAt, directSubInfo, directErr := tryDirectDownload(sub, targetFile)
+    if directErr == nil {
+        // 直接下载成功，返回结果
+        return directUpdatedAt, directSubInfo, nil
+    }
+    // 直接下载失败，记录日志并回退到临时内核
+    if coreLogger != nil {
+        coreLogger.Printf("[DOWNLOAD] 直连下载失败，回退到临时内核: %v", directErr)
+    }
+
+    // 2. 回退到原有临时内核流程
+    return downloadWithTempCore(sub, index, targetFile)
+}
+
+// tryDirectDownload 尝试直接 HTTP 下载订阅
+func tryDirectDownload(sub Subscription, targetFile string) (updatedAt string, subInfo map[string]interface{}, err error) {
+    client := &http.Client{
+        Timeout: 30 * time.Second,
+        CheckRedirect: func(req *http.Request, via []*http.Request) error {
+            if len(via) >= 10 {
+                return fmt.Errorf("too many redirects")
+            }
+            return nil
+        },
+    }
+
+    req, err := http.NewRequest("GET", sub.URL, nil)
+    if err != nil {
+        return "", nil, err
+    }
+    req.Header.Set("User-Agent", "clash.meta")
+    req.Header.Set("Accept", "text/plain, application/json, */*")
+
+    resp, err := client.Do(req)
+    if err != nil {
+        return "", nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return "", nil, fmt.Errorf("HTTP 状态码: %d", resp.StatusCode)
+    }
+
+    // 读取响应体
+    bodyBytes, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return "", nil, err
+    }
+
+    // 检测是否为 Base64 编码
+    content := string(bodyBytes)
+    decodedContent, isBase64 := tryBase64Decode(bodyBytes)
+    if isBase64 && decodedContent != "" {
+        content = decodedContent
+    }
+
+    // 检查是否为有效订阅配置
+    if !isValidSubscription(content) {
+        return "", nil, fmt.Errorf("无效的订阅配置")
+    }
+
+    // 写入文件
+    if err := os.WriteFile(targetFile, []byte(content), 0644); err != nil {
+        return "", nil, err
+    }
+
+    // 解析 subscription-userinfo 头
+    subInfo = parseSubscriptionUserinfo(resp.Header.Get("subscription-userinfo"))
+    // 更新时间设为当前时间
+    updatedAt = time.Now().Format(time.RFC3339)
+
+    return updatedAt, subInfo, nil
+}
+
+// tryBase64Decode 尝试解码 Base64，返回解码后的字符串和是否成功
+func tryBase64Decode(data []byte) (string, bool) {
+    // 去除可能的空白字符
+    raw := strings.TrimSpace(string(data))
+    // 尝试标准 Base64 解码
+    decoded, err := base64.StdEncoding.DecodeString(raw)
+    if err == nil {
+        return string(decoded), true
+    }
+    // 尝试 URL 编码 Base64 (替换 - _ 等)
+    raw = strings.ReplaceAll(raw, "-", "+")
+    raw = strings.ReplaceAll(raw, "_", "/")
+    decoded, err = base64.StdEncoding.DecodeString(raw)
+    if err == nil {
+        return string(decoded), true
+    }
+    return "", false
+}
+
+// isValidSubscription 检查内容是否包含有效订阅标志
+func isValidSubscription(content string) bool {
+    // 检查是否包含 proxies: 或 proxy-providers: 或 proxy-groups:
+    // 简单匹配，忽略大小写
+    lower := strings.ToLower(content)
+    return strings.Contains(lower, "proxies:") ||
+        strings.Contains(lower, "proxy-providers:") ||
+        strings.Contains(lower, "proxy-groups:")
+}
+
+// parseSubscriptionUserinfo 解析 subscription-userinfo 头
+func parseSubscriptionUserinfo(header string) map[string]interface{} {
+	result := make(map[string]interface{})
+	if header == "" {
+		return result
+	}
+	parts := strings.Split(header, ";")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(kv[0])
+		val := strings.TrimSpace(kv[1])
+		switch key {
+		case "upload", "download", "total":
+			if v, err := strconv.ParseInt(val, 10, 64); err == nil {
+				result[key] = v
+			}
+		case "expire":
+			if v, err := strconv.ParseInt(val, 10, 64); err == nil {
+				result[key] = v
+			}
+		default:
+			result[key] = val
+		}
+	}
+	return result
 }

@@ -570,8 +570,8 @@ onUnmounted(() => {
                   {{ t('config.restart') }}
                 </button>
               </template>
-              <button @click="handleUpgradeCore" :disabled="isUpgrading"
-                class="py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-xl shadow-md shadow-accent/15 hover:shadow-accent/25 transition-all flex items-center justify-center w-full">
+              <button @click="handleUpgradeCore" :disabled="isUpgrading || !coreStatus.running"
+                class="py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-xl shadow-md shadow-accent/15 hover:shadow-accent/25 transition-all flex items-center justify-center w-full disabled:opacity-50 disabled:cursor-not-allowed">
                 {{ isUpgrading ? t('config.upgrading_core') : t('config.upgrade_core') }}
               </button>
             </div>

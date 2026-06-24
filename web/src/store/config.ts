@@ -180,10 +180,10 @@ export const useConfigStore = defineStore('config', () => {
           subscriptions: subs.map((s: any) => {
             // 将后端存储的 subscription_info 映射为前端的 info 对象
             const info = s.subscription_info ? {
-              upload: s.subscription_info.Upload || 0,
-              download: s.subscription_info.Download || 0,
-              total: s.subscription_info.Total || 0,
-              expire: s.subscription_info.Expire || 0,
+              upload: s.subscription_info.upload || 0,
+              download: s.subscription_info.download || 0,
+              total: s.subscription_info.total || 0,
+              expire: s.subscription_info.expire || 0,
               updatedAt: s.updated_at || null,
             } : null
             return {

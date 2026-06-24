@@ -311,8 +311,8 @@ func handleCoreRestart(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "内核已热重启（重载配置）"})
 }
-// DownloadSubscriptionFile 使用临时内核下载单个订阅的节点文件，并返回元数据（updatedAt 和 subscriptionInfo）
-func DownloadSubscriptionFile(sub Subscription, index int, targetFile string) (updatedAt string, subInfo map[string]interface{}, err error) {
+// downloadWithTempCore 使用临时内核下载单个订阅的节点文件，并返回元数据（updatedAt 和 subscriptionInfo）
+func downloadWithTempCore(sub Subscription, index int, targetFile string) (updatedAt string, subInfo map[string]interface{}, err error) {
     var lastErr error
     var port int
     var listener net.Listener
