@@ -160,6 +160,8 @@ func main() {
     mux.HandleFunc(baseURL+"/delaytest/google", handleDelayTestGoogle)
     mux.HandleFunc(baseURL+"/delaytest/youtube", handleDelayTestYouTube)
 	mux.HandleFunc(baseURL+"/delaytest/github", handleDelayTestGitHub)
+    mux.HandleFunc(baseURL+"/delaytest/baidu", handleDelayTestBaidu)
+    mux.HandleFunc(baseURL+"/delaytest/bilibili", handleDelayTestBilibili)
     mux.HandleFunc(baseURL+"/delaytest/custom", handleDelayTestCustom)
 
 	// 代理 API

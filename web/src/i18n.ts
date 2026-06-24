@@ -20,6 +20,7 @@ const messages = {
     'common.unknown': '未知',
     'common.show': '显示',
     'common.hide': '隐藏',
+    'common.copied': '已成功复制',
 
     'nav.overview': '概览',
     'nav.overview_desc': '仪表盘',
@@ -58,7 +59,7 @@ const messages = {
     'overview.proxy_ip_label': '代理IP',
     'overview.local_ip_info': '本地 IP 信息',
     'overview.proxy_ip_info': '代理 IP 信息',
-    'overview.geo_info': '地理信息', 
+    'overview.geo_info': '归属地', 
     'overview.region': '地区',
     'overview.country': '国家',
     'overview.city': '城市',
@@ -351,6 +352,7 @@ const messages = {
     'common.unknown': 'Unknown',
     'common.show': 'Show',
     'common.hide': 'Hide',
+    'common.copied': 'Copied successfully',
 
     'nav.overview': 'Overview',
     'nav.overview_desc': 'Dashboard',
@@ -388,7 +390,7 @@ const messages = {
     'overview.proxy_ip': 'Proxy',
     'overview.local_ip_info': 'Local IP Info',
     'overview.proxy_ip_info': 'Proxy IP Info',
-    'overview.geo_info': 'Geo Info',
+    'overview.geo_info': 'Location',
     'overview.region': 'Region',
     'overview.proxy_port': 'Proxy Port',
     'overview.no_ipinfo': 'No IP available',

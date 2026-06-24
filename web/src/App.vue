@@ -99,6 +99,49 @@ const handleResize = () => {
   lastWidth = currentWidth
 }
 
+// 检查元素或其祖先是否允许选中/复制
+const isAllowedElement = (target: HTMLElement | null): boolean => {
+  if (!target) return false
+  let curr: HTMLElement | null = target
+  while (curr) {
+    const tag = curr.tagName ? curr.tagName.toLowerCase() : ''
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'option') {
+      return true
+    }
+    if (curr.classList && curr.classList.contains('select-text')) {
+      return true
+    }
+    curr = curr.parentElement
+  }
+  return false
+}
+
+// 拦截全局选择事件以防光标与选区
+const handleSelectStart = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (!isAllowedElement(target)) {
+    e.preventDefault()
+  }
+}
+
+// 拦截全局复制事件以防非授权复制
+const handleCopy = (e: ClipboardEvent) => {
+  const selection = window.getSelection()
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0)
+    const commonAncestor = range.commonAncestorContainer
+    const container = commonAncestor.nodeType === Node.TEXT_NODE ? commonAncestor.parentElement : commonAncestor as HTMLElement
+    if (!isAllowedElement(container)) {
+      e.preventDefault()
+    }
+  } else {
+    const target = e.target as HTMLElement
+    if (!isAllowedElement(target)) {
+      e.preventDefault()
+    }
+  }
+}
+
 // 监听内核运行状态，若已运行且版本号未加载，立即主动拉取一次
 watch(() => configStore.coreStatus.running, (running) => {
   if (running && (overviewStore.stats.coreVersion === '加载中...' || overviewStore.stats.coreVersion === '未知')) {
@@ -116,6 +159,8 @@ onMounted(() => {
   }
   
   window.addEventListener('resize', handleResize)
+  document.addEventListener('selectstart', handleSelectStart)
+  document.addEventListener('copy', handleCopy as EventListener)
   
   // 预加载配置与订阅状态
   configStore.fetchCoreStatus()
@@ -125,6 +170,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  document.removeEventListener('selectstart', handleSelectStart)
+  document.removeEventListener('copy', handleCopy as EventListener)
 })
 </script>
 

@@ -401,6 +401,8 @@ func testDelayThroughProxy(targetURL string, timeout time.Duration) (int, error)
 	}
 	// 强制通知代理与源站发送完报头后立即关闭连接，防止因无结束标记挂起超时
 	req.Close = true
+	// 附带标准的浏览器 UA，防止被防火墙或 WAF 丢包防爬拦截导致误报超时
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
 	start := time.Now()
 	resp, err := client.Do(req)
@@ -426,6 +428,16 @@ func handleDelayTestYouTube(w http.ResponseWriter, r *http.Request) {
 // handleDelayTestGitHub 测试 GitHub 延迟
 func handleDelayTestGitHub(w http.ResponseWriter, r *http.Request) {
 	handleDelayTestCommon(w, r, "https://github.com")
+}
+
+// handleDelayTestBaidu 测试 Baidu 延迟
+func handleDelayTestBaidu(w http.ResponseWriter, r *http.Request) {
+	handleDelayTestCommon(w, r, "https://www.baidu.com")
+}
+
+// handleDelayTestBilibili 测试 Bilibili 延迟
+func handleDelayTestBilibili(w http.ResponseWriter, r *http.Request) {
+	handleDelayTestCommon(w, r, "https://www.bilibili.com")
 }
 
 // handleDelayTestCustom 测试自定义 URL 延迟
