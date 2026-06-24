@@ -39,7 +39,7 @@ export const useGlobalStore = defineStore('global', () => {
 
   const activeTab = ref<string>(getInitialTab())
   const isSidebarCollapsed = ref<boolean>(localStorage.getItem('fluxor-sidebar-collapsed') === 'true')
-  const theme = ref<string>(localStorage.getItem('fluxor-theme') || 'system')
+  const theme = ref<string>(localStorage.getItem('fluxor-theme') || 'pink')
   
   const toasts = ref<ToastMessage[]>([])
   const confirmDialog = ref<ConfirmState | null>(null)

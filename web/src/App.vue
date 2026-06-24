@@ -314,7 +314,7 @@ onUnmounted(() => {
                 globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none hover:scale-105 py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
               ]"
               aria-label="Toggle Theme"
-              :title="t('config.theme')">
+              :title="t('config.theme') + ': ' + t('config.theme_' + globalStore.theme)">
               <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-amber-500 group-hover:scale-110 group-hover:rotate-45" />
               <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-indigo-400 group-hover:scale-110 group-hover:-rotate-12" />
               <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-purple-500 dark:text-purple-400 group-hover:scale-110 group-hover:-rotate-12" />
