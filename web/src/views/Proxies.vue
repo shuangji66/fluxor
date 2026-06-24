@@ -14,15 +14,16 @@ const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 
-// 从 store 中解构所需状态
 const { proxyGroups, delays, isLoading } = storeToRefs(proxyStore)
 const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
 
-// 延迟更新实际渲染列表的模式，避开滑块动画的高频帧，确保视觉过渡丝滑
+// 桌面端检测
+const isDesktop = ref(window.innerWidth >= 768)
+const onResize = () => { isDesktop.value = window.innerWidth >= 768 }
+
 const renderedMode = ref(configs.value.mode || 'Rule')
 let modeSwitchTimer: number | null = null
 
-// 监听 configs.value.mode 的变化，延迟 180ms 更新渲染
 watch(
   () => configs.value.mode,
   (newMode) => {
@@ -31,7 +32,6 @@ watch(
       modeSwitchTimer = null
     }
     if (renderedMode.value === newMode) return
-
     modeSwitchTimer = window.setTimeout(() => {
       renderedMode.value = newMode
       modeSwitchTimer = null
@@ -40,43 +40,36 @@ watch(
   { immediate: true }
 )
 
-// 根据内核模式与订阅模式过滤代理组
 const filteredGroups = computed(() => {
   const mode = renderedMode.value
-  const subMode = currentConfig.value.mode // 'merge' 或 'switch'
+  const subMode = currentConfig.value.mode
 
   if (mode === 'Direct') return []
-
   if (mode === 'Global') {
-    // 融合订阅下，全局模式展示所有代理组
-    if (subMode === 'merge') {
-      return proxyGroups.value
-    }
-    // 切换订阅下，只展示 GLOBAL 组
+    if (subMode === 'merge') return proxyGroups.value
     return proxyGroups.value.filter(g => g.name.toUpperCase() === 'GLOBAL')
   }
-
-  // 规则模式：隐藏 GLOBAL 组
   return proxyGroups.value.filter(g => g.name.toUpperCase() !== 'GLOBAL')
 })
 
-// 是否使用单列布局（组数 <= 6）
-const isSingleColumn = computed(() => filteredGroups.value.length <= 6)
+// 是否启用双列独立布局：组数 > 6 且桌面端
+const showTwoColumns = computed(() => filteredGroups.value.length > 6 && isDesktop.value)
+
+// 按奇偶拆分为两列（保持原顺序交替）
+const leftColumn = computed(() => filteredGroups.value.filter((_, i) => i % 2 === 0))
+const rightColumn = computed(() => filteredGroups.value.filter((_, i) => i % 2 === 1))
 
 const isTestingAll = ref(false)
 let refreshTimer: number | null = null
 
-// 切换运行模式（乐观更新及失败回滚）
 const changeMode = async (mode: string) => {
   if (!coreStatus.value.running) {
     globalStore.showToast(t('config.core_not_running'), 'warning')
     return
   }
   if (mode === configs.value.mode) return
-
   const originalMode = configs.value.mode
-  configs.value.mode = mode // 乐观更新，滑块立即响应
-
+  configs.value.mode = mode
   try {
     const resp = await apiFetch('/configs', {
       method: 'PATCH',
@@ -86,16 +79,15 @@ const changeMode = async (mode: string) => {
     if (resp.ok) {
       globalStore.showToast(t('config.mode_switched'), 'success')
     } else {
-      configs.value.mode = originalMode // 失败回滚
+      configs.value.mode = originalMode
       globalStore.showToast(t('common.operation_failed'), 'error')
     }
   } catch (e) {
-    configs.value.mode = originalMode // 异常回滚
+    configs.value.mode = originalMode
     globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
   }
 }
 
-// 测速所有节点
 const handleTestAll = async () => {
   if (isTestingAll.value) return
   isTestingAll.value = true
@@ -115,7 +107,6 @@ const handleTestAll = async () => {
   }
 }
 
-// 自动测速（后台静默）
 const autoTestMissingNodes = async () => {
   const allNodes = new Set<string>()
   proxyGroups.value.forEach(g => {
@@ -123,20 +114,17 @@ const autoTestMissingNodes = async () => {
       g.all.forEach(name => allNodes.add(name))
     }
   })
-
   const needTest: string[] = []
   allNodes.forEach(name => {
     if (delays.value[name] === undefined) {
       needTest.push(name)
     }
   })
-
   if (needTest.length === 0) return
   await proxyStore.testProxiesWithConcurrency(needTest)
   proxyStore.fetchProxies(true)
 }
 
-// 定时器管理
 const startRefreshTimer = () => {
   if (refreshTimer) clearInterval(refreshTimer)
   refreshTimer = window.setInterval(() => {
@@ -156,6 +144,7 @@ const stopRefreshTimer = () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('resize', onResize)
   const hasData = proxyGroups.value.length > 0
   await proxyStore.fetchProxies(hasData)
   autoTestMissingNodes().catch(e => console.warn('[Proxies] 自动测速失败:', e))
@@ -172,21 +161,20 @@ onDeactivated(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
   stopRefreshTimer()
 })
 </script>
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
-    <!-- 顶部工具栏 -->
+    <!-- 顶部工具栏（保持不变） -->
     <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col md:flex-row gap-3 md:gap-4 md:items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <!-- 左侧：标题与移动端测速按钮 -->
       <div class="flex items-center justify-between w-full md:w-auto">
         <h3 class="text-base font-semibold flex items-center gap-2">
           <GlobeOutline class="w-5 h-5 text-accent" />
           {{ t('proxies.title') }}
         </h3>
-        <!-- 移动端显示的全部测速按钮 -->
         <button
           @click="handleTestAll"
           :disabled="isTestingAll"
@@ -196,8 +184,6 @@ onUnmounted(() => {
           {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
         </button>
       </div>
-
-      <!-- 右侧：模式切换与桌面端测速按钮 -->
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 md:justify-end w-full md:w-auto">
         <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
           <button
@@ -211,7 +197,6 @@ onUnmounted(() => {
             {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
           </button>
         </div>
-        <!-- 桌面端显示的全部测速按钮 -->
         <button
           @click="handleTestAll"
           :disabled="isTestingAll"
@@ -223,7 +208,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 内容区域内滚动容器 (已升级为统一大内容卡片) -->
+    <!-- 内容区域 -->
     <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6 space-y-6 pr-4">
       <!-- 骨架屏 -->
       <div v-if="isLoading && proxyGroups.length === 0" class="flex flex-col lg:flex-row gap-4 items-start">
@@ -274,11 +259,8 @@ onUnmounted(() => {
 
       <!-- 代理组列表 -->
       <div v-else>
-        <!-- 单列模式（组数 <= 6 或移动端） -->
-        <div
-          v-if="isSingleColumn"
-          class="space-y-4 w-full"
-        >
+        <!-- 单列模式：组数 ≤ 6 或移动端 -->
+        <div v-if="!showTwoColumns" class="space-y-4 w-full">
           <ProxyGroupCard
             v-for="group in filteredGroups"
             :key="group.name"
@@ -286,16 +268,22 @@ onUnmounted(() => {
           />
         </div>
 
-        <!-- 双列模式（组数 > 6，仅桌面端显示两列） -->
-        <div
-          v-else
-          class="grid grid-cols-1 md:grid-cols-2 gap-4"
-        >
-          <ProxyGroupCard
-            v-for="group in filteredGroups"
-            :key="group.name"
-            :group="group"
-          />
+        <!-- 双列独立模式：组数 > 6 且桌面端 -->
+        <div v-else class="flex gap-4 items-start">
+          <div class="w-1/2 space-y-4">
+            <ProxyGroupCard
+              v-for="group in leftColumn"
+              :key="group.name"
+              :group="group"
+            />
+          </div>
+          <div class="w-1/2 space-y-4">
+            <ProxyGroupCard
+              v-for="group in rightColumn"
+              :key="group.name"
+              :group="group"
+            />
+          </div>
         </div>
       </div>
     </div>

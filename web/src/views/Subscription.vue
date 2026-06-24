@@ -97,6 +97,7 @@ const handleUpdateSub = async (index: number) => {
 
     if (!resp.ok) {
       globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
+      await configStore.loadConfig() 
       isUpdating.value[index] = false
       return
     }
@@ -135,14 +136,13 @@ const handleUpdateSub = async (index: number) => {
       globalStore.showToast(result.message || t('subscription.update_success', { name: sub.name }), 'success')
       if (result.info) {
         currentConfig.value.subscriptions[index].info = {
-          upload: result.info.Upload || 0,
-          download: result.info.Download || 0,
-          total: result.info.Total || 0,
-          expire: result.info.Expire || 0,
+          upload: result.info.upload || 0,
+          download: result.info.download || 0,
+          total: result.info.total || 0,
+          expire: result.info.expire || 0,
           updatedAt: result.info.updatedAt || null,
         }
       } else {
-        await loadConfig()
       }
       isUpdating.value[index] = false
       rulesStore.fetchRules(true)
@@ -276,34 +276,68 @@ const handleDeleteSub = async (index: number) => {
 
 // 保存并应用
 const saveAndApply = async () => {
+  // 切换模式时，必须选中一个订阅
   if (currentConfig.value.mode === 'switch' && !currentConfig.value.active_subscription) {
     globalStore.showToast(t('subscription.switch_no_selection'), 'error')
     return
   }
+  // 端口必填
   if (!currentConfig.value.proxy_port || !currentConfig.value.panel_port) {
     globalStore.showToast(t('subscription.proxy_port') + ' / ' + t('subscription.panel_port') + ' ' + t('common.required'), 'error')
     return
   }
+  // 规则组必填（不能为 'none'）
   if (!currentConfig.value.rule_group || currentConfig.value.rule_group === 'none') {
     globalStore.showToast(t('subscription.rule_group') + ' ' + t('common.required'), 'error')
     return
   }
+
   isApplying.value = true
   try {
+    // 将前端的 subscriptions 转换为后端期望的格式
+    const subscriptionsForBackend = currentConfig.value.subscriptions.map(sub => {
+      // 解构出前端自定义字段 info 和其余属性
+      const { info, ...rest } = sub
+
+      // 如果 info 存在，构造 subscription_info；否则为 undefined（序列化时忽略）
+      const subscription_info = info ? {
+        upload: info.upload || 0,
+        download: info.download || 0,
+        total: info.total || 0,
+        expire: info.expire || 0,
+      } : undefined
+
+      // 提取 updatedAt 作为 updated_at
+      const updated_at = info?.updatedAt || undefined
+
+      return {
+        ...rest,
+        updated_at,
+        subscription_info,
+      }
+    })
+
+    // 构造完整 payload，包含转换后的订阅列表和待物理删除列表
     const payload = {
       ...currentConfig.value,
-      delete_physical: pendingPhysicalDeletes.value
+      subscriptions: subscriptionsForBackend,
+      delete_physical: pendingPhysicalDeletes.value,
     }
+
     const resp = await apiFetch('/subscribe/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
     const result = await resp.json()
+
     if (resp.ok && result.status === 'ok') {
       globalStore.showToast(result.message || t('subscription.apply_success'), 'success')
+      // 清空待物理删除列表
       pendingPhysicalDeletes.value = []
-      loadConfig()
+      // 重新加载配置，保持前后端数据一致
+      await loadConfig()
+      // 刷新规则和代理列表
       rulesStore.fetchRules(true)
       rulesStore.fetchProviders(true)
       proxyStore.fetchProxies(true)

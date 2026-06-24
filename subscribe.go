@@ -105,19 +105,18 @@ func loadSubscribeConfig() {
 
 // saveSubscribeConfig 保存订阅配置到文件
 func saveSubscribeConfig() error {
-	subscribeMu.RLock()
-	defer subscribeMu.RUnlock()
-	data, err := json.MarshalIndent(subscribeConfig, "", "  ")
-	if err != nil {
-		return err
-	}
-	dir := filepath.Dir(subscribeConfigFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(subscribeConfigFile, data, 0644)
+    subscribeMu.Lock()
+    defer subscribeMu.Unlock()
+    data, err := json.MarshalIndent(subscribeConfig, "", "  ")
+    if err != nil {
+        return err
+    }
+    dir := filepath.Dir(subscribeConfigFile)
+    if err := os.MkdirAll(dir, 0755); err != nil {
+        return err
+    }
+    return os.WriteFile(subscribeConfigFile, data, 0644)
 }
-
 // ---------- 订阅配置 API ----------
 
 // handleSubscribeConfigAPI 处理 GET /subscribe/config 和 POST /subscribe/config
@@ -780,7 +779,7 @@ func handleSubscribeUpdate(w http.ResponseWriter, r *http.Request) {
         })
         return
     } else {
-        // 切换模式：启动临时下载
+        // 切换模式：启动HTTP下载或临时内核下载
         var needsReload bool
         var err2 error
         subscribeMu.Lock()
@@ -814,11 +813,13 @@ func handleSubscribeUpdate(w http.ResponseWriter, r *http.Request) {
         // 重置定时器
         stopAllTimers()
         startAllTimers()
-    }
 
-    // 保存配置到 subscribe.json
-    if err := saveSubscribeConfig(); err != nil {
-        log.Printf("保存配置失败: %v", err)
+        // 立即持久化（避免统一保存被绕过或失败时前端未知）
+        if err := saveSubscribeConfig(); err != nil {
+            log.Printf("[UPDATE] 保存订阅配置失败: %v", err)
+            writeJSONError(w, http.StatusInternalServerError, "保存配置失败: "+err.Error())
+            return
+        }
     }
 
     var info interface{}
@@ -929,7 +930,21 @@ func fetchSubscriptionMetadataFromCore(subName string) (updatedAt string, subInf
 	}
 	updatedAtVal, _ := data["updatedAt"].(string)
 	subInfoVal, _ := data["subscriptionInfo"].(map[string]interface{})
+	// 规范化键为小写
+	subInfoVal = normalizeMapKeys(subInfoVal)
 	return updatedAtVal, subInfoVal, nil
+}
+
+// normalizeMapKeys 将 map 中所有字符串键转换为小写
+func normalizeMapKeys(m map[string]interface{}) map[string]interface{} {
+    if m == nil {
+        return nil
+    }
+    result := make(map[string]interface{})
+    for k, v := range m {
+        result[strings.ToLower(k)] = v
+    }
+    return result
 }
 
 // updateAllSubscriptionsMetadata 更新所有订阅的元数据（仅用于融合模式）
@@ -964,11 +979,11 @@ func handleUpdateSubscriptionInfo(w http.ResponseWriter, r *http.Request) {
     }
 
     var payload struct {
-        Upload    int64  `json:"upload"`
-        Download  int64  `json:"download"`
-        Total     int64  `json:"total"`
-        Expire    int64  `json:"expire"`
-        UpdatedAt string `json:"updatedAt"`
+        Upload    int64  `json:"Upload"`
+        Download  int64  `json:"Download"`
+        Total     int64  `json:"Total"`
+        Expire    int64  `json:"Expire"`
+        updatedAt string `json:"updatedAt"`
     }
     if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
         writeJSONError(w, http.StatusBadRequest, "无效的请求体: "+err.Error())
@@ -980,12 +995,12 @@ func handleUpdateSubscriptionInfo(w http.ResponseWriter, r *http.Request) {
     for i := range subscribeConfig.Subscriptions {
         if subscribeConfig.Subscriptions[i].Name == name {
             subInfo := map[string]interface{}{
-                "Upload":   payload.Upload,
-                "Download": payload.Download,
-                "Total":    payload.Total,
-                "Expire":   payload.Expire,
+                "upload":   payload.Upload,
+                "download": payload.Download,
+                "total":    payload.Total,
+                "expire":   payload.Expire,
             }
-            subscribeConfig.Subscriptions[i].UpdatedAt = payload.UpdatedAt
+            subscribeConfig.Subscriptions[i].UpdatedAt = payload.updatedAt
             subscribeConfig.Subscriptions[i].SubscriptionInfo = subInfo
             found = true
             break
@@ -1053,16 +1068,21 @@ func DownloadSubscriptionFile(sub Subscription, index int, targetFile string) (u
     // 1. 尝试直接下载
     directUpdatedAt, directSubInfo, directErr := tryDirectDownload(sub, targetFile)
     if directErr == nil {
-        // 直接下载成功，返回结果
-        return directUpdatedAt, directSubInfo, nil
+        return directUpdatedAt, normalizeMapKeys(directSubInfo), nil
     }
     // 直接下载失败，记录日志并回退到临时内核
     if coreLogger != nil {
-        coreLogger.Printf("[DOWNLOAD] 直连下载失败，回退到临时内核: %v", directErr)
+        coreLogger.Printf("[DOWNLOAD] 订阅 %s 直连下载失败: %v，回退到临时内核", sub.Name, directErr)
+    } else {
+        log.Printf("[DOWNLOAD] 订阅 %s 直连下载失败: %v，回退到临时内核", sub.Name, directErr)
     }
 
     // 2. 回退到原有临时内核流程
-    return downloadWithTempCore(sub, index, targetFile)
+    updatedAt, subInfo, err = downloadWithTempCore(sub, index, targetFile)
+    if err != nil {
+        return "", nil, err
+    }
+    return updatedAt, normalizeMapKeys(subInfo), nil
 }
 
 // tryDirectDownload 尝试直接 HTTP 下载订阅
@@ -1119,7 +1139,6 @@ func tryDirectDownload(sub Subscription, targetFile string) (updatedAt string, s
 
     // 解析 subscription-userinfo 头
     subInfo = parseSubscriptionUserinfo(resp.Header.Get("subscription-userinfo"))
-    // 更新时间设为当前时间
     updatedAt = time.Now().Format(time.RFC3339)
 
     return updatedAt, subInfo, nil
