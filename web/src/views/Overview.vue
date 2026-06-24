@@ -705,17 +705,17 @@ onUnmounted(() => {
                 
                 <div class="flex-1 flex flex-col justify-center gap-3">
                     <!-- 订阅 -->
-                    <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 flex justify-between items-center">
+                    <div class="glass-light border !rounded-lg px-3.5 py-2.5 flex justify-between items-center">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.subscription') }}</span>
                         <span class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]" :title="currentSubscriptionDisplay">{{ currentSubscriptionDisplay }}</span>
                     </div>
                     <!-- 代理组 -->
-                    <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 flex justify-between items-center">
+                    <div class="glass-light border !rounded-lg px-3.5 py-2.5 flex justify-between items-center">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.proxy_group') }}</span>
                         <span class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]" :title="stats.currentGroup">{{ stats.currentGroup }}</span>
                     </div>
                     <!-- 当前节点 -->
-                    <div class="bg-slate-100/40 dark:bg-slate-800/30 border border-slate-200/20 dark:border-slate-700/10 rounded-lg px-3.5 py-2.5 flex justify-between items-center">
+                    <div class="glass-light border !rounded-lg px-3.5 py-2.5 flex justify-between items-center">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.current_node') }}</span>
                         <span class="font-semibold text-accent overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]" :title="currentNodeDisplay">{{ currentNodeDisplay }}</span>
                     </div>

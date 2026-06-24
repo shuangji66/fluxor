@@ -288,14 +288,14 @@ onUnmounted(() => {
           :class="[
             globalStore.isSidebarCollapsed 
               ? 'items-center gap-1.5 p-0 border-transparent bg-transparent' 
-              : 'bg-slate-100/40 dark:bg-slate-800/10 p-2 rounded-2xl border border-slate-200/20 dark:border-slate-800/30 gap-2'
+              : 'glass-light border p-2 !rounded-2xl gap-2'
           ]">
           <!-- 语言与主题：展开时左右并排，折叠时上下排布 -->
           <div class="flex w-full transition-all duration-300"
             :class="globalStore.isSidebarCollapsed ? 'flex-col items-center gap-1.5' : 'flex-row gap-2'">
             <!-- 切换语言 -->
             <button @click="toggleLanguage" 
-              class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden shrink-0"
+              class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden shrink-0"
               :class="[
                 globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none hover:scale-105 py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
               ]"
@@ -309,7 +309,7 @@ onUnmounted(() => {
             
             <!-- 切换主题 -->
             <button @click="switchThemeCycle" 
-              class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50/80 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden shrink-0"
+              class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden shrink-0"
               :class="[
                 globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none hover:scale-105 py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
               ]"
