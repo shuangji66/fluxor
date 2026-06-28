@@ -14,17 +14,21 @@ const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 
-const { proxyGroups, delays, isLoading } = storeToRefs(proxyStore)
+const { proxyGroups, delays, isLoading, sortOrder, delayThresholds, historyCount } = storeToRefs(proxyStore)
+const { setSortOrder, updateSettings } = proxyStore
 const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
-const { sortOrder } = storeToRefs(proxyStore)
-const { setSortOrder } = proxyStore
 
-// ===== 新增排序弹窗 =====
-const showSortDialog = ref(false)
-const sortOrderLocal = ref<'default' | 'name' | 'delay'>('default')
+// ===== 设置弹窗 =====
+const showSettingsDialog = ref(false)
+const settingsForm = ref({
+  sort: 'default' as 'default' | 'name' | 'delay',
+  thresholdLow: 200,
+  thresholdMid: 500,
+  historyCount: 5
+})
 
 // 打开弹窗时禁止 body 滚动
-watch(showSortDialog, (val) => {
+watch(showSettingsDialog, (val) => {
   if (val) {
     document.body.classList.add('overflow-hidden')
   } else {
@@ -32,17 +36,27 @@ watch(showSortDialog, (val) => {
   }
 })
 
-const openSortDialog = () => {
-  sortOrderLocal.value = sortOrder.value
-  showSortDialog.value = true
+const openSettingsDialog = () => {
+  settingsForm.value = {
+    sort: sortOrder.value,
+    thresholdLow: delayThresholds.value.low,
+    thresholdMid: delayThresholds.value.mid,
+    historyCount: historyCount.value
+  }
+  showSettingsDialog.value = true
 }
 
-const saveSortOrder = () => {
-  setSortOrder(sortOrderLocal.value)
-  showSortDialog.value = false
-  globalStore.showToast(t('proxies.sort_saved'), 'success')
+const saveSettings = () => {
+  // 更新排序
+  setSortOrder(settingsForm.value.sort)
+  // 更新阈值和历史条数
+  updateSettings(
+    { low: settingsForm.value.thresholdLow, mid: settingsForm.value.thresholdMid },
+    settingsForm.value.historyCount
+  )
+  showSettingsDialog.value = false
+  globalStore.showToast(t('proxies.settings_saved'), 'success')
 }
-
 
 // 桌面端检测
 const isDesktop = ref(window.innerWidth >= 768)
@@ -207,9 +221,9 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <!-- 齿轮按钮 -->
             <button
-              @click="openSortDialog"
+              @click="openSettingsDialog"
               class="p-2 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              :title="t('proxies.sort_title')"
+              :title="t('proxies.settings_title')"
             >
               <SettingsOutline class="w-5 h-5" />
             </button>
@@ -262,9 +276,9 @@ onUnmounted(() => {
         </div>
         <div class="flex items-center gap-2">
           <button
-            @click="openSortDialog"
+            @click="openSettingsDialog"
             class="p-2 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            :title="t('proxies.sort_title')"
+            :title="t('proxies.settings_title')"
           >
             <SettingsOutline class="w-5 h-5" />
           </button>
@@ -331,7 +345,7 @@ onUnmounted(() => {
 
       <!-- 代理组列表 -->
       <div v-else>
-        <!-- 单列模式：组数 ≤ 6 或移动端 -->
+        <!-- 单列模式 -->
         <div v-if="!showTwoColumns" class="space-y-4 w-full">
           <ProxyGroupCard
             v-for="group in filteredGroups"
@@ -340,7 +354,7 @@ onUnmounted(() => {
           />
         </div>
 
-        <!-- 双列独立模式：组数 > 6 且桌面端 -->
+        <!-- 双列模式 -->
         <div v-else class="flex gap-4 items-start">
           <div class="w-1/2 space-y-4">
             <ProxyGroupCard
@@ -358,20 +372,23 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+    </div>
 
-    <!-- 排序弹窗（使用 Teleport） -->
+    <!-- 设置弹窗 -->
     <Teleport to="body">
       <div
-        v-if="showSortDialog"
+        v-if="showSettingsDialog"
         class="fixed inset-0 z-[9999] glass-mask flex items-center justify-center p-4"
-        @click.self="showSortDialog = false"
+        @click.self="showSettingsDialog = false"
       >
         <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
-          <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.sort_title') }}</h4>
+          <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
+
+          <!-- 排序 -->
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.sort_order') }}</label>
             <select
-              v-model="sortOrderLocal"
+              v-model="settingsForm.sort"
               class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
             >
               <option value="default">{{ t('proxies.sort_default') }}</option>
@@ -379,15 +396,51 @@ onUnmounted(() => {
               <option value="delay">{{ t('proxies.sort_delay') }}</option>
             </select>
           </div>
+
+          <!-- 低延迟阈值 -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_low') }}</label>
+            <input
+              type="number"
+              v-model.number="settingsForm.thresholdLow"
+              min="1"
+              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+            />
+          </div>
+
+          <!-- 中延迟阈值 -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_mid') }}</label>
+            <input
+              type="number"
+              v-model.number="settingsForm.thresholdMid"
+              min="1"
+              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+            />
+          </div>
+
+          <!-- 历史条数 -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.history_count') }}</label>
+            <input
+              type="number"
+              v-model.number="settingsForm.historyCount"
+              min="5"
+              max="10"
+              step="1"
+              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+            />
+          </div>
+
           <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
             <button
-              @click="showSortDialog = false"
+              @click="showSettingsDialog = false"
               class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all"
             >
               {{ t('common.cancel') }}
             </button>
             <button
-              @click="saveSortOrder"
+              @click="saveSettings"
               class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15"
             >
               {{ t('common.save') }}
@@ -396,6 +449,5 @@ onUnmounted(() => {
         </div>
       </div>
     </Teleport>
-   </div>
   </div>
 </template>

@@ -102,6 +102,11 @@ const messages = {
     "proxies.sort_name": "按名称",
     "proxies.sort_delay": "按延迟",
     "proxies.sort_saved": "排序方式已保存",
+    "proxies.settings_title": "代理设置",
+    "proxies.threshold_low": "低延迟阈值 (ms)",
+    "proxies.threshold_mid": "中延迟阈值 (ms)",
+    "proxies.history_count": "历史色块数量 (5-10)",
+    "proxies.settings_saved": "设置已保存",
 
     'rules.title': '规则',
     'rules.type': '类型',
@@ -441,6 +446,11 @@ const messages = {
     "proxies.sort_name": "By Name",
     "proxies.sort_delay": "By Delay",
     "proxies.sort_saved": "Sort order saved",
+    "proxies.settings_title": "Proxy Settings",
+    "proxies.threshold_low": "Low Latency Threshold (ms)",
+    "proxies.threshold_mid": "Medium Latency Threshold (ms)",
+    "proxies.history_count": "History Bars Count (5-10)",
+    "proxies.settings_saved": "Settings saved",
 
     'rules.title': 'Rules',
     'rules.type': 'Type',

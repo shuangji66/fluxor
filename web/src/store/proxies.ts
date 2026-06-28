@@ -62,16 +62,19 @@ export const useProxyStore = defineStore('proxies', () => {
             }
             node.latestDelay = latest
             
-            node.recentColors = sortedHist.slice(-5).map((h: any) => {
+            const { low, mid } = delayThresholds.value
+            const histCount = historyCount.value
+            node.recentColors = sortedHist.slice(-histCount).map((h: any) => {
               const d = h.delay
               let colorClass = 'bg-slate-200 dark:bg-slate-800'
-              if (d <= 0) colorClass = 'bg-red-500'
-              else if (d <= 200) colorClass = 'bg-success'
-              else if (d <= 500) colorClass = 'bg-amber-500'
-              else colorClass = 'bg-red-400'
+              if (d === -1) colorClass = 'bg-red-500'
+              else if (d === 0) colorClass = 'bg-slate-300 dark:bg-slate-700 animate-pulse' // 测速中
+              else if (d > 0 && d <= low) colorClass = 'bg-success'
+              else if (d > low && d <= mid) colorClass = 'bg-amber-500'
+              else if (d > mid) colorClass = 'bg-red-400'
               return {
                 colorClass,
-                title: `${h.time}: ${d > 0 ? d + 'ms' : 'Timeout'}`
+                title: `${h.time}: ${d > 0 ? d + 'ms' : d === 0 ? 'Testing...' : 'Timeout'}`
               }
             })
 
@@ -122,6 +125,49 @@ export const useProxyStore = defineStore('proxies', () => {
     await Promise.all(workers)
   }
 
+  // ===== 延迟阈值与历史条数设置（持久化到 localStorage） =====
+  const delayThresholds = ref({
+    low: 200,   // <= low 为绿色
+    mid: 500    // <= mid 为黄色，> mid 为红色
+  })
+  const historyCount = ref(5) // 5-10
+
+  // 加载本地设置
+  const loadSettings = () => {
+    const stored = localStorage.getItem('proxySettings')
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        if (parsed.delayThresholds) {
+          delayThresholds.value = parsed.delayThresholds
+        }
+        if (parsed.historyCount) {
+          historyCount.value = Math.min(10, Math.max(5, parsed.historyCount))
+        }
+      } catch (e) {}
+    }
+  }
+  loadSettings()
+
+  // 保存设置到 localStorage
+  const saveSettings = () => {
+    localStorage.setItem('proxySettings', JSON.stringify({
+      delayThresholds: delayThresholds.value,
+      historyCount: historyCount.value
+    }))
+  }
+
+  // 更新设置
+  function updateSettings(thresholds: { low: number, mid: number }, count: number) {
+    delayThresholds.value = { low: thresholds.low, mid: thresholds.mid }
+    historyCount.value = Math.min(10, Math.max(5, count))
+    saveSettings()
+    // 刷新代理数据以重新计算历史色块
+    fetchProxies(true)
+  }
+
+
+
   // 代理组排序方式
   const sortOrder = ref<'default' | 'name' | 'delay'>('default')
   function setSortOrder(order: 'default' | 'name' | 'delay') {
@@ -138,6 +184,9 @@ export const useProxyStore = defineStore('proxies', () => {
     testDelay,
     testProxiesWithConcurrency,
     sortOrder,
-    setSortOrder
+    setSortOrder,
+    delayThresholds,
+    historyCount,
+    updateSettings, 
   }
 })

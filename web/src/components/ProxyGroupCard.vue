@@ -14,8 +14,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
-const { delays, allProxiesRaw, expandedState } = storeToRefs(proxyStore)
-const { sortOrder } = storeToRefs(proxyStore)
+const { delays, allProxiesRaw, expandedState, sortOrder, delayThresholds } = storeToRefs(proxyStore)
 
 const isTesting = ref(false)
 
@@ -41,18 +40,17 @@ const shouldUseBar = computed(() => {
 const getGroupBarSegments = computed(() => {
   const nodes = props.group.all || []
   if (nodes.length === 0) return []
-  
+  const { low, mid } = delayThresholds.value
   let green = 0, yellow = 0, red = 0, loading = 0, none = 0
   nodes.forEach(name => {
     const delay = delays.value[name]
     if (delay === undefined || delay === null) none++
     else if (delay === 0) loading++
     else if (delay === -1) red++
-    else if (delay >= 1 && delay <= 200) green++
-    else if (delay <= 500) yellow++
+    else if (delay > 0 && delay <= low) green++
+    else if (delay > low && delay <= mid) yellow++
     else red++
   })
-  
   const total = nodes.length
   return [
     { pct: (green / total) * 100, class: 'bg-success' },
@@ -65,15 +63,16 @@ const getGroupBarSegments = computed(() => {
 
 const getGroupDotSegments = computed(() => {
   const nodes = props.group.all || []
+  const { low, mid } = delayThresholds.value
   return nodes.map(name => {
     const delay = delays.value[name]
     const isSelected = props.group.now === name
     let colorClass = 'bg-slate-200 dark:bg-slate-800'
     if (delay === 0) colorClass = 'bg-slate-300 dark:bg-slate-700 animate-pulse'
     else if (delay === -1) colorClass = 'bg-red-500'
-    else if (delay && delay >= 1 && delay <= 200) colorClass = 'bg-success'
-    else if (delay && delay <= 500) colorClass = 'bg-amber-500'
-    else if (delay && delay > 500) colorClass = 'bg-red-400'
+    else if (delay && delay > 0 && delay <= low) colorClass = 'bg-success'
+    else if (delay && delay > low && delay <= mid) colorClass = 'bg-amber-500'
+    else if (delay && delay > mid) colorClass = 'bg-red-400'
     return { name, isSelected, colorClass }
   })
 })
