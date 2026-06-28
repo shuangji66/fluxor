@@ -14,7 +14,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
-const { delays, allProxiesRaw, expandedState, sortOrder, delayThresholds } = storeToRefs(proxyStore)
+const { delays, allProxiesRaw, expandedState, sortOrder, delayThresholds, qualityScores } = storeToRefs(proxyStore)
 
 const isTesting = ref(false)
 
@@ -107,6 +107,15 @@ const sortedNodes = computed(() => {
       if (va !== vb) return va - vb
       // 延迟相同，按纯净名称排序
       return getSortKey(a).localeCompare(getSortKey(b))
+    })
+  }
+
+  if (order === 'quality') {
+    return [...nodes].sort((a, b) => {
+      const sa = qualityScores.value[a] ?? 0
+      const sb = qualityScores.value[b] ?? 0
+      if (sa !== sb) return sb - sa // 降序
+      return a.localeCompare(b)
     })
   }
 
@@ -228,9 +237,24 @@ const getDelayText = (delay?: number) => {
               </div>
             </div>
           </div>
-          <button @click.stop="handleTestGroup" :disabled="isTesting" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0" :title="t('proxies.test')">
-            <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isTesting }" />
-          </button>
+
+          <div class="flex items-center gap-1.5">
+            <!-- 质量评分按钮 -->
+            <button
+              @click.stop="proxyStore.fetchQualityScores()"
+              class="p-1.5 text-slate-400 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0"
+              :title="t('proxies.quality_score')"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            </button>
+            <button @click.stop="handleTestGroup" :disabled="isTesting" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0" :title="t('proxies.test')">
+              <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isTesting }" />
+            </button>
+          </div>
         </div>
 
         <!-- Health Indicator -->
@@ -281,13 +305,20 @@ const getDelayText = (delay?: number) => {
             <span v-if="allProxiesRaw[name].xudp" class="bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="XUDP">X</span>
             <span v-else-if="allProxiesRaw[name].udp" class="bg-blue-500/10 text-blue-500 dark:text-blue-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="UDP">U</span>
           </div>
-          <span
-            class="text-[10px] font-mono shrink-0 select-none px-1.5 py-0.5 rounded-md leading-none text-center min-w-[32px] transition-all hover:scale-105 active:scale-95 border cursor-pointer"
-            :class="getDelayClass(delays[name])"
-            @click.stop="handleTestSingle(name)"
-          >
-            {{ getDelayText(delays[name]) }}
-          </span>
+          <div class="flex items-center gap-1 shrink-0">
+            <!-- 质量分数：与测速按钮相同样式 -->
+            <span v-if="sortOrder === 'quality' && qualityScores[name] !== undefined" 
+                  class="text-[10px] font-mono shrink-0 select-none px-1.5 py-0.5 rounded-md leading-none text-center bg-accent/10 text-accent border border-accent/20">
+              {{ qualityScores[name] }}
+            </span>
+            <span
+              class="text-[10px] font-mono shrink-0 select-none px-1.5 py-0.5 rounded-md leading-none text-center min-w-[32px] transition-all hover:scale-105 active:scale-95 border cursor-pointer"
+              :class="getDelayClass(delays[name])"
+              @click.stop="handleTestSingle(name)"
+            >
+              {{ getDelayText(delays[name]) }}
+            </span>
+          </div>
         </div>
         <div v-if="allProxiesRaw[name]" class="flex gap-[2px] w-full mt-2 h-1 overflow-hidden">
           <template v-if="allProxiesRaw[name].recentColors && allProxiesRaw[name].recentColors.length > 0">

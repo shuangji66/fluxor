@@ -107,6 +107,8 @@ const messages = {
     "proxies.threshold_mid": "中延迟阈值 (ms)",
     "proxies.history_count": "历史色块数量 (5-10)",
     "proxies.settings_saved": "设置已保存",
+    "proxies.sort_quality": "按质量",
+    "proxies.quality_score": "计算节点质量评分",
 
     'rules.title': '规则',
     'rules.type': '类型',
@@ -451,6 +453,8 @@ const messages = {
     "proxies.threshold_mid": "Medium Latency Threshold (ms)",
     "proxies.history_count": "History Bars Count (5-10)",
     "proxies.settings_saved": "Settings saved",
+    "proxies.sort_quality": "By Quality",
+    "proxies.quality_score": "Calculate Node Quality Score",
 
     'rules.title': 'Rules',
     'rules.type': 'Type',

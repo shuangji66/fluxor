@@ -175,6 +175,9 @@ func main() {
 		}
 	})
 
+	// 质量分数 API
+    mux.HandleFunc(baseURL+"/proxies/quality", handleQualityScores)
+
 	// 日志 WebSocket
 	mux.HandleFunc(baseURL+"/logs", wsProxyHandler("/logs"))
 

@@ -125,12 +125,14 @@ export const useProxyStore = defineStore('proxies', () => {
     await Promise.all(workers)
   }
 
-  // ===== 延迟阈值与历史条数设置（持久化到 localStorage） =====
+  // ===== 持久化设置 =====
   const delayThresholds = ref({
-    low: 200,   // <= low 为绿色
-    mid: 500    // <= mid 为黄色，> mid 为红色
+    low: 200,
+    mid: 500
   })
-  const historyCount = ref(5) // 5-10
+  const historyCount = ref(5)
+  const sortOrder = ref<'default' | 'name' | 'delay' | 'quality'>('default')
+  const qualityScores = ref<Record<string, number>>({})
 
   // 加载本地设置
   const loadSettings = () => {
@@ -144,34 +146,58 @@ export const useProxyStore = defineStore('proxies', () => {
         if (parsed.historyCount) {
           historyCount.value = Math.min(10, Math.max(5, parsed.historyCount))
         }
+        if (parsed.sortOrder) {
+          sortOrder.value = parsed.sortOrder
+        }
       } catch (e) {}
     }
   }
   loadSettings()
 
-  // 保存设置到 localStorage
-  const saveSettings = () => {
+  // 保存所有设置到 localStorage
+  function saveAllSettings() {
     localStorage.setItem('proxySettings', JSON.stringify({
       delayThresholds: delayThresholds.value,
-      historyCount: historyCount.value
+      historyCount: historyCount.value,
+      sortOrder: sortOrder.value,
     }))
   }
 
-  // 更新设置
+  // 更新阈值和历史条数
   function updateSettings(thresholds: { low: number, mid: number }, count: number) {
     delayThresholds.value = { low: thresholds.low, mid: thresholds.mid }
     historyCount.value = Math.min(10, Math.max(5, count))
-    saveSettings()
-    // 刷新代理数据以重新计算历史色块
+    saveAllSettings()
     fetchProxies(true)
   }
 
-
-
-  // 代理组排序方式
-  const sortOrder = ref<'default' | 'name' | 'delay'>('default')
-  function setSortOrder(order: 'default' | 'name' | 'delay') {
+  // 设置排序方式
+  function setSortOrder(order: 'default' | 'name' | 'delay' | 'quality') {
     sortOrder.value = order
+    saveAllSettings()
+    // 如果排序为 quality，主动获取分数；否则清空
+    if (order === 'quality') {
+      fetchQualityScores()
+    } else {
+      qualityScores.value = {}
+    }
+  }
+
+  // 获取质量分数
+  const fetchQualityScores = async () => {
+    try {
+      const resp = await apiFetch('/proxies/quality')
+      if (resp.ok) {
+        const data = await resp.json()
+        const scores: Record<string, number> = {}
+        for (const [name, val] of Object.entries(data)) {
+          scores[name] = (val as any).score || 0
+        }
+        qualityScores.value = scores
+      }
+    } catch (e) {
+      console.warn('获取质量分数失败', e)
+    }
   }
 
   return {
@@ -187,6 +213,8 @@ export const useProxyStore = defineStore('proxies', () => {
     setSortOrder,
     delayThresholds,
     historyCount,
-    updateSettings, 
+    updateSettings,
+    qualityScores,
+    fetchQualityScores,
   }
 })

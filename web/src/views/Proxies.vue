@@ -15,16 +15,16 @@ const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 
 const { proxyGroups, delays, isLoading, sortOrder, delayThresholds, historyCount } = storeToRefs(proxyStore)
-const { setSortOrder, updateSettings } = proxyStore
+const { setSortOrder, updateSettings, fetchQualityScores } = proxyStore
 const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
 
 // ===== 设置弹窗 =====
 const showSettingsDialog = ref(false)
 const settingsForm = ref({
-  sort: 'default' as 'default' | 'name' | 'delay',
+  sort: 'default' as 'default' | 'name' | 'delay' | 'quality',
   thresholdLow: 200,
   thresholdMid: 500,
-  historyCount: 5
+  historyCount: 5,
 })
 
 // 打开弹窗时禁止 body 滚动
@@ -46,10 +46,8 @@ const openSettingsDialog = () => {
   showSettingsDialog.value = true
 }
 
-const saveSettings = () => {
-  // 更新排序
+const saveSettings = async () => {
   setSortOrder(settingsForm.value.sort)
-  // 更新阈值和历史条数
   updateSettings(
     { low: settingsForm.value.thresholdLow, mid: settingsForm.value.thresholdMid },
     settingsForm.value.historyCount
@@ -80,6 +78,7 @@ watch(
   },
   { immediate: true }
 )
+
 
 const filteredGroups = computed(() => {
   const mode = renderedMode.value
@@ -394,6 +393,7 @@ onUnmounted(() => {
               <option value="default">{{ t('proxies.sort_default') }}</option>
               <option value="name">{{ t('proxies.sort_name') }}</option>
               <option value="delay">{{ t('proxies.sort_delay') }}</option>
+              <option value="quality">{{ t('proxies.sort_quality') }}</option>
             </select>
           </div>
 

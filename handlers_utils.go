@@ -12,6 +12,7 @@ import (
 	"time"
 	"strconv"
 	"sync"
+	"math"
 )
 
 var geoCache = struct {
@@ -537,4 +538,179 @@ func getLocalIPFromInterfaces(isIPv6 bool) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no active interface IP found")
+}
+
+// ===== 节点质量评分系统 =====
+
+// NodeHistoryEntry 单次测速历史记录（仅用于计算）
+type NodeHistoryEntry struct {
+	Latency int `json:"latency"` // 毫秒，-1 表示超时/失败
+}
+
+// NodeQualityScore 节点质量分数
+type NodeQualityScore struct {
+	Score        int `json:"score"`        // 综合评分 0-100
+	LatencyScore int `json:"latencyScore"` // 延迟评分
+	Stability    int `json:"stability"`    // 稳定性评分
+	SuccessRate  int `json:"successRate"`  // 成功率评分
+}
+
+// 评分权重（可配置，暂时固定）
+const (
+	weightLatency     = 50
+	weightStability   = 30
+	weightSuccessRate = 20
+)
+
+// 计算延迟评分（0-100）
+func calcLatencyScore(latencies []int) int {
+	var valid []int
+	for _, l := range latencies {
+		if l > 0 {
+			valid = append(valid, l)
+		}
+	}
+	if len(valid) == 0 {
+		return 0
+	}
+	sum := 0
+	for _, l := range valid {
+		sum += l
+	}
+	avg := float64(sum) / float64(len(valid))
+
+	// 对数归一化：50ms=100, 500ms=50, 5000ms=0
+	if avg <= 50 {
+		return 100
+	}
+	if avg >= 5000 {
+		return 0
+	}
+	minLog := math.Log(50)
+	maxLog := math.Log(5000)
+	currentLog := math.Log(avg)
+	score := 100 * (1 - (currentLog-minLog)/(maxLog-minLog))
+	return int(math.Round(score))
+}
+
+// 计算稳定性评分（0-100）
+func calcStabilityScore(latencies []int) int {
+	var valid []int
+	for _, l := range latencies {
+		if l > 0 {
+			valid = append(valid, l)
+		}
+	}
+	if len(valid) == 0 {
+		return 0
+	}
+	if len(valid) < 2 {
+		return 50 // 单样本给中性分
+	}
+	mean := 0.0
+	for _, l := range valid {
+		mean += float64(l)
+	}
+	mean /= float64(len(valid))
+	variance := 0.0
+	for _, l := range valid {
+		diff := float64(l) - mean
+		variance += diff * diff
+	}
+	variance /= float64(len(valid))
+	stdDev := math.Sqrt(variance)
+	cv := stdDev / mean // 变异系数
+	if cv <= 0.1 {
+		return 100
+	}
+	if cv >= 0.5 {
+		return 0
+	}
+	return int(math.Round(100 * (1 - (cv-0.1)/0.4)))
+}
+
+// 计算成功率评分（0-100）
+func calcSuccessRateScore(histories []NodeHistoryEntry) int {
+	if len(histories) == 0 {
+		return 0
+	}
+	success := 0
+	for _, h := range histories {
+		if h.Latency > 0 {
+			success++
+		}
+	}
+	return int(math.Round(float64(success) / float64(len(histories)) * 100))
+}
+
+// handleQualityScores 返回所有节点的质量分数（从内核获取历史数据计算）
+func handleQualityScores(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
+		return
+	}
+
+	// 从内核获取所有代理数据
+	resp, err := coreRequest("GET", "/proxies", nil)
+	if err != nil {
+		writeJSONError(w, http.StatusBadGateway, "获取代理数据失败: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		writeJSONError(w, resp.StatusCode, "内核返回错误")
+		return
+	}
+
+	var proxiesData struct {
+		Proxies map[string]struct {
+			History []struct {
+				Time  string `json:"time"`
+				Delay int    `json:"delay"`
+			} `json:"history"`
+		} `json:"proxies"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&proxiesData); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "解析内核数据失败: "+err.Error())
+		return
+	}
+
+	// 计算每个节点的质量分数
+	scores := make(map[string]NodeQualityScore)
+	for name, proxy := range proxiesData.Proxies {
+		// 提取历史延迟列表
+		latencies := make([]int, 0, len(proxy.History))
+		histories := make([]NodeHistoryEntry, 0, len(proxy.History))
+		for _, h := range proxy.History {
+			latencies = append(latencies, h.Delay)
+			histories = append(histories, NodeHistoryEntry{Latency: h.Delay})
+		}
+		if len(latencies) == 0 {
+			scores[name] = NodeQualityScore{Score: 0, LatencyScore: 0, Stability: 0, SuccessRate: 0}
+			continue
+		}
+
+		latScore := calcLatencyScore(latencies)
+		stabScore := calcStabilityScore(latencies)
+		succScore := calcSuccessRateScore(histories)
+
+		totalWeight := weightLatency + weightStability + weightSuccessRate
+		if totalWeight == 0 {
+			scores[name] = NodeQualityScore{Score: 0, LatencyScore: latScore, Stability: stabScore, SuccessRate: succScore}
+			continue
+		}
+		score := float64(latScore)*float64(weightLatency)/float64(totalWeight) +
+			float64(stabScore)*float64(weightStability)/float64(totalWeight) +
+			float64(succScore)*float64(weightSuccessRate)/float64(totalWeight)
+
+		scores[name] = NodeQualityScore{
+			Score:        int(math.Round(score)),
+			LatencyScore: latScore,
+			Stability:    stabScore,
+			SuccessRate:  succScore,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(scores)
 }
