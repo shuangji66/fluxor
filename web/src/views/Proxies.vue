@@ -281,7 +281,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 内容区域 -->
-    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6 space-y-6 pr-4">
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6 space-y-6 pr-4" style="scrollbar-gutter: stable">
       <!-- 骨架屏 -->
       <div v-if="isLoading && proxyGroups.length === 0" class="flex flex-col lg:flex-row gap-4 items-start">
         <div class="flex-1 space-y-4 w-full min-w-0">

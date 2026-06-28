@@ -65,8 +65,7 @@ export const useProxyStore = defineStore('proxies', () => {
             node.recentColors = sortedHist.slice(-5).map((h: any) => {
               const d = h.delay
               let colorClass = 'bg-slate-200 dark:bg-slate-800'
-              if (d === 0) colorClass = 'bg-[#1a1a1a]'
-              else if (d === -1) colorClass = 'bg-red-500'
+              if (d <= 0) colorClass = 'bg-red-500'
               else if (d <= 200) colorClass = 'bg-success'
               else if (d <= 500) colorClass = 'bg-amber-500'
               else colorClass = 'bg-red-400'

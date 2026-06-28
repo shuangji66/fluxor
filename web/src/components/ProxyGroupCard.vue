@@ -28,7 +28,7 @@ watch(
   (newVal, oldVal) => {
     if (oldVal === true && newVal === false) {
       nextTick(() => {
-        cardRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+        cardRef.value?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' })
       })
     }
   }
@@ -42,11 +42,11 @@ const getGroupBarSegments = computed(() => {
   const nodes = props.group.all || []
   if (nodes.length === 0) return []
   
-  let green = 0, yellow = 0, red = 0, black = 0, none = 0
+  let green = 0, yellow = 0, red = 0, loading = 0, none = 0
   nodes.forEach(name => {
     const delay = delays.value[name]
     if (delay === undefined || delay === null) none++
-    else if (delay === 0) black++
+    else if (delay === 0) loading++
     else if (delay === -1) red++
     else if (delay >= 1 && delay <= 200) green++
     else if (delay <= 500) yellow++
@@ -58,7 +58,7 @@ const getGroupBarSegments = computed(() => {
     { pct: (green / total) * 100, class: 'bg-success' },
     { pct: (yellow / total) * 100, class: 'bg-amber-500' },
     { pct: (red / total) * 100, class: 'bg-red-500' },
-    { pct: (black / total) * 100, class: 'bg-[#1a1a1a]' },
+    { pct: (loading / total) * 100, class: 'bg-slate-300 dark:bg-slate-700 animate-pulse' },
     { pct: (none / total) * 100, class: 'bg-slate-200 dark:bg-slate-800' }
   ].filter(s => s.pct > 0)
 })
@@ -69,7 +69,7 @@ const getGroupDotSegments = computed(() => {
     const delay = delays.value[name]
     const isSelected = props.group.now === name
     let colorClass = 'bg-slate-200 dark:bg-slate-800'
-    if (delay === 0) colorClass = 'bg-[#1a1a1a]'
+    if (delay === 0) colorClass = 'bg-slate-300 dark:bg-slate-700 animate-pulse'
     else if (delay === -1) colorClass = 'bg-red-500'
     else if (delay && delay >= 1 && delay <= 200) colorClass = 'bg-success'
     else if (delay && delay <= 500) colorClass = 'bg-amber-500'
@@ -129,7 +129,7 @@ watch(
           const rect = selectedEl.getBoundingClientRect()
           const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight
           if (!isVisible) {
-            selectedEl.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            selectedEl.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' })
           }
         }
       })
@@ -204,12 +204,12 @@ const getDelayText = (delay?: number) => {
 
 <template>
   <div ref="cardRef" class="bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all relative">
-    <!-- 头部：展开时粘性，使用与卡片外层相同的颜色但更高不透明度 -->
+    <!-- 头部：展开时粘性，使用当前主题的卡片背景色 var(--bg-card) 进行完美适配 -->
     <div
       class="px-4 sm:px-5 pt-4 sm:pt-5 pb-2 rounded-t-xl cursor-pointer select-none transition-shadow duration-200"
       :class="[
         expandedState[group.name]
-          ? 'sticky top-0 z-10 shadow-sm backdrop-blur-sm bg-slate-50/90 dark:bg-slate-900/80'
+          ? 'sticky top-0 z-10 shadow-sm bg-[var(--bg-card)] border-b border-slate-100 dark:border-slate-800/80'
           : 'bg-slate-50/50 dark:bg-slate-900/30'
       ]"
       @click="expandedState[group.name] = !expandedState[group.name]"

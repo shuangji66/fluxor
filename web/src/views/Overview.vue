@@ -791,25 +791,31 @@ onUnmounted(() => {
               <div class="glass-light border !rounded-lg px-3.5 py-2.5 flex justify-between items-center">
                 <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{
                   t('overview.subscription') }}</span>
-                <span
-                  class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]"
-                  :title="currentSubscriptionDisplay">{{ currentSubscriptionDisplay }}</span>
+                <div class="flex-1 min-w-0 ml-4 flex justify-end">
+                  <span
+                    class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap text-right"
+                    :title="currentSubscriptionDisplay">{{ currentSubscriptionDisplay }}</span>
+                </div>
               </div>
               <!-- 代理组 -->
               <div class="glass-light border !rounded-lg px-3.5 py-2.5 flex justify-between items-center">
                 <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.proxy_group')
                   }}</span>
-                <span
-                  class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]"
-                  :title="stats.currentGroup">{{ stats.currentGroup }}</span>
+                <div class="flex-1 min-w-0 ml-4 flex justify-end">
+                  <span
+                    class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap text-right"
+                    :title="stats.currentGroup">{{ stats.currentGroup }}</span>
+                </div>
               </div>
               <!-- 当前节点 -->
               <div class="glass-light border !rounded-lg px-3.5 py-2.5 flex justify-between items-center">
                 <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{
                   t('overview.current_node') }}</span>
-                <span
-                  class="font-semibold text-accent overflow-x-auto whitespace-nowrap max-w-[150px] sm:max-w-[200px] lg:max-w-[300px]"
-                  :title="currentNodeDisplay">{{ currentNodeDisplay }}</span>
+                <div class="flex-1 min-w-0 ml-4 flex justify-end">
+                  <span
+                    class="font-semibold text-accent overflow-x-auto whitespace-nowrap text-right"
+                    :title="currentNodeDisplay">{{ currentNodeDisplay }}</span>
+                </div>
               </div>
             </div>
           </div>
