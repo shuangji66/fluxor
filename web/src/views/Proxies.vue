@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, onActivated, onDeactivated, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { GlobeOutline, SyncOutline } from '@vicons/ionicons5'
+import { GlobeOutline, SyncOutline, SettingsOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
 import { useProxyStore } from '../store/proxies'
 import { useGlobalStore } from '../store/global'
@@ -16,6 +16,33 @@ const configStore = useConfigStore()
 
 const { proxyGroups, delays, isLoading } = storeToRefs(proxyStore)
 const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
+const { sortOrder } = storeToRefs(proxyStore)
+const { setSortOrder } = proxyStore
+
+// ===== 新增排序弹窗 =====
+const showSortDialog = ref(false)
+const sortOrderLocal = ref<'default' | 'name' | 'delay'>('default')
+
+// 打开弹窗时禁止 body 滚动
+watch(showSortDialog, (val) => {
+  if (val) {
+    document.body.classList.add('overflow-hidden')
+  } else {
+    document.body.classList.remove('overflow-hidden')
+  }
+})
+
+const openSortDialog = () => {
+  sortOrderLocal.value = sortOrder.value
+  showSortDialog.value = true
+}
+
+const saveSortOrder = () => {
+  setSortOrder(sortOrderLocal.value)
+  showSortDialog.value = false
+  globalStore.showToast(t('proxies.sort_saved'), 'success')
+}
+
 
 // 桌面端检测
 const isDesktop = ref(window.innerWidth >= 768)
@@ -168,43 +195,88 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
-    <!-- 顶部工具栏（保持不变） -->
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col md:flex-row gap-3 md:gap-4 md:items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <div class="flex items-center justify-between w-full md:w-auto">
+    <!-- 顶部工具栏：移动两行，桌面一行 -->
+    <div class="glass-medium shadow-none px-6 py-3 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all shrink-0">
+      <!-- 移动端布局（两行） -->
+      <div class="flex md:hidden flex-col w-full gap-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-semibold flex items-center gap-2">
+            <GlobeOutline class="w-5 h-5 text-accent" />
+            {{ t('proxies.title') }}
+          </h3>
+          <div class="flex items-center gap-2">
+            <!-- 齿轮按钮 -->
+            <button
+              @click="openSortDialog"
+              class="p-2 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              :title="t('proxies.sort_title')"
+            >
+              <SettingsOutline class="w-5 h-5" />
+            </button>
+            <!-- 全部测速按钮 -->
+            <button
+              @click="handleTestAll"
+              :disabled="isTestingAll"
+              class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
+              {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
+            </button>
+          </div>
+        </div>
+        <div class="flex justify-center">
+          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
+            <button
+              v-for="modeOption in ['Rule', 'Global', 'Direct']"
+              :key="modeOption"
+              @click="changeMode(modeOption)"
+              :disabled="!coreStatus.running"
+              class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            >
+              {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 桌面端布局（一行） -->
+      <div class="hidden md:flex items-center justify-between w-full">
         <h3 class="text-base font-semibold flex items-center gap-2">
           <GlobeOutline class="w-5 h-5 text-accent" />
           {{ t('proxies.title') }}
         </h3>
-        <button
-          @click="handleTestAll"
-          :disabled="isTestingAll"
-          class="md:hidden px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-        >
-          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
-          {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
-        </button>
-      </div>
-      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 md:justify-end w-full md:w-auto">
-        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
+        <div class="flex-1 flex justify-center">
+          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all">
+            <button
+              v-for="modeOption in ['Rule', 'Global', 'Direct']"
+              :key="modeOption"
+              @click="changeMode(modeOption)"
+              :disabled="!coreStatus.running"
+              class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            >
+              {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
+            </button>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
           <button
-            v-for="modeOption in ['Rule', 'Global', 'Direct']"
-            :key="modeOption"
-            @click="changeMode(modeOption)"
-            :disabled="!coreStatus.running"
-            class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            @click="openSortDialog"
+            class="p-2 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            :title="t('proxies.sort_title')"
           >
-            {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
+            <SettingsOutline class="w-5 h-5" />
+          </button>
+          <button
+            @click="handleTestAll"
+            :disabled="isTestingAll"
+            class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
+            {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
           </button>
         </div>
-        <button
-          @click="handleTestAll"
-          :disabled="isTestingAll"
-          class="hidden md:flex px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-        >
-          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
-          {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
-        </button>
       </div>
     </div>
 
@@ -286,6 +358,44 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-    </div>
+
+    <!-- 排序弹窗（使用 Teleport） -->
+    <Teleport to="body">
+      <div
+        v-if="showSortDialog"
+        class="fixed inset-0 z-[9999] glass-mask flex items-center justify-center p-4"
+        @click.self="showSortDialog = false"
+      >
+        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
+          <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.sort_title') }}</h4>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.sort_order') }}</label>
+            <select
+              v-model="sortOrderLocal"
+              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+            >
+              <option value="default">{{ t('proxies.sort_default') }}</option>
+              <option value="name">{{ t('proxies.sort_name') }}</option>
+              <option value="delay">{{ t('proxies.sort_delay') }}</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+            <button
+              @click="showSortDialog = false"
+              class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              @click="saveSortOrder"
+              class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15"
+            >
+              {{ t('common.save') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+   </div>
   </div>
 </template>

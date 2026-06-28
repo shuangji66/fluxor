@@ -15,8 +15,24 @@ const { t } = useI18n()
 const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
 const { delays, allProxiesRaw, expandedState } = storeToRefs(proxyStore)
+const { sortOrder } = storeToRefs(proxyStore)
 
 const isTesting = ref(false)
+
+// 卡片容器引用（用于折叠后滚动）
+const cardRef = ref<HTMLElement | null>(null)
+
+// 折叠时滚动到顶部
+watch(
+  () => expandedState.value[props.group.name],
+  (newVal, oldVal) => {
+    if (oldVal === true && newVal === false) {
+      nextTick(() => {
+        cardRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      })
+    }
+  }
+)
 
 const shouldUseBar = computed(() => {
   return props.group.all.length > 10
@@ -60,6 +76,42 @@ const getGroupDotSegments = computed(() => {
     else if (delay && delay > 500) colorClass = 'bg-red-400'
     return { name, isSelected, colorClass }
   })
+})
+
+// ===== 排序计算属性（增强版） =====
+const sortedNodes = computed(() => {
+  const order = sortOrder.value
+  const nodes = props.group.all
+
+  // 提取纯文本排序键（去除 Emoji、特殊符号，保留字母数字汉字空格连字符点）
+  const getSortKey = (name: string) =>
+    name.replace(/[^\p{L}\p{N}\s\-.]/gu, '').trim()
+
+  if (order === 'default') return nodes
+
+  if (order === 'name') {
+    return [...nodes].sort((a, b) =>
+      getSortKey(a).localeCompare(getSortKey(b))
+    )
+  }
+
+  if (order === 'delay') {
+    return [...nodes].sort((a, b) => {
+      const da = delays.value[a]
+      const db = delays.value[b]
+      const getVal = (d: number | undefined) => {
+        if (d === undefined || d === null || d <= 0) return Infinity
+        return d
+      }
+      const va = getVal(da)
+      const vb = getVal(db)
+      if (va !== vb) return va - vb
+      // 延迟相同，按纯净名称排序
+      return getSortKey(a).localeCompare(getSortKey(b))
+    })
+  }
+
+  return nodes
 })
 
 const gridRef = ref<HTMLElement | null>(null)
@@ -151,57 +203,65 @@ const getDelayText = (delay?: number) => {
 </script>
 
 <template>
-  <div class="bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all space-y-4">
-    <!-- Accordion Header -->
-    <div @click="expandedState[group.name] = !expandedState[group.name]" class="flex flex-col gap-2 cursor-pointer select-none pb-2">
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <ChevronForwardOutline class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-90': expandedState[group.name] }" />
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{{ group.name }}</span>
-              <span class="px-2 py-0.5 text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded uppercase shrink-0">{{ group.type }}</span>
-            </div>
-            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-              {{ t('proxies.current') }}: <span class="font-bold text-accent select-all">{{ group.now }}</span>
+  <div ref="cardRef" class="bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all relative">
+    <!-- 头部：展开时粘性，使用与卡片外层相同的颜色但更高不透明度 -->
+    <div
+      class="px-4 sm:px-5 pt-4 sm:pt-5 pb-2 rounded-t-xl cursor-pointer select-none transition-shadow duration-200"
+      :class="[
+        expandedState[group.name]
+          ? 'sticky top-0 z-10 shadow-sm backdrop-blur-sm bg-slate-50/90 dark:bg-slate-900/80'
+          : 'bg-slate-50/50 dark:bg-slate-900/30'
+      ]"
+      @click="expandedState[group.name] = !expandedState[group.name]"
+    >
+      <div class="flex flex-col gap-2">
+        <!-- 原有头部布局 -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <ChevronForwardOutline class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-90': expandedState[group.name] }" />
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{{ group.name }}</span>
+                <span class="px-2 py-0.5 text-[11px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded uppercase shrink-0">{{ group.type }}</span>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                {{ t('proxies.current') }}: <span class="font-bold text-accent select-all">{{ group.now }}</span>
+              </div>
             </div>
           </div>
+          <button @click.stop="handleTestGroup" :disabled="isTesting" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0" :title="t('proxies.test')">
+            <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isTesting }" />
+          </button>
         </div>
-        
-        <button @click.stop="handleTestGroup" :disabled="isTesting" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0" :title="t('proxies.test')">
-          <SyncOutline class="w-4 h-4" :class="{ 'animate-spin': isTesting }" />
-        </button>
-      </div>
 
-      <!-- Health Indicator -->
-      <div class="group-health flex gap-1 items-center flex-wrap w-full mt-1" :class="shouldUseBar ? 'h-1.5 overflow-hidden' : 'h-2'">
-        <!-- Bar Segments -->
-        <template v-if="shouldUseBar">
-          <span
-            v-for="(seg, sIdx) in getGroupBarSegments"
-            :key="sIdx"
-            :style="{ flex: seg.pct }"
-            :class="[seg.class, 'h-full', sIdx === 0 ? 'rounded-l-sm' : '', sIdx === getGroupBarSegments.length - 1 ? 'rounded-r-sm' : '']"
-          ></span>
-        </template>
-        <!-- Dot Indicators -->
-        <template v-else>
-          <span
-            v-for="(dot, dIdx) in getGroupDotSegments"
-            :key="dIdx"
-            :class="[dot.colorClass, 'w-2 h-2 rounded-full flex-shrink-0 relative']"
-            :title="dot.name"
-          >
-            <span v-if="dot.isSelected" class="absolute top-[2px] left-[2px] w-1 h-1 rounded-full bg-white"></span>
-          </span>
-        </template>
+        <!-- Health Indicator -->
+        <div class="group-health flex gap-1 items-center flex-wrap w-full mt-1" :class="shouldUseBar ? 'h-1.5 overflow-hidden' : 'h-2'">
+          <template v-if="shouldUseBar">
+            <span
+              v-for="(seg, sIdx) in getGroupBarSegments"
+              :key="sIdx"
+              :style="{ flex: seg.pct }"
+              :class="[seg.class, 'h-full', sIdx === 0 ? 'rounded-l-sm' : '', sIdx === getGroupBarSegments.length - 1 ? 'rounded-r-sm' : '']"
+            ></span>
+          </template>
+          <template v-else>
+            <span
+              v-for="(dot, dIdx) in getGroupDotSegments"
+              :key="dIdx"
+              :class="[dot.colorClass, 'w-2 h-2 rounded-full flex-shrink-0 relative']"
+              :title="dot.name"
+            >
+              <span v-if="dot.isSelected" class="absolute top-[2px] left-[2px] w-1 h-1 rounded-full bg-white"></span>
+            </span>
+          </template>
+        </div>
       </div>
     </div>
 
-    <!-- Accordion Body -->
-    <div v-if="expandedState[group.name]"   ref="gridRef" class="grid grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+    <!-- 主体（节点网格）：展开时显示 -->
+    <div v-if="expandedState[group.name]" ref="gridRef" class="grid grid-cols-2 gap-2.5 px-4 sm:px-5 pb-4 sm:pb-5 pt-4 border-t border-slate-100 dark:border-slate-800/80">
       <div
-        v-for="name in group.all"
+        v-for="name in sortedNodes"
         :key="name"
         @click="handleSelectProxy(name)"
         class="live-card flex flex-col justify-between p-2.5 text-xs rounded-xl border transition-all duration-300 cursor-pointer min-h-[75px] relative"
@@ -209,14 +269,11 @@ const getDelayText = (delay?: number) => {
           ? 'bg-accent/10 dark:bg-accent/15 border-accent text-accent shadow-sm ring-1 ring-accent/30 hover:-translate-y-[2px] hover:shadow-md'
           : 'border-slate-200/60 dark:border-slate-800 hover:-translate-y-[2px] hover:shadow-md hover:border-slate-300/80 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'"
       >
-        <!-- Name -->
         <div class="w-full text-left">
           <span class="block truncate text-xs font-bold text-slate-800 dark:text-slate-100 leading-snug" :class="{ '!text-accent': group.now === name }" :title="name">
             {{ name }}
           </span>
         </div>
-
-        <!-- Protocol & Test -->
         <div v-if="allProxiesRaw[name]" class="flex justify-between items-center gap-1.5 mt-2.5 w-full select-none">
           <div class="flex items-center gap-1 min-w-0">
             <span class="bg-slate-200/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono uppercase text-[9px] font-bold leading-none truncate">
@@ -233,8 +290,6 @@ const getDelayText = (delay?: number) => {
             {{ getDelayText(delays[name]) }}
           </span>
         </div>
-
-        <!-- History Colors -->
         <div v-if="allProxiesRaw[name]" class="flex gap-[2px] w-full mt-2 h-1 overflow-hidden">
           <template v-if="allProxiesRaw[name].recentColors && allProxiesRaw[name].recentColors.length > 0">
             <span

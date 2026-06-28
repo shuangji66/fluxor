@@ -123,6 +123,12 @@ export const useProxyStore = defineStore('proxies', () => {
     await Promise.all(workers)
   }
 
+  // 代理组排序方式
+  const sortOrder = ref<'default' | 'name' | 'delay'>('default')
+  function setSortOrder(order: 'default' | 'name' | 'delay') {
+    sortOrder.value = order
+  }
+
   return {
     proxyGroups,
     delays,
@@ -131,6 +137,8 @@ export const useProxyStore = defineStore('proxies', () => {
     expandedState,
     fetchProxies,
     testDelay,
-    testProxiesWithConcurrency
+    testProxiesWithConcurrency,
+    sortOrder,
+    setSortOrder
   }
 })

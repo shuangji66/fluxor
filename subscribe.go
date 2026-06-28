@@ -361,6 +361,7 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
 		{"allow-lan", "true"},
         {"ipv6", "true"},
 		{"unified-delay", "true"},
+        {"geodata-mode", "false"},
     }
 
     // 根据面板选择 external-ui
