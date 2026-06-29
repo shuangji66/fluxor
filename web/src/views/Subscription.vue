@@ -21,6 +21,7 @@ const modalTitle = ref('')
 const isUpdating = ref<Record<number, boolean>>({})
 const isApplying = ref(false)
 const pendingPhysicalDeletes = ref<string[]>([])
+const showBackendUrl = ref(false)
 
 // 弹窗编辑项
 const editingIndex = ref(-1)
@@ -431,9 +432,24 @@ onUnmounted(() => {
             <option value="zashboard">Zashboard</option>
           </select>
         </div>
+        
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.meta_backend_url') }}</label>
-          <input type="text" v-model="currentConfig.meta_backend_url" :placeholder="t('subscription.meta_backend_url_placeholder')" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+          <div class="relative flex items-center">
+            <input
+              :type="showBackendUrl ? 'text' : 'password'"
+              v-model="currentConfig.meta_backend_url"
+              :placeholder="t('subscription.meta_backend_url_placeholder')"
+              class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
+            />
+            <button
+              @click="showBackendUrl = !showBackendUrl"
+              class="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <EyeOutline v-if="showBackendUrl" class="w-5 h-5" />
+              <EyeOffOutline v-else class="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
