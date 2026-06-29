@@ -133,6 +133,7 @@ export const useProxyStore = defineStore('proxies', () => {
   const historyCount = ref(5)
   const sortOrder = ref<'default' | 'name' | 'delay' | 'quality'>('default')
   const qualityScores = ref<Record<string, number>>({})
+  const filterRegex = ref('(套餐|过期|流量|剩余|订阅|网站|教程)')
 
   // 加载本地设置
   const loadSettings = () => {
@@ -149,6 +150,9 @@ export const useProxyStore = defineStore('proxies', () => {
         if (parsed.sortOrder) {
           sortOrder.value = parsed.sortOrder
         }
+        if (parsed.filterRegex !== undefined) {
+          filterRegex.value = parsed.filterRegex
+        }
       } catch (e) {}
     }
   }
@@ -160,7 +164,14 @@ export const useProxyStore = defineStore('proxies', () => {
       delayThresholds: delayThresholds.value,
       historyCount: historyCount.value,
       sortOrder: sortOrder.value,
+      filterRegex: filterRegex.value,
     }))
+  }
+
+  // 设置过滤正则
+  function setFilterRegex(regex: string) {
+    filterRegex.value = regex
+    saveAllSettings()
   }
 
   // 更新阈值和历史条数
@@ -216,5 +227,7 @@ export const useProxyStore = defineStore('proxies', () => {
     updateSettings,
     qualityScores,
     fetchQualityScores,
+    filterRegex,
+    setFilterRegex,
   }
 })

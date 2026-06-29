@@ -14,7 +14,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
-const { delays, allProxiesRaw, expandedState, sortOrder, delayThresholds, qualityScores } = storeToRefs(proxyStore)
+const { delays, allProxiesRaw, expandedState, sortOrder, delayThresholds, qualityScores, filterRegex } = storeToRefs(proxyStore)
 
 const isTesting = ref(false)
 
@@ -79,8 +79,21 @@ const getGroupDotSegments = computed(() => {
 
 // ===== 排序计算属性（增强版） =====
 const sortedNodes = computed(() => {
+    let nodes = props.group.all
+ 
+    // 应用正则过滤（如果存在）
+    const regexStr = filterRegex.value
+    if (regexStr) {
+      try {
+       const regex = new RegExp(regexStr)
+        nodes = nodes.filter(name => !regex.test(name))
+      } catch (e) {
+        // 无效正则，忽略过滤
+        console.warn('Invalid filter regex:', regexStr)
+      }
+    }
+    
   const order = sortOrder.value
-  const nodes = props.group.all
 
   // 提取纯文本排序键（去除 Emoji、特殊符号，保留字母数字汉字空格连字符点）
   const getSortKey = (name: string) =>

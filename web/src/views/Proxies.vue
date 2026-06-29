@@ -14,8 +14,8 @@ const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 
-const { proxyGroups, delays, isLoading, sortOrder, delayThresholds, historyCount } = storeToRefs(proxyStore)
-const { setSortOrder, updateSettings, fetchQualityScores } = proxyStore
+const { proxyGroups, delays, isLoading, sortOrder, delayThresholds, historyCount, filterRegex } = storeToRefs(proxyStore)
+const { setSortOrder, updateSettings, fetchQualityScores, setFilterRegex } = proxyStore
 const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
 
 // ===== 设置弹窗 =====
@@ -25,6 +25,7 @@ const settingsForm = ref({
   thresholdLow: 200,
   thresholdMid: 500,
   historyCount: 5,
+  filterRegex: '',
 })
 
 // 打开弹窗时禁止 body 滚动
@@ -41,7 +42,8 @@ const openSettingsDialog = () => {
     sort: sortOrder.value,
     thresholdLow: delayThresholds.value.low,
     thresholdMid: delayThresholds.value.mid,
-    historyCount: historyCount.value
+    historyCount: historyCount.value,
+    filterRegex: filterRegex.value,
   }
   showSettingsDialog.value = true
 }
@@ -52,6 +54,7 @@ const saveSettings = async () => {
     { low: settingsForm.value.thresholdLow, mid: settingsForm.value.thresholdMid },
     settingsForm.value.historyCount
   )
+  setFilterRegex(settingsForm.value.filterRegex)
   showSettingsDialog.value = false
   globalStore.showToast(t('proxies.settings_saved'), 'success')
 }
@@ -380,7 +383,7 @@ onUnmounted(() => {
         class="fixed inset-0 z-[9999] glass-mask flex items-center justify-center p-4"
         @click.self="showSettingsDialog = false"
       >
-        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
+        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] max-h-[90vh] overflow-y-auto">
           <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
 
           <!-- 排序 -->
@@ -430,6 +433,17 @@ onUnmounted(() => {
               step="1"
               class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
             />
+          </div>
+
+          <!-- 节点过滤正则 -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.filter_regex') }}</label>
+            <textarea
+              v-model="settingsForm.filterRegex"
+              :placeholder="t('proxies.filter_regex_placeholder')"
+              rows="2"
+              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none font-mono resize-y min-h-[3.5rem]"
+            ></textarea>
           </div>
 
           <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">

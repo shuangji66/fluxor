@@ -109,6 +109,8 @@ const messages = {
     "proxies.settings_saved": "设置已保存",
     "proxies.sort_quality": "按质量",
     "proxies.quality_score": "计算节点质量评分",
+    "proxies.filter_regex": "节点过滤正则",
+    "proxies.filter_regex_placeholder": "输入正则表达式，如 ^(HK|JP).*",
 
     'rules.title': '规则',
     'rules.type': '类型',
@@ -455,6 +457,8 @@ const messages = {
     "proxies.settings_saved": "Settings saved",
     "proxies.sort_quality": "By Quality",
     "proxies.quality_score": "Calculate Node Quality Score",
+    "proxies.filter_regex": "Node Filter Regex",
+    "proxies.filter_regex_placeholder": "Enter regex, e.g. ^(HK|JP).*",
 
     'rules.title': 'Rules',
     'rules.type': 'Type',
