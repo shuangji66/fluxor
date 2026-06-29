@@ -32,6 +32,7 @@ var (
     configTemplateDir   string
     infoLogFile         string
     coreWorkDir         string
+	tcpAddr             string
 )
 
 func init() {
@@ -47,6 +48,7 @@ func init() {
     configTemplateDir = getEnv("CONFIG_TEMPLATE_DIR", "/var/apps/Fluxor/target/templates")
     infoLogFile = getEnv("INFO_LOG_FILE", "/var/apps/Fluxor/shares/Fluxor/info.log")
     coreWorkDir = getEnv("CORE_WORK_DIR", "/var/apps/Fluxor/shares/Fluxor")
+	tcpAddr = getEnv("FLUXOR_ADDR", "")
 }
 
 func getEnv(key, defaultVal string) string {
@@ -106,7 +108,36 @@ func main() {
 		fmt.Printf("设置 socket 权限失败: %v\n", err)
 	}
 
+    // 校验 TCP 地址（如果设置了）
+    if tcpAddr != "" {
+        if err := validateTCPAddr(tcpAddr); err != nil {
+            fmt.Printf("无效的 FLUXOR_ADDR 格式: %v，将禁用 TCP 监听\n", err)
+            tcpAddr = ""
+        }
+    }
+
+    var tcpListener net.Listener
+    if tcpAddr != "" {
+        tcpListener, err = net.Listen("tcp", tcpAddr)
+        if err != nil {
+            fmt.Printf("无法监听 TCP 地址 %s: %v\n", tcpAddr, err)
+        } else {
+            fmt.Printf("Fluxor TCP 监听: %s\n", tcpAddr)
+            defer tcpListener.Close()
+        }
+    }
+
 	mux := http.NewServeMux()
+    
+	// 根路径重定向
+    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        if r.URL.Path == "/" && baseURL != "" && baseURL != "/" {
+            http.Redirect(w, r, baseURL, http.StatusFound)
+            return
+        }
+        // 如果不是根路径，返回 404（防止干扰其他路由）
+        http.NotFound(w, r)
+    })
 
 	// 外部静态面板
 	mux.Handle(baseURL+"/meta/", http.StripPrefix(baseURL+"/meta/", http.FileServer(http.Dir(metaDir))))
@@ -215,7 +246,7 @@ func main() {
 		fmt.Println("内核已在运行，跳过自动启动")
 	}
 
-	// 启动 HTTP 服务
+	// 启动 unix 服务
 	go func() {
 		fmt.Printf("Fluxor 已启动，监听 Unix socket: %s\n", socketPath)
 		err := http.Serve(listener, mux)
@@ -223,6 +254,16 @@ func main() {
 			fmt.Printf("HTTP 服务错误: %v\n", err)
 		}
 	}()
+    
+	// 启动 tcp 服务
+    if tcpListener != nil {
+        go func() {
+            fmt.Printf("Fluxor TCP 服务已启动，监听: %s\n", tcpAddr)
+            if err := http.Serve(tcpListener, mux); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+                fmt.Printf("TCP HTTP 服务错误: %v\n", err)
+            }
+        }()
+    }
 
 	// 等待退出信号
 	quit := make(chan os.Signal, 1)
