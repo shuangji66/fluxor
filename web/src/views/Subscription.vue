@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline } from '@vicons/ionicons5'
+import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline, InformationCircleOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type SubscriptionInfo, type SubscriptionItem } from '../store/config'
@@ -22,6 +22,7 @@ const isUpdating = ref<Record<number, boolean>>({})
 const isApplying = ref(false)
 const pendingPhysicalDeletes = ref<string[]>([])
 const showBackendUrl = ref(false)
+const showHelpModal = ref(false)
 
 // 弹窗编辑项
 const editingIndex = ref(-1)
@@ -389,6 +390,9 @@ onUnmounted(() => {
       <h3 class="text-base font-semibold flex items-center gap-2">
         <MailOutline class="w-5 h-5 text-accent" />
         {{ t('subscription.title') }}
+         <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
+           <InformationCircleOutline class="w-4 h-4" />
+         </button>
       </h3>
       <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
         <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
@@ -432,7 +436,7 @@ onUnmounted(() => {
             <option value="zashboard">Zashboard</option>
           </select>
         </div>
-        
+
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.meta_backend_url') }}</label>
           <div class="relative flex items-center">
@@ -556,6 +560,23 @@ onUnmounted(() => {
         <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
           <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 使用说明弹窗 -->
+    <Teleport to="body">
+      <div v-if="showHelpModal" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showHelpModal = false">
+        <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
+          <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h2 class="text-lg font-bold">{{ t('subscription.help_title') }}</h2>
+            <button @click="showHelpModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+              <CloseOutline class="w-5 h-5" />
+            </button>
+          </div>
+          <div class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+            {{ t('subscription.help_content') }}
+          </div>
         </div>
       </div>
     </Teleport>

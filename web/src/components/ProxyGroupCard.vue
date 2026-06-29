@@ -272,7 +272,7 @@ const getDelayText = (delay?: number) => {
         </div>
 
         <!-- Health Indicator -->
-        <div class="group-health flex items-center flex-wrap w-full mt-1" :class="shouldUseBar ? 'h-1.5 overflow-hidden' : 'h-2'">
+        <div class="group-health flex items-center flex-wrap w-full mt-1" :class="shouldUseBar ? 'h-1.5 overflow-hidden gap-0' : 'h-2 gap-1'">
           <template v-if="shouldUseBar">
             <span
               v-for="(seg, sIdx) in getGroupBarSegments"

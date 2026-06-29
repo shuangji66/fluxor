@@ -147,6 +147,7 @@ const messages = {
     'rules.rule_count': '规则数',
     'rules.updated_at': '更新时间',
     'rules.providers_count': '个提供者',
+    'rules.no_rules_found': '未找到规则',
 
     'connections.title': '连接管理',
     'connections.host': '主机',
@@ -338,7 +339,9 @@ const messages = {
     'subscription.delete_physical_file': '同时删除本地物理配置文件',
     'subscription.delete_physical_success': '物理配置文件已删除',
     'subscription.delete_physical_failed': '物理配置文件删除失败',
-    'rules.no_rules_found': '未找到规则',
+    "subscription.help_title": "使用说明",
+    "subscription.help_content": "切换模式使用订阅文件自带规则和代理组；多订阅推荐融合模式，规则集仅适用于融合模式。",
+
     'about.title': '关于 Fluxor',
     'about.description': '轻量级、现代化的 Mihomo 内核管理面板',
     'about.version': '面板版本',
@@ -495,6 +498,7 @@ const messages = {
     'rules.rule_count': 'Rules',
     'rules.updated_at': 'Updated At',
     'rules.providers_count': 'providers',
+    'rules.no_rules_found': 'No rules found',
 
     'connections.title': 'Connections',
     'connections.host': 'Host',
@@ -686,7 +690,9 @@ const messages = {
     'subscription.delete_physical_file': 'Delete local configuration file simultaneously',
     'subscription.delete_physical_success': 'Physical configuration file deleted',
     'subscription.delete_physical_failed': 'Failed to delete physical configuration file',
-    'rules.no_rules_found': 'No rules found',
+    "subscription.help_title": "Help",
+    "subscription.help_content": "In switch mode, the built‑in rules and proxy groups from the subscription file are applied. For users with multiple subscriptions, merge mode is strongly recommended, as rule sets are only effective when merge mode is enabled.",
+
     'about.title': 'About Fluxor',
     'about.description': 'Lightweight, Morden Mihomo Kernel Management Panel',
     'about.version': 'Panel Version',
