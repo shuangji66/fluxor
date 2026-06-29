@@ -1052,6 +1052,7 @@ func startAllTimers() {
     for i := range subscribeConfig.Subscriptions {
         startSubscriptionTimer(&subscribeConfig, i)
     }
+    startHealthCheckTimer()
 }
 // stopAllTimers 停止所有定时器
 func stopAllTimers() {
@@ -1061,6 +1062,7 @@ func stopAllTimers() {
         cancel()
         delete(timerCancel, name)
     }
+    stopHealthCheckTimer()
 }
 
 // DownloadSubscriptionFile 下载单个订阅的节点文件，返回元数据

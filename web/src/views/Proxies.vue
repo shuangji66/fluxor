@@ -150,24 +150,6 @@ const handleTestAll = async () => {
   }
 }
 
-const autoTestMissingNodes = async () => {
-  const allNodes = new Set<string>()
-  proxyGroups.value.forEach(g => {
-    if (['Selector', 'URLTest', 'Fallback'].includes(g.type)) {
-      g.all.forEach(name => allNodes.add(name))
-    }
-  })
-  const needTest: string[] = []
-  allNodes.forEach(name => {
-    if (delays.value[name] === undefined) {
-      needTest.push(name)
-    }
-  })
-  if (needTest.length === 0) return
-  await proxyStore.testProxiesWithConcurrency(needTest)
-  proxyStore.fetchProxies(true)
-}
-
 const startRefreshTimer = () => {
   if (refreshTimer) clearInterval(refreshTimer)
   refreshTimer = window.setInterval(() => {
@@ -190,12 +172,10 @@ onMounted(async () => {
   window.addEventListener('resize', onResize)
   const hasData = proxyGroups.value.length > 0
   await proxyStore.fetchProxies(hasData)
-  autoTestMissingNodes().catch(e => console.warn('[Proxies] 自动测速失败:', e))
 })
 
 onActivated(async () => {
   await proxyStore.fetchProxies(true)
-  autoTestMissingNodes().catch(e => console.warn('[Proxies] 自动测速失败:', e))
   startRefreshTimer()
 })
 

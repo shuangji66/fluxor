@@ -28,7 +28,7 @@ const editForm = ref<SubscriptionItem>({
   name: '',
   url: '',
   update_interval: 86400,
-  health_interval: 300,
+  health_interval: 600,
   prefix: ''
 })
 

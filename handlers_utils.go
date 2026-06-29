@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync"
 	"math"
+	"log"
 )
 
 var geoCache = struct {
@@ -713,4 +714,169 @@ func handleQualityScores(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(scores)
+}
+
+// ===== 订阅健康检查定时器 =====
+
+var (
+	healthCheckTicker  *time.Ticker
+	healthCheckStop    chan struct{}
+	lastHealthCheck    map[string]time.Time
+	healthCheckMu      sync.RWMutex
+)
+
+// startHealthCheckTimer 启动健康检查定时器（仅在 switch 模式下生效）
+func startHealthCheckTimer() {
+	if healthCheckTicker != nil {
+		return
+	}
+	healthCheckStop = make(chan struct{})
+	healthCheckMu.Lock()
+	lastHealthCheck = make(map[string]time.Time)
+	// 将当前激活订阅的 lastHealthCheck 设为当前时间，避免启动后立即测速
+ 	subscribeMu.RLock()
+ 	if subscribeConfig.Mode == "switch" && subscribeConfig.ActiveSubscription != "" {
+ 		lastHealthCheck[subscribeConfig.ActiveSubscription] = time.Now()
+ 	}
+ 	subscribeMu.RUnlock()
+	healthCheckMu.Unlock()
+
+	healthCheckTicker = time.NewTicker(10 * time.Second) // 每10秒检查一次
+	go func() {
+		for {
+			select {
+			case <-healthCheckTicker.C:
+				performHealthChecks()
+			case <-healthCheckStop:
+				return
+			}
+		}
+	}()
+}
+
+// stopHealthCheckTimer 停止健康检查定时器
+func stopHealthCheckTimer() {
+	if healthCheckTicker != nil {
+		healthCheckTicker.Stop()
+		healthCheckTicker = nil
+	}
+	if healthCheckStop != nil {
+		close(healthCheckStop)
+		healthCheckStop = nil
+	}
+	healthCheckMu.Lock()
+	lastHealthCheck = nil
+	healthCheckMu.Unlock()
+}
+
+// performHealthChecks 执行健康检查（仅在 switch 模式下，对当前激活订阅测速）
+func performHealthChecks() {
+	subscribeMu.RLock()
+	cfg := subscribeConfig
+	subscribeMu.RUnlock()
+
+	if cfg.Mode != "switch" || len(cfg.Subscriptions) == 0 || cfg.ActiveSubscription == "" {
+		return
+	}
+
+	// 获取当前激活的订阅
+	var activeSub *Subscription
+	for i := range cfg.Subscriptions {
+		if cfg.Subscriptions[i].Name == cfg.ActiveSubscription {
+			activeSub = &cfg.Subscriptions[i]
+			break
+		}
+	}
+	if activeSub == nil {
+		return
+	}
+
+	interval := activeSub.HealthInterval
+	if interval <= 0 {
+		interval = 600
+	}
+
+	now := time.Now()
+	healthCheckMu.RLock()
+	last, ok := lastHealthCheck[activeSub.Name]
+	healthCheckMu.RUnlock()
+	if ok && now.Sub(last) < time.Duration(interval)*time.Second {
+		return
+	}
+
+	// 从内核获取所有节点名称（包括组和叶子节点）
+	nodes, err := getAllProxyNames()
+	if err != nil {
+		log.Printf("[HealthCheck] 获取节点列表失败: %v", err)
+		return
+	}
+	if len(nodes) == 0 {
+		return
+	}
+
+	// 并发测速（限制并发数10）
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 10)
+	for _, name := range nodes {
+		wg.Add(1)
+		go func(p string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			// 使用默认测试URL和超时
+			testDelayForProxy(p, "http://www.gstatic.com/generate_204", 5000)
+		}(name)
+	}
+	wg.Wait()
+
+	healthCheckMu.Lock()
+	lastHealthCheck[activeSub.Name] = time.Now()
+	healthCheckMu.Unlock()
+}
+
+// getAllProxyNames 从内核获取所有叶子节点名称（去重）
+func getAllProxyNames() ([]string, error) {
+	resp, err := coreRequest("GET", "/proxies", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("内核返回状态码 %d", resp.StatusCode)
+	}
+	var data struct {
+		Proxies map[string]struct {
+			All []string `json:"all"`
+		} `json:"proxies"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	// 收集所有叶子节点（All 中的成员），使用 map 去重
+	nameSet := make(map[string]bool)
+	for _, proxy := range data.Proxies {
+		for _, member := range proxy.All {
+			nameSet[member] = true
+		}
+	}
+	result := make([]string, 0, len(nameSet))
+	for n := range nameSet {
+		result = append(result, n)
+	}
+	return result, nil
+}
+
+// testDelayForProxy 测速单个节点（不关心返回值，只触发内核更新历史）
+func testDelayForProxy(name, testURL string, timeoutMs int) {
+	target := fmt.Sprintf("/proxies/%s/delay?url=%s&timeout=%d",
+		url.PathEscape(name),
+		url.QueryEscape(testURL),
+		timeoutMs)
+	// 忽略错误，仅触发测速
+	resp, err := coreRequest("GET", target, nil)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	// 不需要读取响应体
 }

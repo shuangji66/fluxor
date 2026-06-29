@@ -252,8 +252,9 @@ const getDelayText = (delay?: number) => {
           </div>
 
           <div class="flex items-center gap-1.5">
-            <!-- 质量评分按钮 -->
+            <!-- 质量评分按钮（仅质量排序时可见） -->
             <button
+              v-if="sortOrder === 'quality'"
               @click.stop="proxyStore.fetchQualityScores()"
               class="p-1.5 text-slate-400 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0"
               :title="t('proxies.quality_score')"
@@ -271,7 +272,7 @@ const getDelayText = (delay?: number) => {
         </div>
 
         <!-- Health Indicator -->
-        <div class="group-health flex gap-1 items-center flex-wrap w-full mt-1" :class="shouldUseBar ? 'h-1.5 overflow-hidden' : 'h-2'">
+        <div class="group-health flex items-center flex-wrap w-full mt-1" :class="shouldUseBar ? 'h-1.5 overflow-hidden' : 'h-2'">
           <template v-if="shouldUseBar">
             <span
               v-for="(seg, sIdx) in getGroupBarSegments"
