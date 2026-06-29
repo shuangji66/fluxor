@@ -216,6 +216,8 @@ func startCore() error {
 
 // stopCore 停止内核进程
 func stopCore() error {
+	_ = os.Remove(coreSocket)
+
 	if !isCoreRunning() {
 		return fmt.Errorf("内核未运行，停止操作被忽略")
 	}
@@ -253,6 +255,7 @@ func stopCore() error {
 	}
 
 	os.Remove(corePidFile)
+	_ = os.Remove(coreSocket)
 	return nil
 }
 

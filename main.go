@@ -108,7 +108,7 @@ func main() {
 		fmt.Printf("设置 socket 权限失败: %v\n", err)
 	}
 
-    // 校验 TCP 地址（如果设置了）
+    // 校验 TCP 地址
     if tcpAddr != "" {
         if err := validateTCPAddr(tcpAddr); err != nil {
             fmt.Printf("无效的 FLUXOR_ADDR 格式: %v，将禁用 TCP 监听\n", err)
@@ -122,7 +122,6 @@ func main() {
         if err != nil {
             fmt.Printf("无法监听 TCP 地址 %s: %v\n", tcpAddr, err)
         } else {
-            fmt.Printf("Fluxor TCP 监听: %s\n", tcpAddr)
             defer tcpListener.Close()
         }
     }
@@ -246,16 +245,16 @@ func main() {
 		fmt.Println("内核已在运行，跳过自动启动")
 	}
 
-	// 启动 unix 服务
+	// 启动 UNIX 服务
 	go func() {
-		fmt.Printf("Fluxor 已启动，监听 Unix socket: %s\n", socketPath)
+		fmt.Printf("Fluxor UNIX 服务已启动，监听 Unix socket: %s\n", socketPath)
 		err := http.Serve(listener, mux)
 		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
 			fmt.Printf("HTTP 服务错误: %v\n", err)
 		}
 	}()
     
-	// 启动 tcp 服务
+	// 启动 TCP 服务
     if tcpListener != nil {
         go func() {
             fmt.Printf("Fluxor TCP 服务已启动，监听: %s\n", tcpAddr)
