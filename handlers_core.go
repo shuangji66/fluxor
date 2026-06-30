@@ -537,6 +537,7 @@ func enableTProxyRules(port int) error {
 
 	// 5. 劫持入站 (prerouting)
 	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "prerouting", "{ type filter hook prerouting priority mangle; policy accept; }").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "fib", "daddr", "type", "local", "return").Run()
 	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "daddr", "@private_ips", "return").Run()
 	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "meta", "l4proto", "{ tcp, udp }", "tproxy", "to", fmt.Sprintf(":%d", port), "meta", "mark", "set", "1", "accept").Run()
 
