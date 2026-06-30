@@ -98,7 +98,7 @@ const saveInterface = () => {
   patchConfig({ 'interface-name': configs.value['interface-name'] })
 }
 
-const savePorts = (e?: Event) => {
+const savePorts = async (e?: Event) => {
   // 如果是按回车触发，让输入框失去焦点即可，这会触发 @blur 事件从而触发真正的保存逻辑，防止重复保存
   if (e && e.type === 'keyup' && e.target instanceof HTMLElement) {
     e.target.blur()
@@ -108,7 +108,7 @@ const savePorts = (e?: Event) => {
   const port = configs.value.port || 0
   const socksPort = configs.value['socks-port'] || 0
   const redirPort = configs.value['redir-port'] || 0
-  const tproxyPort = configs.value['tproxy-port'] || 0
+  const tproxyPort = configStore.currentConfig.tproxy_port || 7893
   const mixedPort = configs.value['mixed-port'] || 0
 
   const ports = [port, socksPort, redirPort, tproxyPort, mixedPort]
@@ -128,13 +128,78 @@ const savePorts = (e?: Event) => {
     return
   }
 
-  patchConfig({
+  // 1. 立即 PATCH 当前内存生效（依据开关决定是否向内核下发端口）
+  await patchConfig({
     port,
     'socks-port': socksPort,
     'redir-port': redirPort,
-    'tproxy-port': tproxyPort,
+    'tproxy-port': configStore.currentConfig.tproxy_enable ? tproxyPort : 0,
     'mixed-port': mixedPort
   })
+
+  // 2. 同步更新本地 Store 内存
+  configStore.currentConfig.proxy_port = mixedPort || 7890
+  configStore.currentConfig.tproxy_port = tproxyPort
+
+  // 3. 将新自定义端口持久化写入磁盘数据库存盘，保障重启及重新应用订阅时不丢失
+  const subscriptionsForBackend = configStore.currentConfig.subscriptions.map((sub: any) => {
+    const { info, ...rest } = sub
+    return {
+      ...rest,
+      updated_at: info?.updatedAt || sub.updated_at,
+      subscription_info: info ? {
+        upload: info.upload || 0,
+        download: info.download || 0,
+        total: info.total || 0,
+        expire: info.expire || 0,
+      } : sub.subscription_info
+    }
+  })
+
+  try {
+    await apiFetch('/subscribe/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...configStore.currentConfig,
+        subscriptions: subscriptionsForBackend
+      })
+    })
+  } catch (e) {
+    console.error('同步持久化自定义端口失败:', e)
+  }
+}
+
+const persistToggleState = async (tunEnable: boolean, tproxyEnable: boolean) => {
+  configStore.currentConfig.tun_enable = tunEnable
+  configStore.currentConfig.tproxy_enable = tproxyEnable
+  
+  const subscriptionsForBackend = configStore.currentConfig.subscriptions.map((sub: any) => {
+    const { info, ...rest } = sub
+    return {
+      ...rest,
+      updated_at: info?.updatedAt || sub.updated_at,
+      subscription_info: info ? {
+        upload: info.upload || 0,
+        download: info.download || 0,
+        total: info.total || 0,
+        expire: info.expire || 0,
+      } : sub.subscription_info
+    }
+  })
+
+  try {
+    await apiFetch('/subscribe/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...configStore.currentConfig,
+        subscriptions: subscriptionsForBackend
+      })
+    })
+  } catch (e) {
+    console.error('同步持久化开关状态失败:', e)
+  }
 }
 
 const saveTun = (e?: Event) => {
@@ -142,7 +207,38 @@ const saveTun = (e?: Event) => {
     e.target.blur()
     return
   }
-  patchConfig({ tun: configs.value.tun })
+  const isTunEnabled = configs.value.tun.enable
+  // 互斥防呆：如果开启了 TUN，自动关闭 TProxy
+  if (isTunEnabled && configs.value['tproxy-port'] !== 0) {
+    configs.value['tproxy-port'] = 0
+    patchConfig({
+      tun: configs.value.tun,
+      'tproxy-port': 0
+    })
+    persistToggleState(true, false)
+  } else {
+    patchConfig({ tun: configs.value.tun })
+    persistToggleState(isTunEnabled, configStore.currentConfig.tproxy_enable)
+  }
+}
+
+const toggleTProxy = (enable: boolean) => {
+  let port = 0
+  if (enable) {
+    port = configStore.currentConfig.tproxy_port || 7893
+    // 互斥防呆：如果开启了 TProxy，自动关闭 TUN
+    if (configs.value.tun.enable) {
+      configs.value.tun.enable = false
+      patchConfig({
+        'tproxy-port': port,
+        tun: configs.value.tun
+      })
+      persistToggleState(false, true)
+      return
+    }
+  }
+  patchConfig({ 'tproxy-port': port })
+  persistToggleState(configs.value.tun.enable, enable)
 }
 
 // 内核进程管理
@@ -469,7 +565,7 @@ onUnmounted(() => {
             <div class="flex flex-col gap-1 col-span-2">
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tproxy_port')
                 }}</label>
-              <input type="number" v-model.number="configs['tproxy-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+              <input type="number" v-model.number="configStore.currentConfig.tproxy_port" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
                 class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
             </div>
           </div>
@@ -487,9 +583,10 @@ onUnmounted(() => {
 
           <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
             <ShieldCheckmarkOutline class="w-4 h-4 text-accent" />
-            {{ t('config.tun') }}
+            {{ t('config.tun_settings') }}
           </h4>
 
+          <!-- TUN 模式 -->
           <div class="flex items-center justify-between">
             <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tun_enable') }}</label>
             <FormSwitch v-model="configs.tun.enable" @update:model-value="() => saveTun()" />
@@ -511,9 +608,6 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- 分割线 -->
-          <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
-
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.interface_name') }}</label>
             <select v-model="configs['interface-name']" @change="saveInterface"
@@ -521,6 +615,15 @@ onUnmounted(() => {
               <option value="">{{ t('config.interface_name_auto') }}</option>
               <option v-for="iface in interfaces" :key="iface" :value="iface">{{ iface }}</option>
             </select>
+          </div>
+
+          <!-- 分割线 -->
+          <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
+
+          <!-- TProxy 透明代理 -->
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tproxy_enable') }}</label>
+            <FormSwitch v-model="configStore.currentConfig.tproxy_enable" @update:model-value="toggleTProxy" />
           </div>
         </div>
 

@@ -288,6 +288,28 @@ const saveAndApply = async () => {
     globalStore.showToast(t('subscription.proxy_port') + ' / ' + t('subscription.panel_port') + ' ' + t('common.required'), 'error')
     return
   }
+  
+  // 端口范围及冲突校验
+  const proxyPort = currentConfig.value.proxy_port
+  const panelPort = currentConfig.value.panel_port
+  const tproxyPort = currentConfig.value.tproxy_port || 0
+
+  const portsToCheck = [proxyPort, panelPort]
+  if (tproxyPort !== 0) {
+    portsToCheck.push(tproxyPort)
+  }
+
+  for (const p of portsToCheck) {
+    if (p < 1025 || p > 65535) {
+      globalStore.showToast(t('config.port_invalid_hint'), 'error')
+      return
+    }
+  }
+
+  if (new Set(portsToCheck).size !== portsToCheck.length) {
+    globalStore.showToast(t('config.port_duplicate_hint'), 'error')
+    return
+  }
   // 规则组必填（不能为 'none'）
   if (!currentConfig.value.rule_group || currentConfig.value.rule_group === 'none') {
     globalStore.showToast(t('subscription.rule_group') + ' ' + t('common.required'), 'error')
@@ -454,6 +476,16 @@ onUnmounted(() => {
               <EyeOffOutline v-else class="w-5 h-5" />
             </button>
           </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.tproxy_port') }}</label>
+          <input
+            type="number"
+            v-model.number="currentConfig.tproxy_port"
+            :placeholder="t('config.port_disabled_hint')"
+            class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
+          />
         </div>
       </div>
 

@@ -52,6 +52,9 @@ export interface SubscriptionConfigData {
   mode: string
   active_subscription: string
   subscriptions: SubscriptionItem[]
+  tproxy_port: number
+  tproxy_enable: boolean
+  tun_enable: boolean
 }
 
 export const useConfigStore = defineStore('config', () => {
@@ -89,7 +92,10 @@ export const useConfigStore = defineStore('config', () => {
     meta_backend_url: '',
     mode: 'merge',
     active_subscription: '', 
-    subscriptions: []
+    subscriptions: [],
+    tproxy_port: 7893,
+    tproxy_enable: false,
+    tun_enable: false
   })
 
   // 已保存应用的订阅名称白名单
@@ -177,6 +183,9 @@ export const useConfigStore = defineStore('config', () => {
           meta_backend_url: cfg.meta_backend_url || '',
           mode: cfg.mode || 'merge',
           active_subscription: cfg.active_subscription || '',
+          tproxy_port: cfg.tproxy_port || 7893,
+          tproxy_enable: cfg.tproxy_enable || false,
+          tun_enable: cfg.tun_enable || false,
           subscriptions: subs.map((s: any) => {
             // 将后端存储的 subscription_info 映射为前端的 info 对象
             const info = s.subscription_info ? {

@@ -125,6 +125,29 @@ func reloadCore() error {
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("内核返回错误状态 %d: %s", resp.StatusCode, string(respBody))
 	}
+
+	// 重载成功后，异步更新 nftables TProxy 规则以匹配最新的 config.yaml 端口
+	go func() {
+		time.Sleep(500 * time.Millisecond) // 等待内核重载完成
+		resp2, err2 := coreRequest("GET", "/configs", nil)
+		if err2 == nil {
+			defer resp2.Body.Close()
+			var info map[string]interface{}
+			if err2 := json.NewDecoder(resp2.Body).Decode(&info); err2 == nil {
+				if tp, ok := info["tproxy-port"]; ok {
+					if tpf, ok := tp.(float64); ok {
+						if tpf > 0 {
+							disableTProxyRules()
+							enableTProxyRules(int(tpf))
+						} else {
+							disableTProxyRules()
+						}
+					}
+				}
+			}
+		}
+	}()
+
 	return nil
 }
 
@@ -155,13 +178,17 @@ func startCore() error {
 		return fmt.Errorf("内核已在运行")
 	}
 
-	// 确保配置文件存在，若不存在则使用 subscribeConfig 生成
+	// 确保配置文件存在，若不存在则使用 subscribeConfig 生成；若存在则强制补齐网关属性
 	if _, err := os.Stat(configTarget); os.IsNotExist(err) {
 		if err := generateConfig(subscribeConfig); err != nil {
 			if coreLogger != nil {
 				coreLogger.Printf("[START][ERROR] 生成配置文件失败: %v\n", err)
 			}
 			return fmt.Errorf("生成配置文件失败: %w", err)
+		}
+	} else {
+		if err := patchConfigFile(configTarget, subscribeConfig); err != nil {
+			log.Printf("[START][WARN] 启动前修补配置文件失败: %v\n", err)
 		}
 	}
 
@@ -211,11 +238,30 @@ func startCore() error {
 		os.Remove(corePidFile)
 	}()
 
+	// 启动成功后，异步加载 nftables 规则（检查当前配置是否开启了 tproxy-port）
+	go func() {
+		time.Sleep(1 * time.Second) // 等待内核彻底运行
+		resp, err := coreRequest("GET", "/configs", nil)
+		if err == nil {
+			defer resp.Body.Close()
+			var info map[string]interface{}
+			if err := json.NewDecoder(resp.Body).Decode(&info); err == nil {
+				if tp, ok := info["tproxy-port"]; ok {
+					if tpf, ok := tp.(float64); ok && tpf > 0 {
+						disableTProxyRules() // 先清理防脏数据
+						enableTProxyRules(int(tpf))
+					}
+				}
+			}
+		}
+	}()
+
 	return nil
 }
 
 // stopCore 停止内核进程
 func stopCore() error {
+	disableTProxyRules() // 进程停掉前，立即释放系统 nft 规则
 	_ = os.Remove(coreSocket)
 
 	if !isCoreRunning() {
@@ -461,4 +507,68 @@ func runDownloadProcess(cmd *exec.Cmd, targetFile string, port int, subName stri
 
     log.Printf("[DOWNLOAD] 成功获取元数据: updatedAt=%s, subInfo=%v", updatedAtVal, subInfoVal)
     return updatedAtVal, subInfoVal, nil
+}
+
+// enableTProxyRules 配置策略路由与 nftables 规则
+func enableTProxyRules(port int) error {
+	if port <= 0 {
+		return nil
+	}
+	log.Printf("[TProxy] 正在自动加载 nftables 流量拦截规则 (端口: %d)...", port)
+
+	// 1. 策略路由
+	exec.Command("ip", "rule", "add", "fwmark", "1", "table", "100").Run()
+	exec.Command("ip", "route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", "100").Run()
+
+	// 2. 关闭反向路径过滤
+	exec.Command("sysctl", "-w", "net.ipv4.conf.all.rp_filter=0").Run()
+	exec.Command("sysctl", "-w", "net.ipv4.conf.default.rp_filter=0").Run()
+	exec.Command("sysctl", "-w", "net.ipv4.conf.lo.rp_filter=0").Run()
+
+	// 3. 创建 nftables 表
+	exec.Command("nft", "add", "table", "ip", "fluxor_tproxy").Run()
+
+	// 4. 绕过私有网段
+	exec.Command("nft", "add", "set", "ip", "fluxor_tproxy", "private_ips", "{ type ipv4_addr; flags interval; }").Run()
+	bypassIPs := []string{"10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/4", "240.0.0.0/4"}
+	for _, ip := range bypassIPs {
+		exec.Command("nft", "add", "element", "ip", "fluxor_tproxy", "private_ips", fmt.Sprintf("{ %s }", ip)).Run()
+	}
+
+	// 5. 劫持入站 (prerouting)
+	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "prerouting", "{ type filter hook prerouting priority mangle; policy accept; }").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "daddr", "@private_ips", "return").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "meta", "l4proto", "{ tcp, udp }", "tproxy", "to", fmt.Sprintf(":%d", port), "meta", "mark", "set", "1", "accept").Run()
+
+	// 6. 劫持本机出站 (output)
+	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "output", "{ type route hook output priority mangle; policy accept; }").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "ip", "daddr", "@private_ips", "return").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "meta", "mark", "0xff", "return").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "socket", "mark", "0xff", "return").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "meta", "l4proto", "{ tcp, udp }", "meta", "mark", "set", "1", "accept").Run()
+
+	// 7. 劫持 DNS (dstnat)
+	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "dstnat", "{ type nat hook prerouting priority -100; policy accept; }").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "udp", "dport", "53", "redirect", "to", ":1053").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "tcp", "dport", "53", "redirect", "to", ":1053").Run()
+
+	// 8. 劫持本机 DNS (nat_output)
+	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "nat_output", "{ type nat hook output priority -100; policy accept; }").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "meta", "mark", "0xff", "return").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "socket", "mark", "0xff", "return").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "udp", "dport", "53", "redirect", "to", ":1053").Run()
+	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "tcp", "dport", "53", "redirect", "to", ":1053").Run()
+
+	log.Printf("[TProxy] nftables 流量拦截规则应用成功！")
+	return nil
+}
+
+// disableTProxyRules 清理策略路由与 nftables 规则
+func disableTProxyRules() {
+	log.Printf("[TProxy] 正在自动清理 nftables 流量拦截规则...")
+	exec.Command("nft", "delete", "table", "ip", "fluxor_tproxy").Run()
+
+	exec.Command("ip", "rule", "del", "fwmark", "1", "table", "100").Run()
+	exec.Command("ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", "100").Run()
+	log.Printf("[TProxy] nftables 流量拦截规则清理成功。")
 }

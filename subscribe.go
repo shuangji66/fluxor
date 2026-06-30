@@ -30,6 +30,9 @@ type SubscribeConfig struct {
 	ActiveSubscription string         `json:"active_subscription"` // 新增：当前选中的订阅名称（切换模式使用）
 	Subscriptions  []Subscription `json:"subscriptions"`
 	DeletePhysical []string       `json:"delete_physical,omitempty"`
+	TproxyPort     int            `json:"tproxy_port"`
+	TproxyEnable   bool           `json:"tproxy_enable"`
+	TunEnable      bool           `json:"tun_enable"`
 }
 
 type Subscription struct {
@@ -66,6 +69,9 @@ func loadSubscribeConfig() {
 		UIPanel:        "metacubexd",
 		MetaBackendURL: "",
 		Subscriptions:  []Subscription{},
+		TproxyPort:     7893,
+		TproxyEnable:   false,
+		TunEnable:      false,
 	}
 
 	data, err := os.ReadFile(subscribeConfigFile)
@@ -89,6 +95,9 @@ func loadSubscribeConfig() {
 	}
 	if tmp.PanelPort == 0 {
 		tmp.PanelPort = defaultCfg.PanelPort
+	}
+	if tmp.TproxyPort == 0 {
+		tmp.TproxyPort = defaultCfg.TproxyPort
 	}
 	if tmp.UIPanel == "" {
 		tmp.UIPanel = defaultCfg.UIPanel
@@ -208,6 +217,10 @@ func handleGenerateConfig(w http.ResponseWriter, r *http.Request) {
                 writeJSONError(w, http.StatusInternalServerError, "生成基础配置失败: "+err.Error())
                 return
             }
+            if err := patchConfigFile(configTarget, cfg); err != nil {
+                writeJSONError(w, http.StatusInternalServerError, "修补基础配置失败: "+err.Error())
+                return
+            }
             // 清除选中的订阅
             cfg.ActiveSubscription = ""
             // 保存配置到全局并持久化
@@ -254,6 +267,10 @@ func handleGenerateConfig(w http.ResponseWriter, r *http.Request) {
         // 复制文件到 configTarget
         if err := copyFile(srcFile, configTarget); err != nil {
             writeJSONError(w, http.StatusInternalServerError, "复制配置文件失败: "+err.Error())
+            return
+        }
+        if err := patchConfigFile(configTarget, cfg); err != nil {
+            writeJSONError(w, http.StatusInternalServerError, "修补订阅配置文件失败: "+err.Error())
             return
         }
         // 保存配置到 subscribe.json
@@ -364,6 +381,12 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
         {"geodata-mode", "false"},
     }
 
+    if cfg.TproxyEnable && cfg.TproxyPort > 0 {
+        rules = append(rules, struct{ key, value string }{"tproxy-port", fmt.Sprintf("%d", cfg.TproxyPort)})
+    } else {
+        rules = append(rules, struct{ key, value string }{"tproxy-port", "0"})
+    }
+
     // 根据面板选择 external-ui
     uiPath := "ui/meta"
     if cfg.UIPanel == "zashboard" {
@@ -406,6 +429,12 @@ log-level: silent
 external-controller-unix: '%s'
 external-controller: '0.0.0.0:%d'
 `, cfg.ProxyPort, coreSocket, cfg.PanelPort)
+		if cfg.TproxyEnable && cfg.TproxyPort > 0 {
+			basic += fmt.Sprintf("tproxy-port: %d\n", cfg.TproxyPort)
+		} else {
+			basic += "tproxy-port: 0\n"
+		}
+		basic += fmt.Sprintf("tun:\n  enable: %t\n", cfg.TunEnable)
 		if cfg.PanelSecret != "" {
 			basic += fmt.Sprintf("secret: '%s'\n", cfg.PanelSecret)
 		}
@@ -520,7 +549,58 @@ external-controller: '0.0.0.0:%d'
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("创建目录失败: %w", err)
 	}
-	return os.WriteFile(configTarget, []byte(configContent), 0644)
+	if err := os.WriteFile(configTarget, []byte(configContent), 0644); err != nil {
+		return err
+	}
+	return patchConfigFile(configTarget, cfg)
+}
+
+// patchConfigFile 动态注入 TProxy/TUN 等网关配置
+func patchConfigFile(filePath string, cfg SubscribeConfig) error {
+	contentBytes, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	configContent := string(contentBytes)
+
+	// 动态注入 TProxy 与 TUN 配置
+	tPort := 0
+	if cfg.TproxyEnable {
+		tPort = cfg.TproxyPort
+	}
+	// 1. 注入 tproxy-port
+	reCleanTp := regexp.MustCompile(`(?m)^tproxy-port:\s*\d+\s*\r?\n?`)
+	configContent = reCleanTp.ReplaceAllString(configContent, "")
+	configContent += fmt.Sprintf("\ntproxy-port: %d", tPort)
+
+	// 2. 注入 tun 开关状态
+	reTunEnable := regexp.MustCompile(`(?m)^tun:\s*\r?\n(\s+)enable:\s*(true|false)`)
+	if reTunEnable.MatchString(configContent) {
+		configContent = reTunEnable.ReplaceAllString(configContent, fmt.Sprintf("tun:\n${1}enable: %t", cfg.TunEnable))
+	} else {
+		// 模板无 tun 时追加默认配置
+		configContent += fmt.Sprintf("\ntun:\n  enable: %t\n  stack: mixed\n  auto-route: true\n  auto-redirect: true\n  auto-detect-interface: true\n", cfg.TunEnable)
+	}
+
+	// 3. 注入 dns 监听
+	reDns := regexp.MustCompile(`(?m)^dns:\s*\r?\n`)
+	if reDns.MatchString(configContent) {
+		// 清理 dns 节点下的 listen 属性
+		reCleanListen := regexp.MustCompile(`(?m)^(dns:\s*\r?\n(?:[ \t]+.*\r?\n)*?)[ \t]+listen:\s*.*$\r?\n?`)
+		configContent = reCleanListen.ReplaceAllString(configContent, "$1")
+		// 首行插入 1053 端口监听
+		configContent = reDns.ReplaceAllString(configContent, "dns:\n  listen: 0.0.0.0:1053\n")
+	}
+
+	// 4. 注入 routing-mark 防直连回环
+	reCleanRm := regexp.MustCompile(`(?m)^routing-mark:\s*\d+\s*\r?\n?`)
+	configContent = reCleanRm.ReplaceAllString(configContent, "")
+	configContent += "\nrouting-mark: 255"
+
+	// 清理多余空行
+	configContent = regexp.MustCompile(`\n{3,}`).ReplaceAllString(configContent, "\n\n")
+
+	return os.WriteFile(filePath, []byte(configContent), 0644)
 }
 // ensureSubscriptionFiles 在切换模式下，确保所有订阅的本地文件已下载
 // 若模式为 "merge" 或无订阅，则直接返回 nil
@@ -984,7 +1064,7 @@ func handleUpdateSubscriptionInfo(w http.ResponseWriter, r *http.Request) {
         Download  int64  `json:"Download"`
         Total     int64  `json:"Total"`
         Expire    int64  `json:"Expire"`
-        updatedAt string `json:"updatedAt"`
+        UpdatedAt string `json:"updatedAt"`
     }
     if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
         writeJSONError(w, http.StatusBadRequest, "无效的请求体: "+err.Error())
@@ -1001,7 +1081,7 @@ func handleUpdateSubscriptionInfo(w http.ResponseWriter, r *http.Request) {
                 "total":    payload.Total,
                 "expire":   payload.Expire,
             }
-            subscribeConfig.Subscriptions[i].UpdatedAt = payload.updatedAt
+            subscribeConfig.Subscriptions[i].UpdatedAt = payload.UpdatedAt
             subscribeConfig.Subscriptions[i].SubscriptionInfo = subInfo
             found = true
             break

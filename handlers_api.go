@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -72,6 +74,27 @@ func handleConfigsAPI(w http.ResponseWriter, r *http.Request) {
 		io.Copy(w, resp.Body)
 
 	case http.MethodPatch:
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "读取请求体失败: "+err.Error())
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+		var fields map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &fields); err == nil {
+			if tpVal, ok := fields["tproxy-port"]; ok {
+				if tpPort, ok := tpVal.(float64); ok {
+					if tpPort > 0 {
+						disableTProxyRules()
+						enableTProxyRules(int(tpPort))
+					} else {
+						disableTProxyRules()
+					}
+				}
+			}
+		}
+
 		resp, err := coreRequest("PATCH", "/configs", r.Body)
 		if err != nil {
 			writeJSONError(w, http.StatusBadGateway, "修改配置失败: "+err.Error())

@@ -21,6 +21,7 @@ const mockSubConfig = {
   rule_group: 'base',
   ui_panel: 'metacubexd',
   meta_backend_url: '',
+  tproxy_port: 7893,
   subscriptions: [
     {
       name: 'Sub-Mock-01',

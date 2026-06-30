@@ -82,6 +82,8 @@ func main() {
 		} else {
 			fmt.Println("已生成基本配置文件 (config.yaml)")
 		}
+	} else {
+		patchConfigFile(configTarget, subscribeConfig)
 	}
 
 	var err error
@@ -271,6 +273,7 @@ func main() {
 
 	fmt.Println("\n收到退出信号，正在关闭 Fluxor...")
 	stopAllTimers()
+	disableTProxyRules() // 面板退出时强制执行一次系统级 TProxy 防火墙与路由规则彻底清退，避免断网残留
 	if isCoreRunning() {
 		fmt.Println("正在停止内核...")
 		if err := stopCore(); err != nil {
