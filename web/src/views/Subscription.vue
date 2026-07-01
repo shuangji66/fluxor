@@ -199,7 +199,7 @@ const openSubModal = (index: number = -1) => {
       name: sub.name || '',
       url: sub.url || '',
       update_interval: sub.update_interval || 86400,
-      health_interval: sub.health_interval || 300,
+      health_interval: sub.health_interval || 600,
       prefix: sub.prefix || ''
     }
   } else {
@@ -208,7 +208,7 @@ const openSubModal = (index: number = -1) => {
       name: '',
       url: '',
       update_interval: 86400,
-      health_interval: 300,
+      health_interval: 600,
       prefix: ''
     }
   }
@@ -375,6 +375,14 @@ const saveAndApply = async () => {
   }
 }
 
+// TPROXY 端口输入框清空时自动置 0
+const onTproxyPortInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.value === '') {
+    currentConfig.value.tproxy_port = 0
+  }
+}
+
 // 辅助格式化
 const formatGB = (bytes: number) => {
   if (!bytes) return '0.0 GB'
@@ -427,11 +435,22 @@ onUnmounted(() => {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.proxy_port') }}</label>
-          <input type="number" v-model="currentConfig.proxy_port" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+          <input type="number" v-model="currentConfig.proxy_port" min="0" max="65535" step="1" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
         </div>
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.panel_port') }}</label>
-          <input type="number" v-model="currentConfig.panel_port" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+          <input type="number" v-model="currentConfig.panel_port" min="0" max="65535" step="1" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.tproxy_port') }}</label>
+          <input
+            type="number"
+            v-model.number="currentConfig.tproxy_port"
+            min="0" max="65535" step="1" 
+            @input="onTproxyPortInput"
+            :placeholder="t('config.port_disabled_hint')"
+            class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
+          />
         </div>
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.panel_secret') }}</label>
@@ -446,7 +465,6 @@ onUnmounted(() => {
         <div class="flex flex-col gap-2">
           <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
           <select v-model="currentConfig.rule_group" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-            <option value="lite">{{ t('subscription.rule_group_lite') }}</option>
             <option value="base">{{ t('subscription.rule_group_base') }}</option>
             <option value="full">{{ t('subscription.rule_group_full') }}</option>
           </select>
@@ -476,16 +494,6 @@ onUnmounted(() => {
               <EyeOffOutline v-else class="w-5 h-5" />
             </button>
           </div>
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.tproxy_port') }}</label>
-          <input
-            type="number"
-            v-model.number="currentConfig.tproxy_port"
-            :placeholder="t('config.port_disabled_hint')"
-            class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
-          />
         </div>
       </div>
 
@@ -591,7 +599,7 @@ onUnmounted(() => {
       <div v-if="isApplying" class="fixed inset-0 glass-mask z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
         <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
           <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs font-bold text-slate-600 dark:text-slate-300">正在保存并应用订阅配置...</span>
+          <span class="text-xs font-bold text-slate-600 dark:text-slate-300">{{ t('subscription.applying') }}</span>
         </div>
       </div>
     </Teleport>

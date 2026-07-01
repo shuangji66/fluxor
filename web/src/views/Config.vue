@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
 import { CloudDownloadOutline, OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SearchOutline, SyncOutline, ColorPaletteOutline, SettingsOutline, InformationCircleOutline } from '@vicons/ionicons5'
@@ -24,6 +24,12 @@ const coreVersion = computed(() => {
   if (stats.value.coreVersion === '未知') return ''
   return 'v' + stats.value.coreVersion
 })
+
+const onTproxyPortClick = () => {
+  if (configStore.currentConfig.tproxy_enable) {
+    globalStore.showToast(t('config.tproxy_port_readonly_warning'), 'warning')
+  }
+}
 
 export interface CoreStatus {
   running: boolean
@@ -57,8 +63,63 @@ const fetchInterfaces = async () => {
   }
 }
 
-// 废弃局部端口 ref 和深度 watch，直接双向绑定 configs 对象
+// tproxy例外列表弹窗
+const showTproxyExceptionsDialog = ref(false)
 
+const tproxyDstExceptionsText = ref('')
+const tproxySrcExceptionsText = ref('')
+const tproxyProxyLocal = ref(false)
+
+// 在 openTproxyExceptionsDialog 中同时获取例外列表和本机开关
+const openTproxyExceptionsDialog = async () => {
+  if (configStore.currentConfig.tproxy_enable) {
+    globalStore.showToast(t('config.tproxy_exceptions_disabled_message'), 'warning')
+    return
+  }
+  try {
+    const resp = await apiFetch('/config/tproxy/exceptions')
+    if (resp.ok) {
+      const data = await resp.json()
+      tproxyDstExceptionsText.value = (data.dst || []).join('\n')
+      // 直接使用后端数据，不额外填充默认值
+      tproxySrcExceptionsText.value = (data.src || []).join('\n')
+    }
+    const resp2 = await apiFetch('/config/tproxy/proxy-local')
+    if (resp2.ok) {
+      const data2 = await resp2.json()
+      tproxyProxyLocal.value = data2.enabled
+    }
+    showTproxyExceptionsDialog.value = true
+  } catch (e) {
+    globalStore.showToast(t('common.error'), 'error')
+  }
+}
+// 修改保存函数：同时保存例外列表和本机代理开关（如果变化）
+const saveTproxyExceptions = async () => {
+  const dstLines = tproxyDstExceptionsText.value.split('\n').map(s => s.trim()).filter(s => s !== '')
+  const srcLines = tproxySrcExceptionsText.value.split('\n').map(s => s.trim()).filter(s => s !== '')
+  try {
+    const resp = await apiFetch('/config/tproxy/exceptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dst: dstLines, src: srcLines })
+    })
+    if (resp.ok) {
+      // 保存本机代理开关
+      await apiFetch('/config/tproxy/proxy-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: tproxyProxyLocal.value })
+      })
+      globalStore.showToast(t('config.tproxy_exceptions_saved'), 'success')
+      showTproxyExceptionsDialog.value = false
+    } else {
+      globalStore.showToast(t('common.operation_failed'), 'error')
+    }
+  } catch (e) {
+    globalStore.showToast(t('common.error'), 'error')
+  }
+}
 
 // 统一修改配置
 const patchConfig = async (payload: Partial<ConfigData>) => {
@@ -108,7 +169,7 @@ const savePorts = async (e?: Event) => {
   const port = configs.value.port || 0
   const socksPort = configs.value['socks-port'] || 0
   const redirPort = configs.value['redir-port'] || 0
-  const tproxyPort = configStore.currentConfig.tproxy_port || 7893
+  const tproxyPort = configStore.currentConfig.tproxy_port
   const mixedPort = configs.value['mixed-port'] || 0
 
   const ports = [port, socksPort, redirPort, tproxyPort, mixedPort]
@@ -170,75 +231,54 @@ const savePorts = async (e?: Event) => {
   }
 }
 
-const persistToggleState = async (tunEnable: boolean, tproxyEnable: boolean) => {
-  configStore.currentConfig.tun_enable = tunEnable
-  configStore.currentConfig.tproxy_enable = tproxyEnable
-  
-  const subscriptionsForBackend = configStore.currentConfig.subscriptions.map((sub: any) => {
-    const { info, ...rest } = sub
-    return {
-      ...rest,
-      updated_at: info?.updatedAt || sub.updated_at,
-      subscription_info: info ? {
-        upload: info.upload || 0,
-        download: info.download || 0,
-        total: info.total || 0,
-        expire: info.expire || 0,
-      } : sub.subscription_info
-    }
-  })
-
-  try {
-    await apiFetch('/subscribe/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...configStore.currentConfig,
-        subscriptions: subscriptionsForBackend
-      })
-    })
-  } catch (e) {
-    console.error('同步持久化开关状态失败:', e)
-  }
-}
-
 const saveTun = (e?: Event) => {
   if (e && e.type === 'keyup' && e.target instanceof HTMLElement) {
     e.target.blur()
     return
   }
   const isTunEnabled = configs.value.tun.enable
-  // 互斥防呆：如果开启了 TUN，自动关闭 TProxy
+  // 互斥防呆：如果开启了 TUN，自动关闭 TProxy（设置端口为0，并同步内存开关）
   if (isTunEnabled && configs.value['tproxy-port'] !== 0) {
     configs.value['tproxy-port'] = 0
+    configStore.currentConfig.tproxy_enable = false  // 同步内存开关状态
     patchConfig({
       tun: configs.value.tun,
       'tproxy-port': 0
     })
-    persistToggleState(true, false)
   } else {
     patchConfig({ tun: configs.value.tun })
-    persistToggleState(isTunEnabled, configStore.currentConfig.tproxy_enable)
   }
 }
 
-const toggleTProxy = (enable: boolean) => {
-  let port = 0
+const toggleTProxy = async (enable: boolean) => {
+  // 1. 开启时检测端口是否为 0（仅提示，不修改端口）
   if (enable) {
-    port = configStore.currentConfig.tproxy_port || 7893
-    // 互斥防呆：如果开启了 TProxy，自动关闭 TUN
-    if (configs.value.tun.enable) {
-      configs.value.tun.enable = false
-      patchConfig({
-        'tproxy-port': port,
-        tun: configs.value.tun
-      })
-      persistToggleState(false, true)
+    const port = configStore.currentConfig.tproxy_port
+    if (port === 0) {
+      globalStore.showToast(t('config.tproxy_port_zero_warning'), 'warning')
+      configStore.currentConfig.tproxy_enable = false
       return
     }
+
+    // 2. 互斥：如果 TUN 开启，自动关闭 TUN（仍需修改 TUN 配置）
+    if (configs.value.tun.enable) {
+      configs.value.tun.enable = false
+      await patchConfig({
+        tun: configs.value.tun
+      })
+      // 注意：不再设置 tproxy-port
+    }
   }
-  patchConfig({ 'tproxy-port': port })
-  persistToggleState(configs.value.tun.enable, enable)
+
+  // 3. 更新后端内存状态（不涉及内核端口）
+  await apiFetch('/config/tproxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enable })
+  })
+
+  // 4. 同步前端内存状态（已由 v-model 自动更新，但确保一致）
+  configStore.currentConfig.tproxy_enable = enable
 }
 
 // 内核进程管理
@@ -439,11 +479,17 @@ onMounted(() => {
   fetchConfigs()
   fetchInterfaces()
   statusTimer.value = setInterval(fetchCoreStatus, 5000)
+  configStore.fetchTproxyState()
 })
 
 onUnmounted(() => {
   if (statusTimer.value) clearInterval(statusTimer.value)
 })
+
+onActivated(() => {
+  configStore.fetchTproxyState()
+})
+
 </script>
 
 <template>
@@ -544,29 +590,34 @@ onUnmounted(() => {
           <div class="grid grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.mixed_port') }}</label>
-              <input type="number" v-model.number="configs['mixed-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+              <input type="number" v-model.number="configs['mixed-port']" min="0" max="65535" step="1" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
                 class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
             </div>
             <div class="flex flex-col gap-1">
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.http_port') }}</label>
-              <input type="number" v-model.number="configs.port" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+              <input type="number" v-model.number="configs.port" min="0" max="65535" step="1" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
                 class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
             </div>
             <div class="flex flex-col gap-1">
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.socks_port') }}</label>
-              <input type="number" v-model.number="configs['socks-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+              <input type="number" v-model.number="configs['socks-port']" min="0" max="65535" step="1" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
                 class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
             </div>
             <div class="flex flex-col gap-1">
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.redir_port') }}</label>
-              <input type="number" v-model.number="configs['redir-port']" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
+              <input type="number" v-model.number="configs['redir-port']" min="0" max="65535" step="1" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
                 class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
             </div>
             <div class="flex flex-col gap-1 col-span-2">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tproxy_port')
-                }}</label>
-              <input type="number" v-model.number="configStore.currentConfig.tproxy_port" @blur="savePorts" @keyup.enter="savePorts" :placeholder="t('config.port_disabled_hint')"
-                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full" />
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tproxy_port') }}</label>
+              <input type="number" v-model.number="configStore.currentConfig.tproxy_port" 
+                min="0" max="65535" step="1"
+                @blur="savePorts" @keyup.enter="savePorts" 
+                :placeholder="t('config.port_disabled_hint')"
+                :readonly="configStore.currentConfig.tproxy_enable"
+                @click="onTproxyPortClick"
+                class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full"
+                :class="configStore.currentConfig.tproxy_enable ? 'cursor-not-allowed opacity-60' : ''" />
             </div>
           </div>
         </div>
@@ -622,7 +673,19 @@ onUnmounted(() => {
 
           <!-- TProxy 透明代理 -->
           <div class="flex items-center justify-between">
-            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tproxy_enable') }}</label>
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {{ t('config.tproxy_enable') }}
+              </label>
+              <button
+                @click="openTproxyExceptionsDialog"
+                class="p-1 text-slate-400 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                :class="configStore.currentConfig.tproxy_enable ? 'opacity-40 cursor-not-allowed' : 'hover:text-accent'"
+                :title="configStore.currentConfig.tproxy_enable ? t('config.tproxy_exceptions_disabled_message') : t('config.tproxy_exceptions_title')"
+              >
+                <SettingsOutline class="w-4 h-4" />
+              </button>
+            </div>
             <FormSwitch v-model="configStore.currentConfig.tproxy_enable" @update:model-value="toggleTProxy" />
           </div>
         </div>
@@ -791,4 +854,60 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- ====== 新增 TProxy 例外列表弹窗 ====== -->
+  <Teleport to="body">
+    <div v-if="showTproxyExceptionsDialog" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showTproxyExceptionsDialog = false">
+      <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
+        <h4 class="text-lg font-bold">{{ t('config.tproxy_exceptions_title') }}</h4>
+
+        <div class="space-y-4">
+          <!-- 目的例外 -->
+          <div>
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+              {{ t('config.tproxy_dst_exceptions_label') }}
+            </label>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_dst_exceptions_hint') }}</p>
+            <textarea
+              v-model="tproxyDstExceptionsText"
+              rows="6"
+              class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
+              :placeholder="t('config.tproxy_dst_exceptions_placeholder')"
+            ></textarea>
+          </div>
+
+          <!-- 源例外 -->
+          <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+              {{ t('config.tproxy_src_exceptions_label') }}
+            </label>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_src_exceptions_hint') }}</p>
+            <textarea
+              v-model="tproxySrcExceptionsText"
+              rows="6"
+              class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
+              :placeholder="t('config.tproxy_src_exceptions_placeholder')"
+            ></textarea>
+          </div>
+
+          <!-- 本机代理开关 -->
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/60">
+            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              {{ t('config.tproxy_proxy_local_label') }}
+            </label>
+            <FormSwitch v-model="tproxyProxyLocal" />
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+          <button @click="showTproxyExceptionsDialog = false" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all">
+            {{ t('common.cancel') }}
+          </button>
+          <button @click="saveTproxyExceptions" class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
+            {{ t('common.save') }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>

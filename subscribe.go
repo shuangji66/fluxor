@@ -18,21 +18,20 @@ import (
     "strconv"
 )
 
-// SubscribeConfig 订阅配置结构体（与前端 JSON 完全对应）
+// SubscribeConfig 订阅配置结构体
 type SubscribeConfig struct {
 	ProxyPort      int            `json:"proxy_port"`
+	TproxyPort     int            `json:"tproxy_port"`
 	PanelPort      int            `json:"panel_port"`
 	PanelSecret    string         `json:"panel_secret"`
 	RuleGroup      string         `json:"rule_group"`
-	UIPanel        string         `json:"ui_panel"`          // "metacubexd" 或 "zashboard"
-	MetaBackendURL string         `json:"meta_backend_url"`  // MetaCubeXD 后端地址，空表示不修改
-	Mode           string         `json:"mode"`              // "merge" 或 "switch"
-	ActiveSubscription string         `json:"active_subscription"` // 新增：当前选中的订阅名称（切换模式使用）
+	UIPanel        string         `json:"ui_panel"`
+	MetaBackendURL string         `json:"meta_backend_url"`
+	Mode           string         `json:"mode"`
+	ActiveSubscription string     `json:"active_subscription"`
 	Subscriptions  []Subscription `json:"subscriptions"`
 	DeletePhysical []string       `json:"delete_physical,omitempty"`
-	TproxyPort     int            `json:"tproxy_port"`
-	TproxyEnable   bool           `json:"tproxy_enable"`
-	TunEnable      bool           `json:"tun_enable"`
+
 }
 
 type Subscription struct {
@@ -58,58 +57,67 @@ func init() {
 
 // loadSubscribeConfig 从文件加载订阅配置（启动时调用），若失败则设置默认值
 func loadSubscribeConfig() {
-	subscribeMu.Lock()
-	defer subscribeMu.Unlock()
+    subscribeMu.Lock()
+    defer subscribeMu.Unlock()
 
-	defaultCfg := SubscribeConfig{
-		ProxyPort:      7890,
-		PanelPort:      9090,
-		PanelSecret:    "",
-		RuleGroup:      "base",
-		UIPanel:        "metacubexd",
-		MetaBackendURL: "",
-		Subscriptions:  []Subscription{},
-		TproxyPort:     7893,
-		TproxyEnable:   false,
-		TunEnable:      false,
-	}
+    defaultCfg := SubscribeConfig{
+        ProxyPort:      7890,
+        PanelPort:      9090,
+        PanelSecret:    "",
+        RuleGroup:      "base",
+        UIPanel:        "metacubexd",
+        MetaBackendURL: "",
+        Subscriptions:  []Subscription{},
+        TproxyPort:     7898,
+    }
 
-	data, err := os.ReadFile(subscribeConfigFile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("读取订阅配置失败: %v", err)
-		}
-		subscribeConfig = defaultCfg
-		return
-	}
+    data, err := os.ReadFile(fluxorConfigFile)
+    if err != nil {
+        if !os.IsNotExist(err) {
+            log.Printf("读取订阅配置失败: %v", err)
+        }
+        subscribeConfig = defaultCfg
+        return
+    }
 
-	var tmp SubscribeConfig
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		log.Printf("解析订阅配置失败: %v，使用默认配置", err)
-		subscribeConfig = defaultCfg
-		return
-	}
+    var tmp SubscribeConfig
+    if err := json.Unmarshal(data, &tmp); err != nil {
+        log.Printf("解析订阅配置失败: %v，使用默认配置", err)
+        subscribeConfig = defaultCfg
+        return
+    }
 
-	if tmp.ProxyPort == 0 {
-		tmp.ProxyPort = defaultCfg.ProxyPort
-	}
-	if tmp.PanelPort == 0 {
-		tmp.PanelPort = defaultCfg.PanelPort
-	}
-	if tmp.TproxyPort == 0 {
-		tmp.TproxyPort = defaultCfg.TproxyPort
-	}
-	if tmp.UIPanel == "" {
-		tmp.UIPanel = defaultCfg.UIPanel
-	}
-	if tmp.Mode == "" {
+    // 检查 JSON 中哪些键实际存在
+    var raw map[string]json.RawMessage
+    if err := json.Unmarshal(data, &raw); err != nil {
+        subscribeConfig = defaultCfg
+        return
+    }
+
+    // 仅当键不存在时，才使用默认值（避免覆盖用户设置的 0）
+    if _, ok := raw["proxy_port"]; !ok {
+        tmp.ProxyPort = defaultCfg.ProxyPort
+    }
+    if _, ok := raw["panel_port"]; !ok {
+        tmp.PanelPort = defaultCfg.PanelPort
+    }
+    if _, ok := raw["tproxy_port"]; !ok {
+        tmp.TproxyPort = defaultCfg.TproxyPort
+    }
+
+    // 字符串类型字段：若为空则设为默认值（合理）
+    if tmp.UIPanel == "" {
+        tmp.UIPanel = defaultCfg.UIPanel
+    }
+    if tmp.Mode == "" {
         tmp.Mode = "merge"
     }
-	if tmp.Subscriptions == nil {
-		tmp.Subscriptions = []Subscription{}
-	}
-	subscribeConfig = tmp
-	log.Printf("成功加载订阅配置：%d 个订阅", len(subscribeConfig.Subscriptions))
+    if tmp.Subscriptions == nil {
+        tmp.Subscriptions = []Subscription{}
+    }
+
+    subscribeConfig = tmp
+    log.Printf("成功加载订阅配置：%d 个订阅", len(subscribeConfig.Subscriptions))
 }
 
 // saveSubscribeConfig 保存订阅配置到文件
@@ -120,11 +128,11 @@ func saveSubscribeConfig() error {
     if err != nil {
         return err
     }
-    dir := filepath.Dir(subscribeConfigFile)
+    dir := filepath.Dir(fluxorConfigFile)
     if err := os.MkdirAll(dir, 0755); err != nil {
         return err
     }
-    return os.WriteFile(subscribeConfigFile, data, 0644)
+    return os.WriteFile(fluxorConfigFile, data, 0644)
 }
 // ---------- 订阅配置 API ----------
 
@@ -217,10 +225,6 @@ func handleGenerateConfig(w http.ResponseWriter, r *http.Request) {
                 writeJSONError(w, http.StatusInternalServerError, "生成基础配置失败: "+err.Error())
                 return
             }
-            if err := patchConfigFile(configTarget, cfg); err != nil {
-                writeJSONError(w, http.StatusInternalServerError, "修补基础配置失败: "+err.Error())
-                return
-            }
             // 清除选中的订阅
             cfg.ActiveSubscription = ""
             // 保存配置到全局并持久化
@@ -267,10 +271,6 @@ func handleGenerateConfig(w http.ResponseWriter, r *http.Request) {
         // 复制文件到 configTarget
         if err := copyFile(srcFile, configTarget); err != nil {
             writeJSONError(w, http.StatusInternalServerError, "复制配置文件失败: "+err.Error())
-            return
-        }
-        if err := patchConfigFile(configTarget, cfg); err != nil {
-            writeJSONError(w, http.StatusInternalServerError, "修补订阅配置文件失败: "+err.Error())
             return
         }
         // 保存配置到 subscribe.json
@@ -360,7 +360,7 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
     text := string(content)
 
     // 清理可能冲突的顶层单端口定义，防止重复端口绑定导致内核崩溃
-    conflictKeys := []string{"port", "socks-port", "redir-port", "tproxy-port"}
+    conflictKeys := []string{"port", "socks-port", "redir-port"}
     for _, k := range conflictKeys {
         reConflict := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(k) + `:\s*\d+\s*$`)
         text = reConflict.ReplaceAllString(text, "# "+k+" removed by Fluxor")
@@ -372,6 +372,7 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
         value string
     }{
         {"mixed-port", fmt.Sprintf("%d", cfg.ProxyPort)},
+        {"tproxy-port", fmt.Sprintf("%d", cfg.TproxyPort)},
         {"external-controller", fmt.Sprintf("'0.0.0.0:%d'", cfg.PanelPort)},
         {"external-controller-unix", fmt.Sprintf("'%s'", coreSocket)},
         {"secret", fmt.Sprintf("'%s'", cfg.PanelSecret)},
@@ -379,12 +380,7 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
         {"ipv6", "true"},
 		{"unified-delay", "true"},
         {"geodata-mode", "false"},
-    }
-
-    if cfg.TproxyEnable && cfg.TproxyPort > 0 {
-        rules = append(rules, struct{ key, value string }{"tproxy-port", fmt.Sprintf("%d", cfg.TproxyPort)})
-    } else {
-        rules = append(rules, struct{ key, value string }{"tproxy-port", "0"})
+        {"routing-mark", "255"},
     }
 
     // 根据面板选择 external-ui
@@ -393,6 +389,14 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
         uiPath = "ui/zash"
     }
     rules = append(rules, struct{ key, value string }{"external-ui", uiPath})
+
+	// 仅当面板为 zashboard 时添加 external-ui-url
+	if cfg.UIPanel == "zashboard" {
+		rules = append(rules, struct{ key, value string }{
+			"external-ui-url",
+			`"https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"`,
+		})
+	}
 
     // 遍历规则，替换或追加
     for _, r := range rules {
@@ -407,6 +411,11 @@ func patchSubscriptionFile(filePath string, cfg SubscribeConfig) error {
         }
     }
 
+    // ----- DNS 监听注入，替换/注入完整 DNS 配置 -----
+    reDns := regexp.MustCompile(`(?m)^dns:\s*\r?\n((?:[ \t]+.*\r?\n?)*)`)
+    text = reDns.ReplaceAllString(text, "")
+    text += "\n" + dnsBlock + "\n"
+    
     return os.WriteFile(filePath, []byte(text), 0644)
 }
 // copyFile 复制文件
@@ -423,18 +432,13 @@ func generateConfig(cfg SubscribeConfig) error {
 	// 无订阅时生成基本配置（使用配置中的端口和密钥）
 	if len(cfg.Subscriptions) == 0 {
 		basic := fmt.Sprintf(`mixed-port: %d
+tproxy-port: %d
 allow-lan: true
 mode: rule
 log-level: silent
 external-controller-unix: '%s'
 external-controller: '0.0.0.0:%d'
-`, cfg.ProxyPort, coreSocket, cfg.PanelPort)
-		if cfg.TproxyEnable && cfg.TproxyPort > 0 {
-			basic += fmt.Sprintf("tproxy-port: %d\n", cfg.TproxyPort)
-		} else {
-			basic += "tproxy-port: 0\n"
-		}
-		basic += fmt.Sprintf("tun:\n  enable: %t\n", cfg.TunEnable)
+`, cfg.ProxyPort, cfg.TproxyPort, coreSocket, cfg.PanelPort)
 		if cfg.PanelSecret != "" {
 			basic += fmt.Sprintf("secret: '%s'\n", cfg.PanelSecret)
 		}
@@ -491,117 +495,96 @@ external-controller: '0.0.0.0:%d'
 		}
 	}
 
-	// 选择外部模板文件
-	templateFile := ""
-	switch cfg.RuleGroup {
-	case "lite":
-		templateFile = "config_lite.yaml"
-	case "base":
-		templateFile = "config_base.yaml"
-	case "full":
-		templateFile = "config_full.yaml"
-	default:
-		return fmt.Errorf("未知规则集: %s", cfg.RuleGroup)
-	}
+    configContent := configTemplate
 
-	templatePath := filepath.Join(configTemplateDir, templateFile)
-	tplContent, err := os.ReadFile(templatePath)
-	if err != nil {
-		return fmt.Errorf("读取模板文件失败: %w", err)
-	}
-	tplStr := string(tplContent)
+    // 定义待替换/添加的字段
+    rules := []struct {
+        key   string
+        value string
+    }{
+        {"mixed-port", fmt.Sprintf("%d", cfg.ProxyPort)},
+        {"tproxy-port", fmt.Sprintf("%d", cfg.TproxyPort)},
+        {"external-controller", fmt.Sprintf("'0.0.0.0:%d'", cfg.PanelPort)},
+        {"secret", fmt.Sprintf("'%s'", cfg.PanelSecret)},
+    }
 
-	// 根据面板选择设置 external-ui 和 external-ui-url
-	uiSelect := "ui/meta"
-	uiURL := ""
+    // 添加 external-ui
+	uiPath := "ui/meta"
 	if cfg.UIPanel == "zashboard" {
-		uiSelect = "ui/zash"
-		uiURL = `external-ui-url: "https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"`
+		uiPath = "ui/zash"
+	}
+	rules = append(rules, struct{ key, value string }{"external-ui", uiPath})
+
+	// 仅当面板为 zashboard 时添加 external-ui-url
+	if cfg.UIPanel == "zashboard" {
+		rules = append(rules, struct{ key, value string }{
+			"external-ui-url",
+			`"https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"`,
+		})
 	}
 
-	// 替换所有占位符
-	replacer := strings.NewReplacer(
-		"${PROXY_PORT}", fmt.Sprintf("%d", cfg.ProxyPort),
-		"${UI_PORT}", fmt.Sprintf("%d", cfg.PanelPort),
-		"${UI_PASSWORD}", cfg.PanelSecret,
-		"${SUB_NAME}", strings.Join(subNames(cfg.Subscriptions), ","),
-		"${PROXY_PROVIDERS}", providersBuf.String(),
-		"${UI_SELECT}", uiSelect,
-		"${UI_URL}", uiURL,
-	)
-	configContent := replacer.Replace(tplStr)
-
-	// ----- 确保 proxy-providers 字段存在（如果 providersBuf 非空） -----
-	if providersBuf.Len() > 0 && !strings.Contains(configContent, "proxy-providers:") {
-		configContent += "\nproxy-providers:\n" + providersBuf.String()
+    // 应用规则到 configContent（替换或追加）
+	for _, r := range rules {
+		re := regexp.MustCompile(`(?m)^(` + regexp.QuoteMeta(r.key) + `):\s*.*$`)
+		if re.MatchString(configContent) {
+			configContent = re.ReplaceAllString(configContent, "$1: "+r.value)
+		} else {
+			configContent += "\n" + r.key + ": " + r.value
+		}
 	}
 
-	// 清理可能残留的 external-ui 行（如果 uiURL 为空，但模板中可能还有 external-ui-url 行，需清理）
-	if uiURL == "" {
-		reExternalURL := regexp.MustCompile(`(?m)^\s*external-ui-url:.*\n?`)
-		configContent = reExternalURL.ReplaceAllString(configContent, "")
-	}
+	// ----- 确保 proxy-providers 字段存在并注入内容 -----
+	if providersBuf.Len() > 0 {
+  	  reProxy := regexp.MustCompile(`(?m)^proxy-providers:\s*$`)
+   	 if reProxy.MatchString(configContent) {
+    	    // 替换主键行，并在其后插入 providers 内容（providersBuf 已含缩进）
+    	    configContent = reProxy.ReplaceAllString(configContent, "proxy-providers:\n"+providersBuf.String())
+    	} else {
+    	    // 不存在则追加
+            configContent += "\nproxy-providers:\n" + providersBuf.String()
+        }
+    }
+
+    // 根据规则集生成动态块
+    var groupsBlock, providersBlock, rulesBlock string
+    switch cfg.RuleGroup {
+    case "base":
+        groupsBlock = proxyGroupsBase
+        providersBlock = "" // base 不生成 rule-providers
+        rulesBlock = rulesBase
+    case "full":
+        // 替换 __SUB_NAMES__ 为订阅名称列表（逗号分隔）
+        subList := strings.Join(subNames(cfg.Subscriptions), ",")
+        groupsBlock = strings.ReplaceAll(proxyGroupsFullTemplate, "__SUB_NAMES__", subList)
+        providersBlock = ruleProvidersFull
+        rulesBlock = rulesFull
+    default:
+        return fmt.Errorf("未知规则集: %s", cfg.RuleGroup)
+    }
+
+    // 追加到配置末尾（顺序：rule-providers -> proxy-groups -> rules）
+    if providersBlock != "" {
+        configContent += "\n" + providersBlock
+    }
+    configContent += "\n" + groupsBlock + "\n" + rulesBlock
+
+    // ----- DNS 监听注入 -----
+	reDns := regexp.MustCompile(`(?m)^dns:\s*\r?\n((?:[ \t]+.*\r?\n)*?)`)
+    configContent = reDns.ReplaceAllString(configContent, "")
+    // 追加新的 DNS 块（确保前后有空行）
+    configContent += "\n" + dnsBlock + "\n"
 
 	// 清理多余空行
 	configContent = regexp.MustCompile(`\n{3,}`).ReplaceAllString(configContent, "\n\n")
 
+	// 写入文件
 	dir := filepath.Dir(configTarget)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("创建目录失败: %w", err)
 	}
-	if err := os.WriteFile(configTarget, []byte(configContent), 0644); err != nil {
-		return err
-	}
-	return patchConfigFile(configTarget, cfg)
+	return os.WriteFile(configTarget, []byte(configContent), 0644)
 }
 
-// patchConfigFile 动态注入 TProxy/TUN 等网关配置
-func patchConfigFile(filePath string, cfg SubscribeConfig) error {
-	contentBytes, err := os.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-	configContent := string(contentBytes)
-
-	// 动态注入 TProxy 与 TUN 配置
-	tPort := 0
-	if cfg.TproxyEnable {
-		tPort = cfg.TproxyPort
-	}
-	// 1. 注入 tproxy-port
-	reCleanTp := regexp.MustCompile(`(?m)^tproxy-port:\s*\d+\s*\r?\n?`)
-	configContent = reCleanTp.ReplaceAllString(configContent, "")
-	configContent += fmt.Sprintf("\ntproxy-port: %d", tPort)
-
-	// 2. 注入 tun 开关状态
-	reTunEnable := regexp.MustCompile(`(?m)^tun:\s*\r?\n(\s+)enable:\s*(true|false)`)
-	if reTunEnable.MatchString(configContent) {
-		configContent = reTunEnable.ReplaceAllString(configContent, fmt.Sprintf("tun:\n${1}enable: %t", cfg.TunEnable))
-	} else {
-		// 模板无 tun 时追加默认配置
-		configContent += fmt.Sprintf("\ntun:\n  enable: %t\n  stack: mixed\n  auto-route: true\n  auto-redirect: true\n  auto-detect-interface: true\n", cfg.TunEnable)
-	}
-
-	// 3. 注入 dns 监听
-	reDns := regexp.MustCompile(`(?m)^dns:\s*\r?\n`)
-	if reDns.MatchString(configContent) {
-		// 清理 dns 节点下的 listen 属性
-		reCleanListen := regexp.MustCompile(`(?m)^(dns:\s*\r?\n(?:[ \t]+.*\r?\n)*?)[ \t]+listen:\s*.*$\r?\n?`)
-		configContent = reCleanListen.ReplaceAllString(configContent, "$1")
-		// 首行插入 1053 端口监听
-		configContent = reDns.ReplaceAllString(configContent, "dns:\n  listen: 0.0.0.0:1053\n")
-	}
-
-	// 4. 注入 routing-mark 防直连回环
-	reCleanRm := regexp.MustCompile(`(?m)^routing-mark:\s*\d+\s*\r?\n?`)
-	configContent = reCleanRm.ReplaceAllString(configContent, "")
-	configContent += "\nrouting-mark: 255"
-
-	// 清理多余空行
-	configContent = regexp.MustCompile(`\n{3,}`).ReplaceAllString(configContent, "\n\n")
-
-	return os.WriteFile(filePath, []byte(configContent), 0644)
-}
 // ensureSubscriptionFiles 在切换模式下，确保所有订阅的本地文件已下载
 // 若模式为 "merge" 或无订阅，则直接返回 nil
 func ensureSubscriptionFiles(cfg *SubscribeConfig) error {
@@ -699,7 +682,6 @@ func respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 }
 
 // modifyMetaConfig 修改 MetaCubeXD 的 config.js 文件中的后端地址
-// 该函数从 handlers_settings.go 移入此处
 func modifyMetaConfig(backendURL string) error {
 	configPath := filepath.Join(metaDir, metaConfigFile)
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -1030,16 +1012,52 @@ func normalizeMapKeys(m map[string]interface{}) map[string]interface{} {
 
 // updateAllSubscriptionsMetadata 更新所有订阅的元数据（仅用于融合模式）
 func updateAllSubscriptionsMetadata(cfg *SubscribeConfig) {
-	for i := range cfg.Subscriptions {
-		updatedAt, subInfo, err := fetchSubscriptionMetadataFromCore(cfg.Subscriptions[i].Name)
-		if err != nil {
-			log.Printf("获取订阅 %s 元数据失败: %v", cfg.Subscriptions[i].Name, err)
-			continue
-		}
-		cfg.Subscriptions[i].UpdatedAt = updatedAt
-		cfg.Subscriptions[i].SubscriptionInfo = subInfo
-		log.Printf("更新订阅 %s 元数据成功", cfg.Subscriptions[i].Name)
-	}
+    // 1. 备份当前全局配置中的旧元数据（用于失败时保留）
+    subscribeMu.RLock()
+    oldSubs := make(map[string]Subscription)
+    for _, s := range subscribeConfig.Subscriptions {
+        oldSubs[s.Name] = s
+    }
+    subscribeMu.RUnlock()
+
+    // 2. 遍历每个订阅，尝试获取元数据
+    for i := range cfg.Subscriptions {
+        name := cfg.Subscriptions[i].Name
+        var updatedAt string
+        var subInfo map[string]interface{}
+        var err error
+
+        // 3. 重试机制：最多尝试 3 次，每次间隔 500ms
+        for attempt := 0; attempt < 3; attempt++ {
+            if attempt > 0 {
+                time.Sleep(500 * time.Millisecond)
+            }
+            updatedAt, subInfo, err = fetchSubscriptionMetadataFromCore(name)
+            if err == nil {
+                break
+            }
+            log.Printf("获取订阅 %s 元数据失败 (尝试 %d/%d): %v", name, attempt+1, 3, err)
+        }
+
+        if err != nil {
+            // 获取失败：尝试保留旧数据
+            if old, ok := oldSubs[name]; ok {
+                cfg.Subscriptions[i].UpdatedAt = old.UpdatedAt
+                cfg.Subscriptions[i].SubscriptionInfo = old.SubscriptionInfo
+                log.Printf("保留订阅 %s 的旧元数据（获取失败）", name)
+            } else {
+                cfg.Subscriptions[i].UpdatedAt = ""
+                cfg.Subscriptions[i].SubscriptionInfo = nil
+                log.Printf("订阅 %s 无历史元数据，保留为空", name)
+            }
+            continue
+        }
+
+        // 获取成功，更新
+        cfg.Subscriptions[i].UpdatedAt = updatedAt
+        cfg.Subscriptions[i].SubscriptionInfo = subInfo
+        log.Printf("更新订阅 %s 元数据成功", name)
+    }
 }
 
 // handleUpdateSubscriptionInfo 用于前端融合模式手动更新后持久化单个订阅元数据
@@ -1286,3 +1304,442 @@ func parseSubscriptionUserinfo(header string) map[string]interface{} {
 	}
 	return result
 }
+
+const configTemplate = `mixed-port:
+tproxy-port:
+allow-lan: true
+ipv6: true
+bind-address: '*'
+mode: rule
+log-level: silent
+unified-delay: true
+external-controller: ''
+external-controller-unix: '/var/apps/Fluxor/target/core.sock'
+external-ui:
+external-ui-url:
+secret: ''
+
+routing-mark: 255
+find-process-mode: strict
+client-fingerprint: chrome
+
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+sniffer:
+  enable: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+    QUIC:
+      ports: [443, 8443]
+  skip-domain:
+    - "+.push.apple.com"
+
+tun:
+  enable: false
+  stack: mixed
+  dns-hijack:
+    - "any:53"
+    - "tcp://any:53"
+  auto-route: true
+  auto-redirect: true
+  auto-detect-interface: true
+
+geodata-mode: false
+geo-auto-update: true
+geo-update-interval: 24
+`
+
+const proxyGroupsBase = `
+proxy-groups:
+  - {name: 🚀 节点选择, type: select, proxies: [👉 手动选择,♻️ 自动选择]}
+  - {name: 👉 手动选择, type: select, include-all: true}
+  - {name: ♻️ 自动选择, type: url-test, include-all: true, tolerance: 100}
+  - {name: 🤖 Github, type: select, proxies:  [🚀 节点选择,🎯 全球直连]}
+  - {name: 🇨🇳 国内, type: select, proxies:  [🎯 全球直连,🚀 节点选择]}
+  - {name: 🧱 国外, type: select, proxies:  [🚀 节点选择,🎯 全球直连]}
+  - {name: 🎯 全球直连, type: select, proxies: [DIRECT], hidden: true}
+`
+
+const rulesBase = `
+rules:
+  - GEOIP,lan,🎯 全球直连,no-resolve
+  - GEOSITE,github,🤖 Github
+  - GEOSITE,google,🚀 节点选择
+  - GEOSITE,telegram,🚀 节点选择
+  - GEOSITE,CN,🇨🇳 国内
+  - GEOSITE,geolocation-!cn,🧱 国外
+  - GEOIP,google,🚀 节点选择
+  - GEOIP,telegram,🚀 节点选择
+  - GEOIP,CN,🇨🇳 国内
+  - MATCH,🧱 国外
+`
+
+const proxyGroupsFullTemplate = `
+proxy-groups:
+  - {name: 🚀 节点选择, type: select, proxies: [♻️ 自动选择, 👉 手动选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 👉 手动选择, type: select, include-all: true}
+  - {name: 📈 网络测试, type: select, proxies: [🎯 全球直连, 🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🕹️ 游戏平台, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🤖 AI 平台, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🎮 游戏服务, type: select, proxies: [🎯 全球直连, 🚀 节点选择]}
+  - {name: 🪟 微软服务, type: select, proxies: [🎯 全球直连, 🚀 节点选择]}
+  - {name: 🇬 谷歌服务, type: select, proxies: [🎯 全球直连, 🚀 节点选择]}
+  - {name: 🍎 苹果服务, type: select, proxies: [🎯 全球直连, 🚀 节点选择]}
+  - {name: 🎥 奈飞视频, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 📽️ 迪士尼+, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🎞️ Max, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🎬 Prime Video, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🍎 Apple TV+, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 📹 油管视频, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🎵 TikTok, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 📺 哔哩哔哩, type: select, proxies: [🎯 全球直连, 🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🎶 Spotify, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 🌍 国外媒体, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: 📋 Trackerslist, type: select, proxies: [🎯 全球直连, 🚀 节点选择]}
+  - {name: 🇨🇳 国内域名, type: select, proxies: [🎯 全球直连, 🚀 节点选择]}
+  - {name: 🀄️ 国内 IP, type: select, proxies: [🎯 全球直连, 🚀 节点选择]}
+  - {name: 🌎 国外顶级域名, type: select, proxies: [🚀 节点选择, 🎯 全球直连]}
+  - {name: 🌎 国外域名, type: select, proxies: [🚀 节点选择, 🎯 全球直连]}
+  - {name: 📲 电报消息, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点]}
+  - {name: ⬇️ 直连软件, type: select, proxies: [🎯 全球直连], hidden: true}
+  - {name: 🔒 私有网络, type: select, proxies: [🎯 全球直连], hidden: true}
+  - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 节点选择, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 新加坡节点, 🇺🇸 美国节点, 🎯 全球直连]}
+  - {name: 🛑 广告域名, type: select, proxies: [🔴 全球拦截, 🟢 全球绕过]}
+  - {name: 🔴 全球拦截, type: select, proxies: [REJECT], hidden: true}
+  - {name: 🟢 全球绕过, type: select, proxies: [PASS], hidden: true}
+  - {name: 🎯 全球直连, type: select, proxies: [DIRECT], hidden: true}
+
+  - {name: 🇭🇰 香港节点, type: url-test, tolerance: 50, use: [__SUB_NAMES__], filter: "(?i)(🇭🇰|港|hk|hongkong|hong kong)"}
+  - {name: 🇹🇼 台湾节点, type: url-test, tolerance: 50, use: [__SUB_NAMES__], filter: "(?i)(🇹🇼|台|tw|taiwan|tai wan)"}
+  - {name: 🇯🇵 日本节点, type: url-test, tolerance: 50, use: [__SUB_NAMES__], filter: "(?i)(🇯🇵|日|jp|japan)"}
+  - {name: 🇸🇬 新加坡节点, type: url-test, tolerance: 50, use: [__SUB_NAMES__], filter: "(?i)(🇸🇬|新|sg|singapore)"}
+  - {name: 🇺🇸 美国节点, type: url-test, tolerance: 100, use: [__SUB_NAMES__], filter: "(?i)(🇺🇸|美|us|unitedstates|united states)"}
+  - {name: ♻️ 自动选择, type: url-test, tolerance: 100, include-all: true}
+`
+
+const ruleProvidersFull = `
+rule-providers:
+  fakeip-filter:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/fakeip-filter.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/fakeip-filter.mrs"
+    interval: 86400
+
+  ads:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/ads.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/ads.mrs"
+    interval: 86400
+
+  private:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/private.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/private.mrs"
+    interval: 86400
+
+  trackerslist:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/trackerslist.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/trackerslist.mrs"
+    interval: 86400
+
+  applications:
+    type: http
+    behavior: classical
+    format: text
+    path: ./ruleset/applications.list
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/applications.list"
+    interval: 86400
+
+  microsoft-cn:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/microsoft-cn.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/microsoft-cn.mrs"
+    interval: 86400
+
+  apple-cn:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/apple-cn.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/apple-cn.mrs"
+    interval: 86400
+
+  google-cn:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/google-cn.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/google-cn.mrs"
+    interval: 86400
+
+  games-cn:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/games-cn.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/games-cn.mrs"
+    interval: 86400
+
+  games:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/games.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/games.mrs"
+    interval: 86400
+
+  netflix:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/netflix.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/netflix.mrs"
+    interval: 86400
+
+  disney:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/disney.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/disney.mrs"
+    interval: 86400
+
+  max:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/max.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/max.mrs"
+    interval: 86400
+
+  primevideo:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/primevideo.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/primevideo.mrs"
+    interval: 86400
+
+  appletv:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/appletv.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/appletv.mrs"
+    interval: 86400
+
+  youtube:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/youtube.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/youtube.mrs"
+    interval: 86400
+
+  tiktok:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/tiktok.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/tiktok.mrs"
+    interval: 86400
+
+  bilibili:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/bilibili.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/bilibili.mrs"
+    interval: 86400
+
+  spotify:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/spotify.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/spotify.mrs"
+    interval: 86400
+
+  media:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/media.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/media.mrs"
+    interval: 86400
+
+  ai:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/ai.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/ai.mrs"
+    interval: 86400
+
+  networktest:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/networktest.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/networktest.mrs"
+    interval: 86400
+
+  tld-proxy:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/tld-proxy.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/tld-proxy.mrs"
+    interval: 86400
+
+  gfw:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/gfw.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/gfw.mrs"
+    interval: 86400
+
+  proxy:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/proxy.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/proxy.mrs"
+    interval: 86400
+
+  cn:
+    type: http
+    behavior: domain
+    format: mrs
+    path: ./ruleset/cn.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/cn.mrs"
+    interval: 86400
+
+  privateip:
+    type: http
+    behavior: ipcidr
+    format: mrs
+    path: ./ruleset/privateip.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/privateip.mrs"
+    interval: 86400
+
+  cnip:
+    type: http
+    behavior: ipcidr
+    format: mrs
+    path: ./ruleset/cnip.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/cnip.mrs"
+    interval: 86400
+
+  telegramip:
+    type: http
+    behavior: ipcidr
+    format: mrs
+    path: ./ruleset/telegramip.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/telegramip.mrs"
+    interval: 86400
+
+  netflixip:
+    type: http
+    behavior: ipcidr
+    format: mrs
+    path: ./ruleset/netflixip.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/netflixip.mrs"
+    interval: 86400
+
+  mediaip:
+    type: http
+    behavior: ipcidr
+    format: mrs
+    path: ./ruleset/mediaip.mrs
+    url: "https://github.com/DustinWin/ruleset_geodata/releases/download/mihomo-ruleset/mediaip.mrs"
+    interval: 86400
+`
+
+const rulesFull = `
+rules:
+  - RULE-SET,private,🔒 私有网络
+  - RULE-SET,ads,🛑 广告域名
+  - RULE-SET,trackerslist,📋 Trackerslist
+  - RULE-SET,applications,⬇️ 直连软件
+  - RULE-SET,microsoft-cn,🪟 微软服务
+  - RULE-SET,apple-cn,🍎 苹果服务
+  - RULE-SET,google-cn,🇬 谷歌服务
+  - RULE-SET,games-cn,🎮 游戏服务
+  - RULE-SET,games,🕹️ 游戏平台
+  - RULE-SET,netflix,🎥 奈飞视频
+  - RULE-SET,disney,📽️ 迪士尼+
+  - RULE-SET,max,🎞️ Max
+  - RULE-SET,primevideo,🎬 Prime Video
+  - RULE-SET,appletv,🍎 Apple TV+
+  - RULE-SET,youtube,📹 油管视频
+  - RULE-SET,tiktok,🎵 TikTok
+  - RULE-SET,bilibili,📺 哔哩哔哩
+  - RULE-SET,spotify,🎶 Spotify
+  - RULE-SET,media,🌍 国外媒体
+  - RULE-SET,ai,🤖 AI 平台
+  - RULE-SET,networktest,📈 网络测试
+  - RULE-SET,tld-proxy,🌎 国外顶级域名
+  - RULE-SET,gfw,🌎 国外域名
+  - RULE-SET,proxy,🌎 国外域名
+  - RULE-SET,cn,🇨🇳 国内域名
+  - RULE-SET,privateip,🔒 私有网络,no-resolve
+  - RULE-SET,cnip,🀄️ 国内 IP
+  - RULE-SET,telegramip,📲 电报消息,no-resolve
+  - RULE-SET,netflixip,🎥 奈飞视频
+  - RULE-SET,mediaip,🌍 国外媒体
+  - MATCH,🐟 漏网之鱼
+`
+
+const dnsBlock = `
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  prefer-h3: true
+  ipv6: true
+  use-hosts: true
+  respect-rules: true
+  default-nameserver:
+    - https://223.5.5.5/dns-query
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - '*.lan'
+    - '*.local'
+    - '*.localhost'
+    - localhost.ptlogin2.qq.com
+    - '+.stun.*.*'
+    - '+.stun.*.*.*'
+    - '+.stun.*.*.*.*'
+    - lens.l.google.com
+    - '*.srv.nintendo.net'
+    - +.stun.playstation.net
+    - 'xbox.*.*.microsoft.com'
+    - '*.*.xboxlive.com'
+    - +.msftncsi.com
+    - +.msftconnecttest.com
+  nameserver:
+    - https://120.53.53.53/dns-query
+    - https://223.5.5.5/dns-query
+  proxy-server-nameserver:
+    - https://120.53.53.53/dns-query
+    - https://223.5.5.5/dns-query
+`

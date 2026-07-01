@@ -27,7 +27,7 @@ var (
     coreSocket          string
     metaDir             string
     zashDir             string
-    subscribeConfigFile string
+    fluxorConfigFile    string
     configTarget        string
     configTemplateDir   string
     infoLogFile         string
@@ -43,7 +43,7 @@ func init() {
     coreSocket = getEnv("CORE_SOCKET", "/var/apps/Fluxor/target/core.sock")
     metaDir = getEnv("META_DIR", "/var/apps/Fluxor/shares/ui/meta")
     zashDir = getEnv("ZASH_DIR", "/var/apps/Fluxor/shares/ui/zash")
-    subscribeConfigFile = getEnv("SUBSCRIBE_CONFIG_FILE", "/var/apps/Fluxor/var/subscribe.json")
+    fluxorConfigFile = getEnv("FLUXOR_CONFIG_FILE", "/var/apps/Fluxor/var/fluxor.json")
     configTarget = getEnv("CONFIG_TARGET", "/var/apps/Fluxor/shares/Fluxor/config.yaml")
     configTemplateDir = getEnv("CONFIG_TEMPLATE_DIR", "/var/apps/Fluxor/target/templates")
     infoLogFile = getEnv("INFO_LOG_FILE", "/var/apps/Fluxor/shares/Fluxor/info.log")
@@ -75,6 +75,9 @@ func main() {
 	loadSubscribeConfig()
 	initCoreLogger()
 	startAllTimers()
+	loadTproxySrcExceptions()
+	loadTproxyDstExceptions()
+	loadTproxyProxyLocal() 
 
 	if _, err := os.Stat(configTarget); os.IsNotExist(err) {
 		if err := generateConfig(subscribeConfig); err != nil {
@@ -82,8 +85,6 @@ func main() {
 		} else {
 			fmt.Println("已生成基本配置文件 (config.yaml)")
 		}
-	} else {
-		patchConfigFile(configTarget, subscribeConfig)
 	}
 
 	var err error
@@ -184,6 +185,9 @@ func main() {
 	mux.HandleFunc(baseURL+"/cache/dns/flush", handleFlushDNS)
 	mux.HandleFunc(baseURL+"/dns/query", handleDNSQuery)
 	mux.HandleFunc(baseURL+"/restart", handleRestart)
+	mux.HandleFunc(baseURL+"/config/tproxy", handleTproxyState)
+	mux.HandleFunc(baseURL+"/config/tproxy/exceptions", handleTproxyExceptions)
+	mux.HandleFunc(baseURL+"/config/tproxy/proxy-local", handleTproxyProxyLocal)
 
 	mux.HandleFunc(baseURL+"/ipinfo/local/v4", handleLocalIPv4)
     mux.HandleFunc(baseURL+"/ipinfo/local/v6", handleLocalIPv6)

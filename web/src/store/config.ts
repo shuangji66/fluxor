@@ -53,8 +53,7 @@ export interface SubscriptionConfigData {
   active_subscription: string
   subscriptions: SubscriptionItem[]
   tproxy_port: number
-  tproxy_enable: boolean
-  tun_enable: boolean
+  tproxy_enable?: boolean
 }
 
 export const useConfigStore = defineStore('config', () => {
@@ -93,10 +92,24 @@ export const useConfigStore = defineStore('config', () => {
     mode: 'merge',
     active_subscription: '', 
     subscriptions: [],
-    tproxy_port: 7893,
-    tproxy_enable: false,
-    tun_enable: false
+    tproxy_port: 7898,
+    tproxy_enable: false
   })
+
+  const tproxyState = ref<boolean>(false)
+
+  const fetchTproxyState = async () => {
+    try {
+      const resp = await apiFetch('/config/tproxy')
+      if (resp.ok) {
+        const data = await resp.json()
+        tproxyState.value = data.enabled
+        currentConfig.value.tproxy_enable = data.enabled
+      }
+    } catch (e) {
+      console.error('获取 TProxy 状态失败', e)
+    }
+  }
 
   // 已保存应用的订阅名称白名单
   const savedSubNames = ref<Set<string>>(new Set())
@@ -183,9 +196,7 @@ export const useConfigStore = defineStore('config', () => {
           meta_backend_url: cfg.meta_backend_url || '',
           mode: cfg.mode || 'merge',
           active_subscription: cfg.active_subscription || '',
-          tproxy_port: cfg.tproxy_port || 7893,
-          tproxy_enable: cfg.tproxy_enable || false,
-          tun_enable: cfg.tun_enable || false,
+          tproxy_port: cfg.tproxy_port ?? 7898,
           subscriptions: subs.map((s: any) => {
             // 将后端存储的 subscription_info 映射为前端的 info 对象
             const info = s.subscription_info ? {
@@ -281,6 +292,8 @@ export const useConfigStore = defineStore('config', () => {
     fetchConfigs,
     loadConfig,
     enrichSubscriptions,
-    fetchSubscriptionInfo
+    fetchSubscriptionInfo,
+    tproxyState,
+    fetchTproxyState,
   }
 })
