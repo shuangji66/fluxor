@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia'
 import { useProxyStore } from '../store/proxies'
 import { useGlobalStore } from '../store/global'
 import { useConfigStore } from '../store/config'
+import { useSubscriptionStore } from '../store/subscription'
 import ProxyGroupCard from '../components/ProxyGroupCard.vue'
 import { apiFetch } from '../utils/api'
 
@@ -13,10 +14,12 @@ const { t } = useI18n()
 const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
+const subscriptionStore = useSubscriptionStore()
 
 const { proxyGroups, delays, isLoading, sortOrder, delayThresholds, historyCount, filterRegex } = storeToRefs(proxyStore)
 const { setSortOrder, updateSettings, fetchQualityScores, setFilterRegex } = proxyStore
-const { configs, coreStatus, currentConfig } = storeToRefs(configStore)
+const { coreStatus, configs } = storeToRefs(configStore)
+const { currentConfig } = storeToRefs(subscriptionStore)
 
 // ===== 设置弹窗 =====
 const showSettingsDialog = ref(false)
@@ -104,6 +107,7 @@ const rightColumn = computed(() => filteredGroups.value.filter((_, i) => i % 2 =
 
 const isTestingAll = ref(false)
 let refreshTimer: number | null = null
+let statusTimer: any = null
 
 const changeMode = async (mode: string) => {
   if (!coreStatus.value.running) {

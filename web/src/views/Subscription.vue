@@ -5,11 +5,14 @@ import { apiFetch } from '../utils/api'
 import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, AddOutline, CloseOutline, InformationCircleOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
-import { useConfigStore, type SubscriptionInfo, type SubscriptionItem } from '../store/config'
+import { useSubscriptionStore, type SubscriptionInfo, type SubscriptionItem } from '../store/subscription'
 import { useRulesStore } from '../store/rules'
 import { useProxyStore } from '../store/proxies'
+import { useConfigStore } from '../store/config'
 
 const globalStore = useGlobalStore()
+const configStore = useConfigStore()
+const { coreStatus } = storeToRefs(configStore)
 
 const { t } = useI18n()
 
@@ -46,20 +49,20 @@ const selectSubscription = (name: string) => {
     }
 }
 
-const configStore = useConfigStore()
 const rulesStore = useRulesStore()
 const proxyStore = useProxyStore()
-const { currentConfig, savedSubNames, coreStatus } = storeToRefs(configStore)
+
+const subscriptionStore = useSubscriptionStore()
+const { currentConfig, savedSubNames } = storeToRefs(subscriptionStore)
 
 const loadConfig = async () => {
   try {
-    await configStore.loadConfig()
+    await subscriptionStore.loadConfig()
   } catch (e) {
     console.error('加载订阅配置失败', e)
   }
 }
-const fetchSubscriptionInfo = configStore.fetchSubscriptionInfo
-//const enrichSubscriptions = configStore.enrichSubscriptions
+const fetchSubscriptionInfo = subscriptionStore.fetchSubscriptionInfo
 
 const getHealthClass = (info?: SubscriptionInfo | null) => {
   if (!info || info.aliveCount === 0) return 'text-red-500'
@@ -98,7 +101,7 @@ const handleUpdateSub = async (index: number) => {
 
     if (!resp.ok) {
       globalStore.showToast(`${t('subscription.operation_failed')}: ${result.message || ''}`, 'error')
-      await configStore.loadConfig() 
+      await subscriptionStore.loadConfig() 
       isUpdating.value[index] = false
       return
     }
@@ -112,7 +115,7 @@ const handleUpdateSub = async (index: number) => {
       const timer = setInterval(async () => {
         retries++
         try {
-          await configStore.loadConfig()
+          await subscriptionStore.loadConfig()
           const updatedSub = currentConfig.value.subscriptions.find(s => s.name === sub.name)
           if (updatedSub && updatedSub.info?.updatedAt !== initialTime) {
             clearPoll(index)
@@ -400,8 +403,7 @@ const formatExpire = (expire: number) => {
   return new Date(expire * 1000).toLocaleString()
 }
 
-onMounted(async () => {
-  configStore.fetchCoreStatus()
+onMounted(() => {
   loadConfig()
 })
 

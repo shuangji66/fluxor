@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useGlobalStore } from './store/global'
 import { useConfigStore } from './store/config'
 import { useOverviewStore } from './store/overview'
+import { useSubscriptionStore } from './store/subscription'
 import { apiFetch } from './utils/api'
 import {
   LanguageOutline,
@@ -37,6 +38,7 @@ import Connections from './views/Connections.vue'
 import Logs from './views/Logs.vue'
 import Config from './views/Config.vue'
 import Subscription from './views/Subscription.vue'
+
 const appVersion = __APP_VERSION__
 
 import { useTheme } from './composables/useTheme'
@@ -46,6 +48,7 @@ const { t } = useI18n()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 const overviewStore = useOverviewStore()
+const subscriptionStore = useSubscriptionStore()
 
 const { initTheme, switchThemeCycle } = useTheme()
 const { locale, currentLangDisplay, toggleLanguage, updateTitle } = useLanguage()
@@ -143,13 +146,6 @@ const handleCopy = (e: ClipboardEvent) => {
   }
 }
 
-// 监听内核运行状态，若已运行且版本号未加载，立即主动拉取一次
-watch(() => configStore.coreStatus.running, (running) => {
-  if (running && (overviewStore.stats.coreVersion === '加载中...' || overviewStore.stats.coreVersion === '未知')) {
-    overviewStore.fetchVersionAndStatus()
-  }
-}, { immediate: true })
-
 onMounted(() => {
   initTheme()
   updateTitle(globalStore.activeTab)
@@ -162,11 +158,16 @@ onMounted(() => {
   window.addEventListener('resize', handleResize)
   document.addEventListener('selectstart', handleSelectStart)
   document.addEventListener('copy', handleCopy as EventListener)
+
+  // 订阅内核状态（启动轮询）
+  configStore.subscribeCoreStatus()
   
   // 预加载配置与订阅状态
-  configStore.fetchCoreStatus()
   configStore.fetchConfigs()
-  configStore.loadConfig()
+  subscriptionStore.loadConfig()  // 改用 subscriptionStore（如果 App.vue 中已导入）
+  
+  // 统一获取版本号（应用启动时立即执行）
+  overviewStore.fetchVersionAndStatus()
 
   // 获取当前用户信息并显示欢迎
   apiFetch('/whoami')
@@ -183,6 +184,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('selectstart', handleSelectStart)
   document.removeEventListener('copy', handleCopy as EventListener)
+  configStore.unsubscribeCoreStatus()
 })
 </script>
 

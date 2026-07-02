@@ -1,3 +1,4 @@
+// stores/config.ts
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiFetch } from '../utils/api'
@@ -22,47 +23,7 @@ export interface ConfigData {
   'mixed-port': number
 }
 
-export interface SubscriptionInfo {
-  upload: number
-  download: number
-  total: number
-  expire: number
-  updatedAt: string | null
-  aliveCount?: number
-  totalCount?: number
-  avgDelay?: number
-}
-
-export interface SubscriptionItem {
-  name: string
-  url: string
-  update_interval: number
-  health_interval: number
-  prefix: string
-  info?: SubscriptionInfo | null
-}
-
-export interface SubscriptionConfigData {
-  proxy_port: number
-  panel_port: number
-  panel_secret: string
-  rule_group: string
-  ui_panel: string
-  meta_backend_url: string
-  mode: string
-  active_subscription: string
-  subscriptions: SubscriptionItem[]
-  tproxy_port: number
-  tproxy_enable?: boolean
-}
-
 export const useConfigStore = defineStore('config', () => {
-  // 内核状态
-  const coreStatus = ref({
-    running: false,
-    loading: true
-  })
-
   // 内核配置参数
   const configs = ref<ConfigData>({
     'allow-lan': false,
@@ -81,52 +42,28 @@ export const useConfigStore = defineStore('config', () => {
   // 内核配置同步加载状态
   const configsLoading = ref(true)
 
-  // 订阅配置参数
-  const currentConfig = ref<SubscriptionConfigData>({
-    proxy_port: 7890,
-    panel_port: 9090,
-    panel_secret: '',
-    rule_group: 'base',
-    ui_panel: 'metacubexd',
-    meta_backend_url: '',
-    mode: 'merge',
-    active_subscription: '', 
-    subscriptions: [],
-    tproxy_port: 7898,
-    tproxy_enable: false
-  })
+  // 独立的 TProxy 开关状态（系统级）
+  const tproxyEnabled = ref<boolean>(false)
+  const tproxyStateLoaded = ref(false)
 
-  const tproxyState = ref<boolean>(false)
-
-  const fetchTproxyState = async () => {
-    try {
-      const resp = await apiFetch('/config/tproxy')
-      if (resp.ok) {
-        const data = await resp.json()
-        tproxyState.value = data.enabled
-        currentConfig.value.tproxy_enable = data.enabled
+  const fetchTproxyState = async (retries = 2) => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const resp = await apiFetch('/config/tproxy')
+        if (resp.ok) {
+          const data = await resp.json()
+          tproxyEnabled.value = data.enabled
+          tproxyStateLoaded.value = true
+          return true
+        }
+      } catch (e) {
+        console.warn(`获取 TProxy 状态失败 (尝试 ${attempt + 1}/${retries + 1})`, e)
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 300 * (attempt + 1)))
+        }
       }
-    } catch (e) {
-      console.error('获取 TProxy 状态失败', e)
     }
-  }
-
-  // 已保存应用的订阅名称白名单
-  const savedSubNames = ref<Set<string>>(new Set())
-
-  // 轮询获取内核状态
-  const fetchCoreStatus = async () => {
-    try {
-      const resp = await apiFetch('/core/status')
-      if (resp.ok) {
-        const data = await resp.json()
-        coreStatus.value.running = data.running
-      }
-    } catch (e) {
-      console.error('获取内核状态失败', e)
-    } finally {
-      coreStatus.value.loading = false
-    }
+    return false
   }
 
   // 获取内核详细配置
@@ -179,121 +116,66 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  // 获取订阅中心配置
-  const loadConfig = async () => {
-    try {
-      const resp = await apiFetch('/subscribe/config')
-      if (resp.ok) {
-        const cfg = await resp.json()
-        const subs = cfg.subscriptions || []
-        savedSubNames.value = new Set(subs.map((s: any) => s.name))
-        currentConfig.value = {
-          proxy_port: cfg.proxy_port || 7890,
-          panel_port: cfg.panel_port || 9090,
-          panel_secret: cfg.panel_secret || '',
-          rule_group: cfg.rule_group || 'base',
-          ui_panel: cfg.ui_panel || 'metacubexd',
-          meta_backend_url: cfg.meta_backend_url || '',
-          mode: cfg.mode || 'merge',
-          active_subscription: cfg.active_subscription || '',
-          tproxy_port: cfg.tproxy_port ?? 7898,
-          subscriptions: subs.map((s: any) => {
-            // 将后端存储的 subscription_info 映射为前端的 info 对象
-            const info = s.subscription_info ? {
-              upload: s.subscription_info.upload || 0,
-              download: s.subscription_info.download || 0,
-              total: s.subscription_info.total || 0,
-              expire: s.subscription_info.expire || 0,
-              updatedAt: s.updated_at || null,
-            } : null
-            return {
-              ...s, // 保留所有原始字段（name, url, update_interval, health_interval, prefix）
-              info: info
-            }
-          })
-        }
-      }
-    } catch (e) {
-    console.error('加载订阅配置失败', e)
-    }
-  }
+  // ===== 新增 coreStatus =====
+  const coreStatus = ref({
+    running: false,
+    loading: true
+  })
 
-  // 获取单个订阅详情
-  const fetchSubscriptionInfo = async (name: string): Promise<SubscriptionInfo | null> => {
+  // 订阅计数
+  const coreStatusSubscribers = ref(0)
+  let coreStatusTimer: any = null
+
+  // 获取内核状态（单次请求）
+  const fetchCoreStatus = async () => {
     try {
-      const encoded = encodeURIComponent(name)
-      const resp = await apiFetch(`/providers/proxies/${encoded}`)
+      const resp = await apiFetch('/core/status')
       if (resp.ok) {
         const data = await resp.json()
-        const updatedAt = data.updatedAt || null
-        const proxiesList = data.proxies || []
-        
-        let aliveCount = 0
-        let totalDelay = 0
-        let delayCount = 0
-        
-        proxiesList.forEach((p: any) => {
-          const hasHistory = p.history && p.history.length > 0
-          const lastDelay = hasHistory ? p.history[p.history.length - 1].delay : 0
-          const isAlive = p.alive === true || lastDelay > 0
-          if (isAlive) {
-            aliveCount++
-            if (lastDelay > 0) {
-              totalDelay += lastDelay
-              delayCount++
-            }
-          }
-        })
-
-        const totalCount = proxiesList.length
-        const avgDelay = delayCount > 0 ? totalDelay / delayCount : undefined
-
-        let info = data.subscriptionInfo || data
-        if (info && typeof info === 'object') {
-          return {
-            upload: info.Upload || 0,
-            download: info.Download || 0,
-            total: info.Total || 0,
-            expire: info.Expire || 0,
-            updatedAt: updatedAt,
-            aliveCount,
-            totalCount,
-            avgDelay
-          }
-        }
+        coreStatus.value.running = data.running
       }
     } catch (e) {
-      console.warn('获取订阅信息失败', name, e)
+      console.error('获取内核状态失败', e)
+    } finally {
+      coreStatus.value.loading = false
     }
-    return null
   }
 
-  // 完善订阅项的额外信息（健康度/平均延迟）
-  const enrichSubscriptions = async () => {
-    const subs = currentConfig.value.subscriptions
-    if (!subs) return
-    const promises = subs.map(async (sub) => {
-      if (savedSubNames.value.has(sub.name)) {
-        sub.info = await fetchSubscriptionInfo(sub.name)
-      } else {
-        sub.info = null
-      }
-    })
-    await Promise.all(promises)
+  // 订阅：启动轮询
+  const subscribeCoreStatus = () => {
+    coreStatusSubscribers.value++
+    if (coreStatusSubscribers.value === 1) {
+      // 首次订阅立即获取
+      fetchCoreStatus()
+      // 启动定时器（5秒轮询）
+      coreStatusTimer = setInterval(fetchCoreStatus, 5000)
+    }
+  }
+
+  // 取消订阅：停止轮询
+  const unsubscribeCoreStatus = () => {
+    coreStatusSubscribers.value = Math.max(0, coreStatusSubscribers.value - 1)
+    if (coreStatusSubscribers.value === 0 && coreStatusTimer) {
+      clearInterval(coreStatusTimer)
+      coreStatusTimer = null
+    }
+  }
+
+  // 手动刷新（供页面操作后调用，如启动/停止内核）
+  const refreshCoreStatus = async () => {
+    await fetchCoreStatus()
   }
 
   return {
-    coreStatus,
     configs,
     configsLoading,
-    currentConfig,
-    savedSubNames,
-    fetchCoreStatus,
     fetchConfigs,
-    loadConfig,
-    enrichSubscriptions,
-    fetchSubscriptionInfo,
-    tproxyState,
+    tproxyEnabled,
+    tproxyStateLoaded,
     fetchTproxyState,
+    coreStatus,
+    subscribeCoreStatus,
+    unsubscribeCoreStatus,
+    refreshCoreStatus,
   }
 })

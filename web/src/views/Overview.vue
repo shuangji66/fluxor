@@ -8,6 +8,7 @@ import { useOverviewStore } from '../store/overview'
 import { useConnectionsStore } from '../store/connections'
 import { useGlobalStore } from '../store/global'
 import { useConfigStore } from '../store/config'
+import { useSubscriptionStore } from '../store/subscription'
 
 const { t } = useI18n()
 
@@ -15,7 +16,8 @@ const overviewStore = useOverviewStore()
 const { stats, uiPanel, uploadHistory, downloadHistory, timeHistory } = storeToRefs(overviewStore)
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
-const { currentConfig } = storeToRefs(configStore)
+const subscriptionStore = useSubscriptionStore()
+const { currentConfig } = storeToRefs(subscriptionStore)
 
 const connectionsStore = useConnectionsStore()
 const { connectionsCount, uploadTotal, downloadTotal } = storeToRefs(connectionsStore)
@@ -651,8 +653,6 @@ const getDelayDisplay = (result: DelayTestResult) => {
   }
 }
 
-
-
 // 格式化当前订阅名称
 const currentSubscriptionDisplay = computed(() => {
   if (currentConfig.value.mode === 'merge') {
@@ -673,7 +673,7 @@ const observeTheme = () => {
 onMounted(() => {
   nextTick(() => {
     fetchSubscribeConfig()
-    configStore.loadConfig()
+    subscriptionStore.loadConfig()
     initCanvas()
     observeTheme()
     overviewStore.subscribeStatus()
