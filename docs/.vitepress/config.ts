@@ -3,8 +3,6 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Fluxor",
   description: "Mihomo 内核轻量级管理面板与订阅生成系统使用手册",
-  base: "/fluxor/",
-  themeConfig: {
   // @ts-ignore
   base: process.env.CF_PAGES ? '/' : '/fluxor/',
   head: [
@@ -71,6 +69,5 @@ export default defineConfig({
     socialLinks: [
       { icon: 'github', link: 'https://github.com/shuangji66/fluxor' }
     ]
-  }
   }
 })
