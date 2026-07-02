@@ -8,6 +8,10 @@
     "preview": "vitepress preview ."
   },
   "devDependencies": {
+<<<<<<< HEAD
+=======
+    "@types/node": "^26.1.0",
+>>>>>>> b334b8ad016197cd6496c8e292754ceb1753f57e
     "vitepress": "^1.0.0"
   }
 }

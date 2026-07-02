@@ -14,7 +14,7 @@
 │   ├── app.sock              # Fluxor 自身监听的 UNIX Socket
 │   ├── core.sock             # mi~ho~mo 内核监听的 UNIX Socket
 │   └── bin/
-│       ├── mi~ho~mo            # mi~ho~mo 内核二进制执行程序
+│       ├── mi~ho~mo          # mi~ho~mo 内核二进制执行程序
 │       └── fluxor            # Fluxor 后端二进制管理程序
 ├── var/
 │   ├── core.pid              # 内核进程的 PID 运行记录文件
@@ -62,6 +62,12 @@ export CONFIG_TARGET="/var/apps/Fluxor/shares/Fluxor/config.yaml"
 
 # 设置系统日志的保存文件路径
 export INFO_LOG_FILE="/var/apps/Fluxor/shares/Fluxor/info.log"
+
+# 可选：metacubexd 外置面板路径
+# export META_DIR="/var/apps/Fluxor/shares/ui/meta"
+
+# 可选：zashboard 外置面板路径
+# export ZASH_DIR="/var/apps/Fluxor/shares/ui/zash"              
 
 # 可选：如果需要通过传统的端口号（如 http://IP:8080）访问面板，可设置此项
 # export FLUXOR_ADDR="0.0.0.0:8080"

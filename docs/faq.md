@@ -4,7 +4,7 @@
 
 ---
 
-### 问题 1: 为什么打开内置的 MetaCubeXD / Zashboard 外部面板时，提示“无法连接”或需要输入 Host/Secret？
+### 问题 1: 为什么打开内置的 Meta~CubeXD / Zash~board 外部面板时，提示“无法连接”或需要输入 Host/Secret？
 **排查与解决方法**：
 1. **外部控制密钥与端口配置**：
    *   外置面板需要通过外部控制器（External Controller）API 与内核通信。
