@@ -1,0 +1,14 @@
+{
+  "name": "fluxor-docs-internal",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "vitepress": "^1.0.0"
+  }
+}
