@@ -3,10 +3,8 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Fluxor",
   description: "Mihomo 内核轻量级管理面板与订阅生成系统使用手册",
-<<<<<<< HEAD
   base: "/fluxor/",
   themeConfig: {
-=======
   // @ts-ignore
   base: process.env.CF_PAGES ? '/' : '/fluxor/',
   head: [
@@ -14,7 +12,6 @@ export default defineConfig({
   ],
   themeConfig: {
     logo: '/logo.png',
->>>>>>> b334b8ad016197cd6496c8e292754ceb1753f57e
     nav: [
       { text: '首页', link: '/' },
       { text: '指南', link: '/guide/introduction' },
@@ -22,12 +19,9 @@ export default defineConfig({
       { text: '使用', link: '/usage/views' },
       { text: '常见问题', link: '/faq' }
     ],
-<<<<<<< HEAD
-=======
     search: {
       provider: 'local'
     },
->>>>>>> b334b8ad016197cd6496c8e292754ceb1753f57e
     sidebar: {
       '/guide/': [
         {
