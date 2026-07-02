@@ -72,4 +72,5 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/shuangji66/fluxor' }
     ]
   }
+  }
 })
