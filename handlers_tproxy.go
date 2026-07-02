@@ -254,41 +254,49 @@ func enableTProxyRules(port int) error {
 	}
 	log.Printf("[TProxy] 正在加载流量拦截规则 (端口: %d)...", port)
 
-	// 1. 策略路由
-	exec.Command("ip", "rule", "add", "fwmark", "1", "table", "100").Run()
-	exec.Command("ip", "route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", "100").Run()
-
-	// 2. 关闭反向路径过滤
-	exec.Command("sysctl", "-w", "net.ipv4.conf.all.rp_filter=0").Run()
-	exec.Command("sysctl", "-w", "net.ipv4.conf.default.rp_filter=0").Run()
-	exec.Command("sysctl", "-w", "net.ipv4.conf.lo.rp_filter=0").Run()
-
-	// 3. 创建 nftables 表
-	exec.Command("nft", "add", "table", "ip", "fluxor_tproxy").Run()
-
-	// 4. 绕过私有网段
-	exec.Command("nft", "add", "set", "ip", "fluxor_tproxy", "private_ips", "{ type ipv4_addr; flags interval; }").Run()
-	bypassIPs := []string{"10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/4", "240.0.0.0/4"}
-	for _, ip := range bypassIPs {
-		exec.Command("nft", "add", "element", "ip", "fluxor_tproxy", "private_ips", fmt.Sprintf("{ %s }", ip)).Run()
+	// 辅助函数：执行命令并忽略错误（保留原行为）
+	runCmd := func(name string, args ...string) {
+		cmd := exec.Command(name, args...)
+		if err := cmd.Run(); err != nil {
+			log.Printf("[TProxy] 命令执行失败: %s %v, 错误: %v", name, args, err)
+		}
 	}
 
-	// 5. 创建链（prerouting, output, dstnat, nat_output）
-	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "prerouting", "{ type filter hook prerouting priority mangle; policy accept; }").Run()
-	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "output", "{ type route hook output priority mangle; policy accept; }").Run()
-	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "dstnat", "{ type nat hook prerouting priority -100; policy accept; }").Run()
-	exec.Command("nft", "add", "chain", "ip", "fluxor_tproxy", "nat_output", "{ type nat hook output priority -100; policy accept; }").Run()
+	// 1. 策略路由
+	runCmd("ip", "rule", "add", "fwmark", "1", "table", "100")
+	runCmd("ip", "route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", "100")
 
-	// 6. 私有IP绕过 (prerouting, output)
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "fib", "daddr", "type", "local", "return").Run()
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "daddr", "@private_ips", "return").Run()
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "ip", "daddr", "@private_ips", "return").Run()
+	// 2. 关闭反向路径过滤
+	runCmd("sysctl", "-w", "net.ipv4.conf.all.rp_filter=0")
+	runCmd("sysctl", "-w", "net.ipv4.conf.default.rp_filter=0")
+	runCmd("sysctl", "-w", "net.ipv4.conf.lo.rp_filter=0")
+
+	// 3. 创建 nftables 表
+	runCmd("nft", "add", "table", "ip", "fluxor_tproxy")
+
+	// 4. 绕过私有网段
+	runCmd("nft", "add", "set", "ip", "fluxor_tproxy", "private_ips", "{ type ipv4_addr; flags interval; }")
+	bypassIPs := []string{"10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/4", "240.0.0.0/4"}
+	for _, ip := range bypassIPs {
+		runCmd("nft", "add", "element", "ip", "fluxor_tproxy", "private_ips", "{", ip, "}")
+	}
+
+	// 5. 创建链
+	runCmd("nft", "add", "chain", "ip", "fluxor_tproxy", "prerouting", "{ type filter hook prerouting priority mangle; policy accept; }")
+	runCmd("nft", "add", "chain", "ip", "fluxor_tproxy", "output", "{ type route hook output priority mangle; policy accept; }")
+	runCmd("nft", "add", "chain", "ip", "fluxor_tproxy", "dstnat", "{ type nat hook prerouting priority -100; policy accept; }")
+	runCmd("nft", "add", "chain", "ip", "fluxor_tproxy", "nat_output", "{ type nat hook output priority -100; policy accept; }")
+
+	// 6. 私有IP绕过
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "fib", "daddr", "type", "local", "return")
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "daddr", "@private_ips", "return")
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "ip", "daddr", "@private_ips", "return")
 
 	// 7. 加载例外列表
 	dstExceptions := loadTproxyDstExceptions()
 	srcExceptions := loadTproxySrcExceptions()
 
-	// 7a. 目的例外（同时作用于 TProxy 劫持和 DNS 重定向）
+	// 7a. 目的例外
 	for _, rule := range dstExceptions {
 		typ, ipNet, proto, portVal, err := parseTproxyException(rule)
 		if err != nil {
@@ -298,73 +306,62 @@ func enableTProxyRules(port int) error {
 		if typ == "ip" {
 			cidr := ipNet.String()
 			// TProxy 劫持
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy prerouting ip daddr %s return", cidr)).Run()
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy output ip daddr %s return", cidr)).Run()
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "daddr", cidr, "return")
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "ip", "daddr", cidr, "return")
 			// DNS 重定向
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy dstnat ip daddr %s return", cidr)).Run()
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "ip", "daddr", cidr, "return")
 			if tproxyProxyLocal {
-				exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy nat_output ip daddr %s return", cidr)).Run()
+				runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "ip", "daddr", cidr, "return")
 			}
 		} else if typ == "port" {
+			// 将集合作为一个完整的字符串参数
 			protoExpr := "{tcp, udp}"
 			if proto != "" {
-				protoExpr = proto
+				protoExpr = "{" + proto + "}"
 			}
 			// TProxy 劫持
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy prerouting meta l4proto %s th dport %d return", protoExpr, portVal)).Run()
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy output meta l4proto %s th dport %d return", protoExpr, portVal)).Run()
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "meta", "l4proto", protoExpr, "th", "dport", strconv.Itoa(portVal), "return")
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "meta", "l4proto", protoExpr, "th", "dport", strconv.Itoa(portVal), "return")
 			// DNS 重定向
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy dstnat meta l4proto %s th dport %d return", protoExpr, portVal)).Run()
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "meta", "l4proto", protoExpr, "th", "dport", strconv.Itoa(portVal), "return")
 			if tproxyProxyLocal {
-				exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy nat_output meta l4proto %s th dport %d return", protoExpr, portVal)).Run()
+				runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "meta", "l4proto", protoExpr, "th", "dport", strconv.Itoa(portVal), "return")
 			}
 		}
 	}
 
-	// 7b. 源例外（仅支持 IP/CIDR，仅作用于入站链：prerouting 和 dstnat）
+	// 7b. 源例外
 	for _, rule := range srcExceptions {
-		// 尝试解析为 IP/CIDR
 		if _, ipNet, err := net.ParseCIDR(rule); err == nil {
 			cidr := ipNet.String()
-			// 入站 TProxy 劫持绕过
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy prerouting ip saddr %s return", cidr)).Run()
-			// 入站 DNS 重定向绕过
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy dstnat ip saddr %s return", cidr)).Run()
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "saddr", cidr, "return")
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "ip", "saddr", cidr, "return")
 		} else if ip := net.ParseIP(rule); ip != nil {
-			// 单个 IP 转为 /32
 			cidr := ip.String() + "/32"
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy prerouting ip saddr %s return", cidr)).Run()
-			exec.Command("sh", "-c", fmt.Sprintf("nft add rule ip fluxor_tproxy dstnat ip saddr %s return", cidr)).Run()
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "saddr", cidr, "return")
+			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "ip", "saddr", cidr, "return")
 		} else {
 			log.Printf("[TProxy] 源例外仅支持 IP/CIDR，忽略无效规则: %s", rule)
 		}
 	}
 
-	// 8. TProxy 劫持规则（prerouting 和 output）
-	// 8a. prerouting 劫持入站流量
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "meta", "l4proto", "{ tcp, udp }", "tproxy", "to", fmt.Sprintf(":%d", port), "meta", "mark", "set", "1", "accept").Run()
-
-	// 8b. output 链：先放行已标记的流量（防止循环）
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "meta", "mark", "0xff", "return").Run()
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "socket", "mark", "0xff", "return").Run()
-	// 如果开启本机代理，则标记本机出站流量
+	// 8. TProxy 劫持规则
+	// 使用集合字符串 "{tcp,udp}"
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "meta", "l4proto", "{tcp,udp}", "tproxy", "to", fmt.Sprintf(":%d", port), "meta", "mark", "set", "1", "accept")
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "meta", "mark", "0xff", "return")
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "socket", "mark", "0xff", "return")
 	if tproxyProxyLocal {
-		exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "meta", "l4proto", "{ tcp, udp }", "meta", "mark", "set", "1", "accept").Run()
+		runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "output", "meta", "l4proto", "{tcp,udp}", "meta", "mark", "set", "1", "accept")
 	}
 
-	// 9. DNS 重定向（已在目的和源例外中增加了对应的 return 规则，现在添加最终的劫持规则）
-	// 9a. 入站 DNS (dstnat)
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "udp", "dport", "53", "redirect", "to", ":1053").Run()
-	exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "tcp", "dport", "53", "redirect", "to", ":1053").Run()
-
-	// 9b. 本机出站 DNS (nat_output) 仅当开关开启
+	// 9. DNS 重定向
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "udp", "dport", "53", "redirect", "to", ":1053")
+	runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "dstnat", "tcp", "dport", "53", "redirect", "to", ":1053")
 	if tproxyProxyLocal {
-		// 先添加已有的标记跳过规则（已在 output 链添加，但 nat_output 需要独立处理）
-		exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "meta", "mark", "0xff", "return").Run()
-		exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "socket", "mark", "0xff", "return").Run()
-		// 然后劫持 DNS 查询
-		exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "udp", "dport", "53", "redirect", "to", ":1053").Run()
-		exec.Command("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "tcp", "dport", "53", "redirect", "to", ":1053").Run()
+		runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "meta", "mark", "0xff", "return")
+		runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "socket", "mark", "0xff", "return")
+		runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "udp", "dport", "53", "redirect", "to", ":1053")
+		runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "nat_output", "tcp", "dport", "53", "redirect", "to", ":1053")
 	}
 
 	log.Printf("[TProxy] 规则应用成功（含目的/源例外及本机代理开关）")

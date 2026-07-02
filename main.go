@@ -45,7 +45,6 @@ func init() {
     zashDir = getEnv("ZASH_DIR", "/var/apps/Fluxor/shares/ui/zash")
     fluxorConfigFile = getEnv("FLUXOR_CONFIG_FILE", "/var/apps/Fluxor/var/fluxor.json")
     configTarget = getEnv("CONFIG_TARGET", "/var/apps/Fluxor/shares/Fluxor/config.yaml")
-    configTemplateDir = getEnv("CONFIG_TEMPLATE_DIR", "/var/apps/Fluxor/target/templates")
     infoLogFile = getEnv("INFO_LOG_FILE", "/var/apps/Fluxor/shares/Fluxor/info.log")
     coreWorkDir = getEnv("CORE_WORK_DIR", "/var/apps/Fluxor/shares/Fluxor")
 	tcpAddr = getEnv("FLUXOR_ADDR", "")
