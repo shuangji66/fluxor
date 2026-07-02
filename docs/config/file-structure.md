@@ -12,9 +12,9 @@
 /var/apps/Fluxor/
 ├── target/
 │   ├── app.sock              # Fluxor 自身监听的 UNIX Socket
-│   ├── core.sock             # mi~ho~mo 内核监听的 UNIX Socket
+│   ├── core.sock             # mi鸿蒙 内核监听的 UNIX Socket
 │   └── bin/
-│       ├── mi~ho~mo          # mi~ho~mo 内核二进制执行程序
+│       ├── mi鸿蒙            # mi鸿蒙 内核二进制执行程序
 │       └── fluxor            # Fluxor 后端二进制管理程序
 ├── var/
 │   ├── core.pid              # 内核进程的 PID 运行记录文件
@@ -46,7 +46,7 @@ export SOCKET_PATH="/var/apps/Fluxor/target/app.sock"
 export CORE_SOCKET="/var/apps/Fluxor/target/core.sock"
 
 # 设置内核二进制程序的主路径
-export CORE_BIN="/var/apps/Fluxor/target/bin/mi~ho~mo"
+export CORE_BIN="/var/apps/Fluxor/target/bin/mi鸿蒙"
 
 # 设置内核运行时的 PID 进程锁定文件路径
 export CORE_PID_FILE="/var/apps/Fluxor/var/core.pid"
@@ -57,7 +57,7 @@ export FLUXOR_CONFIG_FILE="/var/apps/Fluxor/var/fluxor.json"
 # 设置内核的主工作目录（用于存放 Geo 数据库、测速缓存、临时文件等）
 export CORE_WORK_DIR="/var/apps/Fluxor/shares/Fluxor"
 
-# 设置最终渲染生成的 mi~ho~mo 运行配置文件的目标路径
+# 设置最终渲染生成的 mi鸿蒙 运行配置文件的目标路径
 export CONFIG_TARGET="/var/apps/Fluxor/shares/Fluxor/config.yaml"
 
 # 设置系统日志的保存文件路径

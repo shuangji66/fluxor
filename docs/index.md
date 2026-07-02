@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: "Fluxor"
-  text: "轻量高效的 mi~ho~mo内核 管理面板"
+  text: "轻量高效的 mi鸿蒙内核 管理面板"
   tagline: "零臃肿的内核配置管理与订阅自动合并转换系统"
   actions:
     - theme: brand
