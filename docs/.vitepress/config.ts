@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Fluxor",
   description: "Mihomo 内核轻量级管理面板与订阅生成系统使用手册",
-  base: "/Fluxor/",
+  base: "/fluxor/",
   themeConfig: {
     nav: [
       { text: '首页', link: '/' },
