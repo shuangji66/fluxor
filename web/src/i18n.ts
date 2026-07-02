@@ -39,6 +39,7 @@ const messages = {
     'nav.logs_desc': '系统日志',
     'nav.config': '配置',
     'nav.config_desc': '配置管理',
+    'nav.docs': '文档',
 
     'overview.title': '仪表盘',
     'overview.core_version': '内核版本',
@@ -358,7 +359,7 @@ const messages = {
     "subscription.help_title": "使用说明",
     "subscription.help_content": "切换模式使用订阅文件自带规则和代理组；多订阅推荐融合模式，规则集仅适用于融合模式。",
 
-    'about.title': '关于 Fluxor',
+    'about.title': '关于',
     'about.description': '轻量级、现代化的 Mihomo 内核管理面板',
     'about.version': '面板版本',
     'about.core_version': '内核版本',
@@ -406,6 +407,7 @@ const messages = {
     'nav.logs_desc': 'System Logs',
     'nav.config': 'Config',
     'nav.config_desc': 'Configuration',
+    'nav.docs': 'Document',
 
     'overview.title': 'Dashboard',
     'overview.core_version': 'Core Version',
@@ -725,7 +727,7 @@ const messages = {
     "subscription.help_title": "Help",
     "subscription.help_content": "In switch mode, the built‑in rules and proxy groups from the subscription file are applied. For users with multiple subscriptions, merge mode is strongly recommended, as rule sets are only effective when merge mode is enabled.",
 
-    'about.title': 'About Fluxor',
+    'about.title': 'About',
     'about.description': 'Lightweight, Morden Mihomo Kernel Management Panel',
     'about.version': 'Panel Version',
     'about.core_version': 'Kernel Version',

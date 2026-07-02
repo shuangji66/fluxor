@@ -13,7 +13,6 @@ const globalStore = useGlobalStore()
 
 const { t } = useI18n()
 
-
 const showSecret = ref(false)
 const showModal = ref(false)
 const showUrls = ref<Record<number, boolean>>({})
@@ -401,7 +400,7 @@ const formatExpire = (expire: number) => {
   return new Date(expire * 1000).toLocaleString()
 }
 
-onMounted(() => {
+onMounted(async () => {
   configStore.fetchCoreStatus()
   loadConfig()
 })

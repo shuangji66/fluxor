@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { CloudDownloadOutline, OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SearchOutline, SyncOutline, ColorPaletteOutline, SettingsOutline, InformationCircleOutline } from '@vicons/ionicons5'
+import { CloudDownloadOutline, OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SearchOutline, SyncOutline, ColorPaletteOutline, SettingsOutline, InformationCircleOutline, DocumentTextOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type ConfigData } from '../store/config'
@@ -500,14 +500,23 @@ onActivated(() => {
         <SettingsOutline class="w-5 h-5 text-accent" />
         {{ t('nav.config') }}
       </h3>
-      
-      <!-- 关于 Fluxor 按钮 -->
-      <button @click="globalStore.showAbout = true" 
-        class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-200/50 dark:border-slate-800/30 px-3 py-1.5 gap-1.5 group"
-        :title="t('about.title')">
-        <InformationCircleOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:rotate-12" />
-        <span>{{ t('about.title') }}</span>
-      </button>
+
+      <!-- 文档 + 关于 按钮组（紧挨） -->
+        <div class="flex items-center gap-1">
+          <a href="https://ttq.fjb.dpdns.org" target="_blank" rel="noopener noreferrer"
+            class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-200/50 dark:border-slate-800/30 px-3 py-1.5 gap-1.5 group"
+            :title="t('nav.docs')">
+            <DocumentTextOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
+            <span>{{ t('nav.docs') }}</span>
+          </a>
+    
+          <button @click="globalStore.showAbout = true"
+            class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-200/50 dark:border-slate-800/30 px-3 py-1.5 gap-1.5 group"
+            :title="t('about.title')">
+            <InformationCircleOutline class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:rotate-12" />
+            <span>{{ t('about.title') }}</span>
+          </button>
+        </div>
     </div>
 
     <!-- 核心状态加载中的优雅 Loading 占位 -->
@@ -669,7 +678,7 @@ onActivated(() => {
           </div>
 
           <!-- 分割线 -->
-          <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
+          <div class="h-px bg-slate-200 dark:bg-slate-700 my-1.5"></div>
 
           <!-- TProxy 透明代理 -->
           <div class="flex items-center justify-between">
@@ -743,7 +752,7 @@ onActivated(() => {
             </div>
    
             <!-- 分割线 -->
-            <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
+            <div class="h-px bg-slate-200 dark:bg-slate-700 my-1.5"></div>
    
             <!-- 常规运维 -->
             <div class="grid grid-cols-2 gap-3">

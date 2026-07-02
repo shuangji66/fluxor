@@ -142,6 +142,7 @@ func handleSubscribeConfigAPI(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		subscribeMu.RLock()
 		defer subscribeMu.RUnlock()
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(subscribeConfig); err != nil {
 			log.Printf("编码订阅配置失败: %v", err)
