@@ -6,10 +6,10 @@
 
 ## 1. 项目定位与架构概述
 
-`Fluxor` 是一个轻量级、零臃肿的 Mihomo 内核管理面板与订阅生成系统。它采用**前后端不分离**的架构设计：
+`Fluxor` 是一个轻量级、无冗余的 Mihomo 内核管理面板与订阅生成系统。它采用**前后端不分离**的架构设计：
 - **后端 (Go)**：使用 Go 1.26 标准库（仅引入 `gorilla/websocket` 作为唯一外部依赖）。后端托管在 Unix Socket (`/var/apps/Fluxor/target/app.sock`) 上，对外通过前端反向代理暴露，内嵌了前端的所有静态资源。
 - **前端双版本并存与条件编译**：
-  为了维护旧版的零构建独立性，同时满足现代客户端的体验，项目支持**双版本前端分流编译**：
+  为了维护旧版的前端原生加载独立性，同时满足现代客户端的体验，项目支持**双版本前端分流编译**：
   1. **Vanilla JS 版（旧版，默认）**：无需任何构建步骤，直接嵌入 `static/` 目录的静态原生 HTML/JS 源码。
   2. **Vue 3 TypeScript 版（新版，主维护）**：源码位于 `web/` 目录，由 Vue 3 (Composition API / Setup) + Vite + TailwindCSS + Pinia + TypeScript 构成。
   - **分流机制**：后端利用 Go 条件编译标签进行控制：
@@ -34,6 +34,7 @@ fluxor/
 ├── assets_vue.go           # 嵌入 Vue 版编译产物 (go:build vue)
 ├── handlers_core.go        # 内核进程生命周期（start/stop/restart/coreRequest/cancelableReadCloser）
 ├── handlers_api.go         # 代理内核 HTTP API（流量、内存、连接、代理、规则、配置、DNS、GEO、升级等）
+├── handlers_tproxy.go      # TProxy 防火墙与路由规则管理，例外 IP/端口过滤，本地出站代理控制
 ├── handlers_index.go       # 主页入口 index.html 模板渲染
 ├── handlers_utils.go       # JSON 错误响应工具 (writeJSONError/respondJSON) 及后端地址正则校验
 ├── subscribe.go            # 订阅配置 CRUD、config.yaml 生成、模板替换、MetaCubeXD config.js 修改
@@ -47,7 +48,7 @@ fluxor/
     ├── index.html          # HTML 入口
     └── src/
         ├── main.ts         # 挂载 Pinia + vue-i18n (Composition API, legacy:false)
-        ├── App.vue         # 根组件：响应式侧边栏/移动端底部 Tab、亮暗/跟随系统主题、中英切换、Toast 队列、Promise 确认框
+        ├── App.vue         # 根组件：响应式侧边栏/移动端底部 Tab、亮暗/跟随系统主题、中英切换、Toast 队列、Promise 确认框、统一轮询 coreStatus 状态
         ├── env.d.ts        # .vue 类型声明 & Window.BASE_URL 接口扩展
         ├── i18n.ts         # 全站国际化（zh/en），从 localStorage 读取语言偏好，禁止硬编码中文
         ├── index.css       # Tailwind 基础指令 + CSS 变量亮暗主题（data-theme 选择器）+ 自定义滚动条
@@ -58,7 +59,8 @@ fluxor/
         │   └── mock.ts     # 前端离线开发模拟器：拦截 HTTP/WS 请求提供 mock 数据，支持脱离后端独立测试
         ├── store/
         │   ├── global.ts   # 标签页激活状态、侧边栏折叠、亮暗/跟随系统主题、Toast 队列（3s 自动消失）、Promise 驱动确认框
-        │   ├── config.ts   # 内核运行状态、内核配置参数（allow-lan/ipv6/mode/log-level/tun/端口等）、订阅配置 CRUD
+        │   ├── config.ts   # 内核常规配置参数（allow-lan/ipv6/mode/log-level/tun/端口等，通过 app.vue 统一轮询 coreStatus，与订阅解耦）
+        │   ├── subscription.ts # 订阅管理 Pinia Store：负责订阅配置 CRUD、解析及状态更新，由 config.ts 中拆分解耦而来
         │   ├── overview.ts # 仪表盘实时统计（速度/流量/内存/连接数/版本/当前节点）、60 点流量历史、3 路 WS + 1 路 HTTP 轮询
         │   ├── proxies.ts  # 代理组列表、节点延迟字典、手风琴展开状态、并发受限（10）批量测速
         │   ├── connections.ts # 活跃/已关闭连接列表、汇总统计、排序/搜索、WS 瞬时速率计算（快照差分）
@@ -74,7 +76,7 @@ fluxor/
             └── Subscription.vue # 订阅：代理/面板端口、密钥显隐切换、规则集（lite/base/full）、UI 面板选择、订阅 CRUD 模态框（zoomIn 动画，支持订阅名称、链接、检测间隔、节点前缀）、流量/健康度/有效期卡片、「保存并应用」
 ```
 
-> **页面路由机制**：未使用 vue-router，通过 `globalStore.activeTab` 与 `<component :is="..." />` 动态组件切换视图。在此基础上，外层包裹了 `<KeepAlive :max="6">` 进行视图缓存，以长效留存页面各交互状态（如滚动进度与折叠状态）并规避切页时的网络闪连。
+> **页面路由机制**：未使用 vue-router，通过 `globalStore.activeTab` 与 `<component :is="..." />` 动态组件切换视图。在此基础上，外层包裹了 `<KeepAlive :max="6">` 进行视图缓存，以长效留存页面各交互状态（如滚动进度与折叠状态）并规避切换页面时的重复连接请求。
 
 ---
 
@@ -104,6 +106,7 @@ func (c *cancelableReadCloser) Close() error {
 | 路由 | 方法 | Handler | 说明 |
 |------|------|---------|------|
 | `/` | GET | `handleIndex` | SPA 主页模板渲染 |
+| `/whoami` | GET | `handleWhoAmI` | 获取当前用户信息 / 角色 |
 | `/core/status` | GET | `handleCoreStatus` | 内核运行状态（PID 文件检测） |
 | `/core/start` | POST | `handleCoreStart` | 启动内核进程 |
 | `/core/stop` | POST | `handleCoreStop` | 停止内核进程（SIGTERM） |
@@ -111,6 +114,8 @@ func (c *cancelableReadCloser) Close() error {
 | `/upgrade` | POST | `handleUpgrade` | 升级内核（透传内核 /upgrade） |
 | `/subscribe/config` | GET/POST | `handleSubscribeConfigAPI` | 订阅配置读写（持久化到 subscribe.json） |
 | `/subscribe/generate` | POST | `handleGenerateConfig` | 保存配置 + 生成 config.yaml + 重载内核 |
+| `/subscribe/update/{name}` | GET/POST | `handleSubscribeUpdate` | 手动更新指定订阅节点数据 |
+| `/subscribe/update-info/{name}` | POST | `handleUpdateSubscriptionInfo` | 更新订阅元信息（名称、链接、检测间隔等） |
 | `/traffic` | WS | `wsProxyHandler("/traffic")` | 实时流量数据 WebSocket 代理 |
 | `/memory` | WS | `wsProxyHandler("/memory")` | 实时内存数据 WebSocket 代理 |
 | `/logs` | WS | `wsProxyHandler("/logs")` | 实时日志流 WebSocket 代理 |
@@ -120,33 +125,53 @@ func (c *cancelableReadCloser) Close() error {
 | `/configs` | GET/PATCH/PUT | `handleConfigsAPI` | 获取/修改/重载内核配置 |
 | `/configs/geo` | POST | `handleConfigsGeo` | 更新 GEO 数据库 |
 | `/providers/geo` | POST | `handleProvidersGeo` | 回退 GEO 更新接口 |
-| /providers/rules | GET | handleRuleProviders | 获取规则提供商列表 |
-| /providers/rules/{name} | PUT | handleUpdateRuleProvider | 更新单个规则提供商 |
-| /interfaces | GET | handleInterfaces | 返回系统所有的物理网络接口名称（过滤回环及未启用接口） |
+| `/providers/rules` | GET | `handleRuleProviders` | 获取规则提供商列表 |
+| `/providers/rules/{name}` | PUT | `handleUpdateRuleProvider` | 更新单个规则提供商 |
+| `/interfaces` | GET | `handleInterfaces` | 返回系统物理接口名称（过滤回环及未启用接口） |
 | `/providers/proxies/{name}` | GET/PUT | `handleProviderProxies` | 获取/更新订阅代理信息 |
 | `/rules` | GET | `handleRules` | 获取所有规则 |
 | `/rules/disable` | PATCH | `handleRulesDisable` | 启用/禁用规则 |
 | `/proxies` | GET | `handleProxies` | 获取所有代理组 |
 | `/proxies/{name}/delay` | GET | `handleProxyDelay` | 测速（需 ?url=&timeout= 参数） |
 | `/proxies/{name}` | PUT | `handleProxySwitch` | 切换代理选择 |
+| `/proxies/quality` | GET | `handleQualityScores` | 获取所有代理节点的质量分数评分列表 |
 | `/cache/fakeip/flush` | POST | `handleFlushFakeIP` | 清空 FakeIP 缓存 |
 | `/cache/dns/flush` | POST | `handleFlushDNS` | 清空 DNS 缓存 |
 | `/dns/query` | GET | `handleDNSQuery` | DNS 查询（?name=&type=） |
 | `/restart` | POST | `handleRestart` | 内核远端重启 |
+| `/config/tproxy` | GET/POST | `handleTproxyState` | 获取或切换 TProxy 防火墙状态 |
+| `/config/tproxy/exceptions` | GET/POST | `handleTproxyExceptions` | 获取或配置 TProxy 源/目的例外过滤规则 |
+| `/config/tproxy/proxy-local` | GET/POST | `handleTproxyProxyLocal` | 获取或切换本机出站流量代理开关 |
+| `/ipinfo/local/v4` | GET | `handleLocalIPv4` | 查询本地出站 IPv4 归属信息 |
+| `/ipinfo/local/v6` | GET | `handleLocalIPv6` | 查询本地出站 IPv6 归属信息 |
+| `/ipinfo/proxy/v4` | GET | `handleProxyIPv4` | 查询代理出站 IPv4 归属信息 |
+| `/ipinfo/proxy/v6` | GET | `handleProxyIPv6` | 查询代理出站 IPv6 归属信息 |
+| `/delaytest/google` | GET | `handleDelayTestGoogle` | 测试 Google 连通延迟 |
+| `/delaytest/youtube` | GET | `handleDelayTestYouTube` | 测试 YouTube 连通延迟 |
+| `/delaytest/github` | GET | `handleDelayTestGitHub` | 测试 GitHub 连通延迟 |
+| `/delaytest/baidu` | GET | `handleDelayTestBaidu` | 测试百度连通延迟 |
+| `/delaytest/bilibili` | GET | `handleDelayTestBilibili` | 测试 Bilibili 连通延迟 |
+| `/delaytest/custom` | GET | `handleDelayTestCustom` | 测试用户自定义地址连通延迟 |
 | `/meta/` | GET | `http.FileServer` | MetaCubeXD 外部面板静态文件 |
 | `/zash/` | GET | `http.FileServer` | Zashboard 外部面板静态文件 |
 | `/static/` | GET | `http.FileServer` | 内嵌前端静态资源 |
 
 > 所有路由均挂载在 `baseURL = "/app/Fluxor"` 之下，如 `/app/Fluxor/core/status`。
 
+### 3.4 TProxy 防火墙安全操作与退避规约 (handlers_tproxy.go)
+
+为了保障系统网络安全，在调用系统防火墙（如 `nft`）时必须遵循以下规则：
+1. **防止命令注入**：严禁采用拼接 shell 字符串并使用 `sh -c` 的方式执行。必须使用 `exec.Command` 原生多参数切片传参，并在后台通过 `runCmd` 限制外部参数注入（特别是针对例外 IP/CIDR 等由用户表单输入的配置项）。
+2. **退出彻底清退**：在面板退出时（通过监听 `syscall.SIGINT` 和 `syscall.SIGTERM` 信号），必须在退出前调用 `disableTProxyRules` 以清除所有已应用的网络重定向规则，以避免断网残留。
+
 ---
 
 ## 4. 前端数据更新与缓存架构 (开发约束)
 
-为了保证页面来回切换时的丝滑体验，同时避免在后台空跑产生资源泄漏：
+为了保障页面切换时的流畅交互体验，并避免在后台静置运行时产生资源泄漏：
 
-### 4.1 状态托管与秒开
-- 将各个页面的核心业务数据（如配置列表、代理节点、规则、连接快照）收归全局 Pinia store 维护。组件重新挂载时无缝呈现历史快照，随后在后台静默发起 fetch 刷新数据（`silent = true` 参数）。
+### 4.1 状态托管与快速加载
+- 将各个页面的核心业务数据（如配置列表、代理节点、规则、连接快照）统一由全局 Pinia store 维护。组件重新挂载时直接呈现历史数据快照，随后在后台静默发起 fetch 刷新以同步最新状态（通过 `silent = true` 参数）。
 
 ### 4.2 WebSocket 引用计数生命周期管理
 所有实时数据流（流量、内存、连接、日志）均采用 **引用计数 + 防抖断开** 模式，而非在 `onUnmounted` 中直接关闭 WS：
@@ -158,7 +183,7 @@ unsubscribe() → subscriberCount-- → 归零后延迟 3 秒（防抖）→ 若
 
 **优势**：
 - 同一组件可多次安全订阅（如 `Overview.vue` 中的流量、内存、状态三路数据各自独立计数）。
-- 组件快速切出/切回时不中断 WS 连接，实现无感过渡。
+- 组件切出与切回时保持 WS 连接的连续性，实现平滑过渡。
 - 连接断开时，若仍有订阅者，自动尝试重连：
   - 流量/内存/连接 WS：5 秒后重连。
   - 日志 WS：指数退避重连（1s → 2s → 4s → ... → 最大 30s）。
@@ -177,7 +202,7 @@ unsubscribe() → subscriberCount-- → 归零后延迟 3 秒（防抖）→ 若
 - 无论是新版 Vue 3 还是旧版 Vanilla JS 前端，进行批量测速（全部测速或组测速）时，**必须强制实施并发控制（默认并发数限制为 10）**。绝对禁止一次性无限制发起数百个网络测速请求，防止浏览器连接队列拥堵与后端 Unix Socket 重试负载崩溃。
 
 ### 4.5 弹窗与交互去原生化
-- 全站**绝对禁止使用**浏览器的阻塞式 `alert(...)`。如有提示需要，一律使用 `globalStore.showToast(text, 'success' | 'error' | 'warning' | 'info')` 发送非阻塞高颜值 Toast。
+- 全站**绝对禁止使用**浏览器的阻塞式 `alert(...)`。如有提示需要，一律使用 `globalStore.showToast(text, 'success' | 'error' | 'warning' | 'info')` 发送非阻塞的全局自定义 Toast。
 - 确认操作使用 `globalStore.showConfirm({title, message, confirmText?, cancelText?})` 返回 Promise，在 `App.vue` 中以模态渲染。
 - 所有在页面上展示的图标**必须使用 `xicons` (@vicons/ionicons5)**，禁止在系统硬编码 SVG、Emoji 或颜文字符号（包括 `build/app/templates` 的内置配置模板中也绝对禁止在代理组和规则名中硬编码 Emoji），保持视觉绝对统一。
 
@@ -195,10 +220,30 @@ unsubscribe() → subscriberCount-- → 归零后延迟 3 秒（防抖）→ 若
   - 强制关闭 Mock（直接连接真实后端）：`localStorage.setItem('MOCK_BACKEND', 'false')`
 
 ### 4.8 缓存视图下的生命周期管理与滚动能效控制
-在 KeepAlive 缓存组件后台化时，为了防止后台页面（如 `Logs.vue`）继续对增长的日志流进行无效的 DOM 渲染和滚动条计算，必须绑定 `onActivated` / `onDeactivated` 生命周期钩子来冻结/激活这些滚动计算（如 logs watcher），有效控制挂机闲置能耗。
+在 KeepAlive 缓存组件后台化时，为了防止后台页面（如 `Logs.vue`）继续对增长的日志流进行无效的 DOM 渲染和滚动条计算，必须绑定 `onActivated` / `onDeactivated` 生命周期钩子来冻结/激活这些滚动计算（如 logs watcher），有效控制组件静置状态下的 CPU 负载与系统开销。
 
 ### 4.9 复杂数据预解析与计算缓存
 严禁在组件渲染周期内，或者在模板中高频调用包含重度计算或复制排序的操作（如 `sort` 历史延迟记录）。所有这类解析操作应收归至 Store 中，在拉取到最新数据的第一时间完成一轮预解析，并直接挂载为节点的响应式扁平字段（如 `latestDelay`、`recentColors`），组件仅负责以 O(1) 效率读取。
 
 ### 4.10 表单直连与双向绑定规范
 表单交互输入（如端口设定）应直接通过 `v-model` 或 `v-model.number` 直连 Pinia Store 托管的数据对象。严禁声明冗余的局部 ref 变量并配合 watch-deep 进行繁重的手动双向映射赋值。当表单输入非法导致校验不通过时，可通过 Store 的 fetch 行为从后端重新拉取真实数据完成本地强制回滚。
+
+---
+
+## 5. 前端 UI 与样式设计规约 (Tailwind CSS 规范)
+
+为保障前端界面体验的一致性与专业视觉效果，UI 开发时必须严格遵守以下规范：
+
+1. **查阅设计文档优先**：在生成或修改任意界面代码前，**务必先查阅 [DESIGN.md](/AGENTS.md) 设计文档**，了解配色、字体、圆角及组件标准。
+2. **仅使用 Tailwind CSS 工具类**：禁止使用行内样式（`style="..."`）。除非有绝对必要，否则不得新建自定义 CSS 文件。
+3. **严格色彩管理**：所有色彩必须严格取自 `DESIGN.md` 中规定的配色方案，**禁止随意填写十六进制色值**或直接套用 Tailwind 的默认色系。
+4. **完整的交互控件配置**：所有可交互控件（如按钮、输入框、链接、卡片等）必须完整配置以下状态：
+   - 悬浮样式 (`hover:...`)
+   - 键盘聚焦可视外框 (`focus:...` 或 `focus-visible:...` 配合合适的环/边框样式)
+   - 禁用状态 (`disabled:...`，且绑定 `disabled` 属性)
+   - 匹配操作逻辑的鼠标光标样式（例如普通可点击为 `cursor-pointer`，禁用为 `cursor-not-allowed`）
+5. **移动端优先响应式开发**：优先基于 **375px 移动端尺寸** 进行页面布局设计，在此基础上，再依次增补小屏、中屏、大屏（如 `sm:`、`md:`、`lg:`、`xl:`）的断点适配。
+6. **间距统一遵循 Tailwind 标准间距梯度**：统一遵循 4、6、8、12、16 等标准梯度，**严禁使用自定义任意数值**（例如 `p-[13px]` 或 `m-[17px]`）。
+7. **暗黑模式适配**：深色模式为系统的默认主题，所有组件必须优先保证且完美支持在深色背景下的显示正常。
+8. **统一且克制的微交互**：微互动过渡效果统一使用 `transition-all duration-200`；除非有专项动画设计需求，否则严禁使用复杂的弹性物理动画或繁重的关键帧动画。
+
