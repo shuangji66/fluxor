@@ -1361,24 +1361,22 @@ proxy-groups:
   - {name: 🚀 节点选择, type: select, proxies: [👉 手动选择,♻️ 自动选择]}
   - {name: 👉 手动选择, type: select, include-all: true}
   - {name: ♻️ 自动选择, type: url-test, include-all: true, tolerance: 100}
-  - {name: 🤖 Github, type: select, proxies:  [🚀 节点选择,🎯 全球直连]}
-  - {name: 🇨🇳 国内, type: select, proxies:  [🎯 全球直连,🚀 节点选择]}
-  - {name: 🧱 国外, type: select, proxies:  [🚀 节点选择,🎯 全球直连]}
+  - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 节点选择, 🎯 全球直连]}
   - {name: 🎯 全球直连, type: select, proxies: [DIRECT], hidden: true}
 `
 
 const rulesBase = `
 rules:
   - GEOIP,lan,🎯 全球直连,no-resolve
-  - GEOSITE,github,🤖 Github
+  - GEOSITE,github,🚀 节点选择
   - GEOSITE,google,🚀 节点选择
   - GEOSITE,telegram,🚀 节点选择
-  - GEOSITE,CN,🇨🇳 国内
-  - GEOSITE,geolocation-!cn,🧱 国外
+  - GEOSITE,CN,🎯 全球直连
+  - GEOSITE,geolocation-!cn,🚀 节点选择
   - GEOIP,google,🚀 节点选择
   - GEOIP,telegram,🚀 节点选择
-  - GEOIP,CN,🇨🇳 国内
-  - MATCH,🧱 国外
+  - GEOIP,CN,🎯 全球直连
+  - MATCH,🐟 漏网之鱼
 `
 
 const proxyGroupsFullTemplate = `

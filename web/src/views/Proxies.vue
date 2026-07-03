@@ -85,17 +85,29 @@ watch(
   { immediate: true }
 )
 
-
 const filteredGroups = computed(() => {
   const mode = renderedMode.value
   const subMode = currentConfig.value.mode
 
+  // Direct 模式下没有组
   if (mode === 'Direct') return []
+
+  // 先获取基于模式的候选组（不进行 hidden 过滤）
+  let groups = proxyGroups.value
+
   if (mode === 'Global') {
-    if (subMode === 'merge') return proxyGroups.value
-    return proxyGroups.value.filter(g => g.name.toUpperCase() === 'GLOBAL')
+    // 如果订阅模式是 merge，保留全部；否则只保留 GLOBAL 组
+    if (subMode !== 'merge') {
+      groups = groups.filter(g => g.name.toUpperCase() === 'GLOBAL')
+    }
+    // 否则 groups 保持全部
+  } else {
+    // Rule 模式：排除 GLOBAL 组
+    groups = groups.filter(g => g.name.toUpperCase() !== 'GLOBAL')
   }
-  return proxyGroups.value.filter(g => g.name.toUpperCase() !== 'GLOBAL')
+
+  // 最后统一过滤掉 hidden 为 true 的组
+  return groups.filter(g => !g.hidden)
 })
 
 // 是否启用双列独立布局：组数 > 6 且桌面端
