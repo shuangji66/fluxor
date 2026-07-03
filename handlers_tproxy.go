@@ -29,11 +29,11 @@ func loadTproxyDstExceptions() []string {
     defer exceptionsMu.Unlock()
     data, err := os.ReadFile(fluxorConfigFile)
     if err != nil {
-        return []string{"223.5.5.5", "1.12.12.12", "141.101.90.1"} // 默认值
+        return []string{"# 公共 DNS 服务器","223.5.5.5 #注释可单独一行也可写在规则后", "1.12.12.12", "# stun服务器","141.101.90.1"} // 默认值
     }
     var raw map[string]json.RawMessage
     if err := json.Unmarshal(data, &raw); err != nil {
-        return []string{"223.5.5.5", "1.12.12.12", "141.101.90.1"}
+        return []string{"# 公共 DNS 服务器","223.5.5.5 #注释可单独一行也可写在规则后", "1.12.12.12", "# stun服务器","141.101.90.1"}
     }
     // 尝试读取新字段 tproxy_dst_exceptions
     if dstRaw, ok := raw["tproxy_dst_exceptions"]; ok {
@@ -56,7 +56,7 @@ func loadTproxyDstExceptions() []string {
         }
     }
     // 默认值
-    defaultDst := []string{"223.5.5.5", "1.12.12.12", "141.101.90.1"}
+    defaultDst := []string{"# 公共 DNS 服务器","223.5.5.5 #注释可单独一行也可写在规则后", "1.12.12.12", "# stun服务器","141.101.90.1"}
     tproxyDstExceptionsCache = defaultDst
     saveTproxyDstExceptionsLocked(defaultDst)
     return defaultDst
@@ -93,14 +93,14 @@ func loadTproxySrcExceptions() []string {
     data, err := os.ReadFile(fluxorConfigFile)
     if err != nil {
         // 文件不存在，创建默认
-        defaultSrc := []string{"172.17.0.0/16"}
+        defaultSrc := []string{"# Docker 默认网段","172.17.0.0/16"}
         tproxySrcExceptionsCache = defaultSrc
         saveTproxySrcExceptionsLocked(defaultSrc)
         return defaultSrc
     }
     var raw map[string]json.RawMessage
     if err := json.Unmarshal(data, &raw); err != nil {
-        defaultSrc := []string{"172.17.0.0/16"}
+        defaultSrc := []string{"# Docker 默认网段","172.17.0.0/16"}
         tproxySrcExceptionsCache = defaultSrc
         saveTproxySrcExceptionsLocked(defaultSrc)
         return defaultSrc
@@ -113,7 +113,7 @@ func loadTproxySrcExceptions() []string {
         }
     }
     // 字段不存在，初始化默认
-    defaultSrc := []string{"172.17.0.0/16"}
+    defaultSrc := []string{"# Docker 默认网段","172.17.0.0/16"}
     tproxySrcExceptionsCache = defaultSrc
     saveTproxySrcExceptionsLocked(defaultSrc)
     return defaultSrc
@@ -298,11 +298,16 @@ func enableTProxyRules(port int) error {
 
 	// 7a. 目的例外
 	for _, rule := range dstExceptions {
-		typ, ipNet, proto, portVal, err := parseTproxyException(rule)
-		if err != nil {
-			log.Printf("[TProxy] 跳过无效目的例外规则 %q: %v", rule, err)
-			continue
-		}
+		rule = stripComment(rule)
+  	    if rule == "" {
+            continue
+        }
+        typ, ipNet, proto, portVal, err := parseTproxyException(rule)
+        if err != nil {
+            log.Printf("[TProxy] 跳过无效目的例外规则 %q: %v", rule, err)
+            continue
+        }
+
 		if typ == "ip" {
 			cidr := ipNet.String()
 			// TProxy 劫持
@@ -332,6 +337,10 @@ func enableTProxyRules(port int) error {
 
 	// 7b. 源例外
 	for _, rule := range srcExceptions {
+		rule = stripComment(rule)
+        if rule == "" {
+            continue
+        }
 		if _, ipNet, err := net.ParseCIDR(rule); err == nil {
 			cidr := ipNet.String()
 			runCmd("nft", "add", "rule", "ip", "fluxor_tproxy", "prerouting", "ip", "saddr", cidr, "return")
@@ -506,4 +515,13 @@ func handleTproxyProxyLocal(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// stripComment 去除行尾 # 注释，并 trim 空格，返回纯净的规则部分
+func stripComment(line string) string {
+	line = strings.TrimSpace(line)
+	if idx := strings.Index(line, "#"); idx >= 0 {
+		line = strings.TrimSpace(line[:idx])
+	}
+	return line
 }
