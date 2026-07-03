@@ -21,6 +21,7 @@ const messages = {
     'common.show': '显示',
     'common.hide': '隐藏',
     'common.copied': '已成功复制',
+    'common.warning': '警告',
     'welcome_back': '欢迎回来，{username}',
 
     'nav.overview': '概览',
@@ -302,6 +303,8 @@ const messages = {
     'config.tproxy_src_exceptions_label': '源 IP 例外',
     'config.tproxy_src_exceptions_hint': '每行一条规则，仅支持 IP/CIDR（如 172.17.0.0/16）',
     'config.tproxy_src_exceptions_placeholder': '例如：\n172.17.0.0/16\n192.168.1.0/24',
+    'config.tproxy_proxy_local_warning': '防失联提示：开启前确保本机有可靠的访问方式或已添加穿透服务的绕过规则',
+    'config.tun_enable_warning': '防失联提示：开启前确保本机有可靠的访问方式',
 
     'subscription.title': '订阅中心',
     'subscription.proxy_port': '代理端口',
@@ -389,6 +392,7 @@ const messages = {
     'common.show': 'Show',
     'common.hide': 'Hide',
     'common.copied': 'Copied successfully',
+    'common.warning': 'Warning',
     'welcome_back': 'Welcome back, {username}',
 
     'nav.overview': 'Overview',
@@ -670,6 +674,8 @@ const messages = {
     'config.tproxy_src_exceptions_label': 'Source IP Exceptions',
     'config.tproxy_src_exceptions_hint': 'One rule per line, supports IP/CIDR only (e.g., 172.17.0.0/16)',
     'config.tproxy_src_exceptions_placeholder': 'e.g.:\n172.17.0.0/16\n192.168.1.0/24',
+    'config.tproxy_proxy_local_warning': 'Prevent disconnection: Ensure this machine has a reliable access method or has added bypass rules for tunneling services before enabling',
+    'config.tun_enable_warning': 'Prevent disconnection: Ensure this machine has a reliable access method',
 
     'subscription.title': 'Subscription Center',
     'subscription.proxy_port': 'Proxy Port',

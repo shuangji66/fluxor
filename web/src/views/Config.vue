@@ -423,6 +423,45 @@ const handleDNSQuery = async (e?: Event) => {
   }
 }
 
+// 处理本机代理开关切换（开启时弹窗确认）
+const handleProxyLocalToggle = async (newVal: boolean) => {
+  if (newVal) {
+    // 尝试开启 -> 弹窗警告
+    const confirmed = await globalStore.showConfirm({
+      title: t('common.warning'),
+      message: t('config.tproxy_proxy_local_warning'),
+      type: 'warning'
+    })
+    if (confirmed) {
+      tproxyProxyLocal.value = true
+    }
+    // 取消则保持原值（false）
+  } else {
+    // 关闭直接生效
+    tproxyProxyLocal.value = false
+  }
+}
+
+// 处理 TUN 开关切换（开启时弹窗确认）
+const handleTunToggle = async (newVal: boolean) => {
+  if (newVal) {
+    // 尝试开启 -> 弹窗警告
+    const confirmed = await globalStore.showConfirm({
+      title: t('common.warning'),
+      message: t('config.tun_enable_warning'),
+      type: 'warning'
+    })
+    if (confirmed) {
+      configs.value.tun.enable = true
+      saveTun() // 内部处理互斥并 patch 后端
+    }
+    // 取消则保持原值（false）
+  } else {
+    // 关闭直接生效
+    configs.value.tun.enable = false
+    saveTun()
+  }
+}
 
 const changeLang = () => {
   localStorage.setItem('lang', locale.value)
@@ -610,7 +649,7 @@ onActivated(() => {
           <!-- TUN 模式 -->
           <div class="flex items-center justify-between">
             <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tun_enable') }}</label>
-            <FormSwitch v-model="configs.tun.enable" @update:model-value="() => saveTun()" />
+            <FormSwitch :model-value="configs.tun.enable" @update:model-value="handleTunToggle"/>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
@@ -866,7 +905,10 @@ onActivated(() => {
             <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">
               {{ t('config.tproxy_proxy_local_label') }}
             </label>
-            <FormSwitch v-model="tproxyProxyLocal" />
+              <FormSwitch
+                :model-value="tproxyProxyLocal"
+                @update:model-value="handleProxyLocalToggle"
+              />
           </div>
         </div>
 

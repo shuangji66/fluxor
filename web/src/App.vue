@@ -511,7 +511,7 @@ onUnmounted(() => {
 
     <!-- 全局 Confirm 确认框 -->
     <Teleport to="body">
-      <div v-if="globalStore.confirmDialog && globalStore.confirmDialog.visible" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4">
+      <div v-if="globalStore.confirmDialog && globalStore.confirmDialog.visible" class="fixed inset-0 glass-mask z-[10000] flex items-center justify-center p-4">
         <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-5 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
           
           <div class="flex items-start gap-3.5">
@@ -584,7 +584,7 @@ onUnmounted(() => {
 
     <!-- 全局 Toast 提示容器 -->
     <Teleport to="body">
-      <div class="fixed top-4 right-4 z-[9999] inline-flex flex-col items-end gap-2.5 pointer-events-none max-w-[90%] md:max-w-sm">
+      <div class="fixed top-4 right-4 z-[10000] inline-flex flex-col items-end gap-2.5 pointer-events-none max-w-[90%] md:max-w-sm">
         <div v-for="toast in globalStore.toasts" :key="toast.id" 
           @click="globalStore.removeToast(toast.id)"
           class="p-4 rounded-2xl shadow-lg border text-xs font-semibold flex items-center justify-between gap-3 animate-[slideIn_0.25s_cubic-bezier(0.16,1,0.3,1)] pointer-events-auto backdrop-blur-lg cursor-pointer hover:translate-y-[-1px] active:scale-[0.98] transition-all duration-200 w-full"
