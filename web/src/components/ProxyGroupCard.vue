@@ -288,7 +288,7 @@ const getDelayText = (delay?: number) => {
               :class="[dot.colorClass, 'w-2 h-2 rounded-full flex-shrink-0 relative']"
               :title="dot.name"
             >
-              <span v-if="dot.isSelected" class="absolute top-[2px] left-[2px] w-1 h-1 rounded-full bg-white"></span>
+              <span v-if="dot.isSelected" class="absolute inset-0 rounded-full ring-2 ring-white/60 ring-inset"></span>
             </span>
           </template>
         </div>
@@ -302,8 +302,8 @@ const getDelayText = (delay?: number) => {
         @click="handleSelectProxy(name)"
         class="live-card flex flex-col justify-between p-2.5 text-xs rounded-sm border transition-all duration-300 cursor-pointer min-h-[75px] relative"
         :class="group.now === name
-          ? 'bg-accent/10 border-accent text-accent ring-1 ring-accent/30 active:scale-[0.95]'
-          : 'border-apple-border hover:border-accent/40 bg-apple-card/85 text-apple-text hover:bg-apple-card active:scale-[0.95]'"
+          ? 'bg-accent/30 border-accent active:scale-[0.95]'
+          : 'border-apple-border hover:border-accent/50 bg-apple-card/85 hover:brightness-90 text-apple-text active:scale-[0.95]'"
       >
         <div class="w-full text-left">
           <span class="block truncate text-xs font-bold text-apple-text leading-snug" :class="{ '!text-accent': group.now === name }" :title="name">

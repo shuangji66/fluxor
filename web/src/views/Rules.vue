@@ -190,12 +190,12 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-lg border border-apple-border flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <div class="flex items-center justify-between md:justify-start gap-4 flex-1 md:flex-initial">
-        <h3 class="text-base font-semibold flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 flex-1 md:flex-initial">
+        <h3 class="text-base font-semibold flex items-center gap-2 shrink-0">
           <LayersOutline class="w-5 h-5 text-accent" />
           {{ t('nav.rules') }}
         </h3>
-        <div class="flex bg-apple-input rounded-full p-0.5 transition-all shrink-0 border border-apple-border relative select-none w-60 sm:w-64">
+        <div class="flex bg-apple-input rounded-full p-0.5 transition-all border border-apple-border relative select-none w-full sm:w-64">
           <div 
             class="absolute top-0.5 bottom-0.5 left-0.5 rounded-full bg-accent transition-all duration-300 ease-in-out z-0 w-[calc(50%-2px)]"
             :class="activeTab === 'rules' ? 'translate-x-0' : 'translate-x-full'"

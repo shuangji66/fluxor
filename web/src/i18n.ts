@@ -143,7 +143,7 @@ const messages = {
     'rules.batch_update_partial': '更新完成: {success} 成功, {fail} 失败',
     'rules.updating_provider': '正在更新 {name}...',
     'rules.rules_tab': '规则',
-    'rules.providers_tab': '规则提供者',
+    'rules.providers_tab': '提供者',
     'rules.provider_name': '名称',
     'rules.provider_type': '类型',
     'rules.rule_count': '规则数',
