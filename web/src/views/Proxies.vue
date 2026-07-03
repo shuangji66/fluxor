@@ -208,7 +208,7 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <!-- 顶部工具栏：移动两行，桌面一行 -->
-    <div class="glass-medium shadow-none px-6 py-3 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all shrink-0">
+    <div class="glass-medium shadow-none px-6 py-3 rounded-lg border border-apple-border transition-all shrink-0">
       <!-- 移动端布局（两行） -->
       <div class="flex md:hidden flex-col w-full gap-3">
         <div class="flex items-center justify-between">
@@ -220,7 +220,7 @@ onUnmounted(() => {
             <!-- 齿轮按钮 -->
             <button
               @click="openSettingsDialog"
-              class="p-2 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              class="p-2 text-apple-text-muted hover:text-accent rounded-sm hover:bg-apple-border/50 active:scale-95 transition-all"
               :title="t('proxies.settings_title')"
             >
               <SettingsOutline class="w-5 h-5" />
@@ -229,7 +229,7 @@ onUnmounted(() => {
             <button
               @click="handleTestAll"
               :disabled="isTestingAll"
-              class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-full shadow-none transition-all flex items-center gap-1.5 disabled:cursor-not-allowed whitespace-nowrap active:scale-[0.95]"
             >
               <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
               {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
@@ -237,21 +237,29 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="flex justify-center">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
+          <div class="flex bg-apple-input rounded-full p-0.5 w-full sm:w-auto transition-all border border-apple-border relative select-none">
+            <div 
+              class="absolute top-0.5 bottom-0.5 left-0.5 rounded-full bg-accent transition-all duration-300 ease-in-out z-0 w-[calc(33.333%-2px)]"
+              :class="{
+                'translate-x-0': configs.mode === 'Rule',
+                'translate-x-[100%]': configs.mode === 'Global',
+                'translate-x-[200%]': configs.mode === 'Direct'
+              }"
+            ></div>
             <button
               v-for="modeOption in ['Rule', 'Global', 'Direct']"
               :key="modeOption"
               @click="changeMode(modeOption)"
               :disabled="!coreStatus.running"
-              class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+              class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:cursor-not-allowed active:scale-95 z-10 text-center"
+              :class="configs.mode === modeOption ? 'text-white' : 'text-apple-text-muted hover:text-apple-text'"
             >
               {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
             </button>
           </div>
         </div>
       </div>
-
+ 
       <!-- 桌面端布局（一行） -->
       <div class="hidden md:flex items-center justify-between w-full">
         <h3 class="text-base font-semibold flex items-center gap-2">
@@ -259,14 +267,22 @@ onUnmounted(() => {
           {{ t('proxies.title') }}
         </h3>
         <div class="flex-1 flex justify-center">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all">
+          <div class="flex bg-apple-input rounded-full p-0.5 transition-all border border-apple-border relative select-none">
+            <div 
+              class="absolute top-0.5 bottom-0.5 left-0.5 rounded-full bg-accent transition-all duration-300 ease-in-out z-0 w-[calc(33.333%-2px)]"
+              :class="{
+                'translate-x-0': configs.mode === 'Rule',
+                'translate-x-[100%]': configs.mode === 'Global',
+                'translate-x-[200%]': configs.mode === 'Direct'
+              }"
+            ></div>
             <button
               v-for="modeOption in ['Rule', 'Global', 'Direct']"
               :key="modeOption"
               @click="changeMode(modeOption)"
               :disabled="!coreStatus.running"
-              class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+              class="px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:cursor-not-allowed active:scale-95 z-10 text-center"
+              :class="configs.mode === modeOption ? 'text-white' : 'text-apple-text-muted hover:text-apple-text'"
             >
               {{ t(`config.mode_${modeOption.toLowerCase()}`) }}
             </button>
@@ -275,7 +291,7 @@ onUnmounted(() => {
         <div class="flex items-center gap-2">
           <button
             @click="openSettingsDialog"
-            class="p-2 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            class="p-2 text-apple-text-muted hover:text-accent rounded-sm hover:bg-apple-border/50 transition-all active:scale-95"
             :title="t('proxies.settings_title')"
           >
             <SettingsOutline class="w-5 h-5" />
@@ -283,7 +299,7 @@ onUnmounted(() => {
           <button
             @click="handleTestAll"
             :disabled="isTestingAll"
-            class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-full shadow-none transition-all flex items-center gap-1.5 disabled:cursor-not-allowed whitespace-nowrap active:scale-[0.95]"
           >
             <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
             {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
@@ -293,49 +309,48 @@ onUnmounted(() => {
     </div>
 
     <!-- 内容区域 -->
-    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6 space-y-6 pr-4" style="scrollbar-gutter: stable">
-      <!-- 骨架屏 -->
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-lg border border-apple-border p-6 space-y-6 pr-4" style="scrollbar-gutter: stable">
       <div v-if="isLoading && proxyGroups.length === 0" class="flex flex-col lg:flex-row gap-4 items-start">
         <div class="flex-1 space-y-4 w-full min-w-0">
-          <div v-for="i in 2" :key="'skeleton-l-' + i" class="bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 space-y-4 animate-pulse select-none">
+          <div v-for="i in 2" :key="'skeleton-l-' + i" class="bg-apple-card/50 p-4 sm:p-5 rounded-lg border border-apple-border/80 space-y-4 animate-pulse select-none">
             <div class="flex items-center justify-between gap-4">
               <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                <div class="w-3.5 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
+                <div class="w-3.5 h-3.5 bg-apple-border rounded shrink-0"></div>
                 <div class="flex-1 space-y-2">
                   <div class="flex items-center gap-2">
-                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-24"></div>
-                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-16"></div>
+                    <div class="h-4 bg-apple-border rounded w-24"></div>
+                    <div class="h-4 bg-apple-border rounded w-16"></div>
                   </div>
-                  <div class="h-3 bg-slate-200 dark:bg-slate-800 rounded w-32 mt-1"></div>
+                  <div class="h-3 bg-apple-border rounded w-32 mt-1"></div>
                 </div>
               </div>
-              <div class="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
+              <div class="w-8 h-8 bg-apple-border rounded-sm shrink-0"></div>
             </div>
-            <div class="h-1.5 bg-slate-100 dark:bg-slate-800/50 rounded w-full"></div>
+            <div class="h-1.5 bg-apple-border/50 rounded w-full"></div>
           </div>
         </div>
         <div class="flex-1 space-y-4 w-full min-w-0">
-          <div v-for="i in 2" :key="'skeleton-r-' + i" class="bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5 rounded-xl border border-slate-200/40 dark:border-slate-800/40 space-y-4 animate-pulse select-none">
+          <div v-for="i in 2" :key="'skeleton-r-' + i" class="bg-apple-card/50 p-4 sm:p-5 rounded-lg border border-apple-border/80 space-y-4 animate-pulse select-none">
             <div class="flex items-center justify-between gap-4">
               <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                <div class="w-3.5 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
+                <div class="w-3.5 h-3.5 bg-apple-border rounded shrink-0"></div>
                 <div class="flex-1 space-y-2">
                   <div class="flex items-center gap-2">
-                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-28"></div>
-                    <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-14"></div>
+                    <div class="h-4 bg-apple-border rounded w-28"></div>
+                    <div class="h-4 bg-apple-border rounded w-14"></div>
                   </div>
-                  <div class="h-3 bg-slate-200 dark:bg-slate-800 rounded w-36 mt-1"></div>
+                  <div class="h-3 bg-apple-border rounded w-36 mt-1"></div>
                 </div>
               </div>
-              <div class="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-lg shrink-0"></div>
+              <div class="w-8 h-8 bg-apple-border rounded-sm shrink-0"></div>
             </div>
-            <div class="h-1.5 bg-slate-100 dark:bg-slate-800/50 rounded w-full"></div>
+            <div class="h-1.5 bg-apple-border/50 rounded w-full"></div>
           </div>
         </div>
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="filteredGroups.length === 0" class="p-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+      <div v-else-if="filteredGroups.length === 0" class="p-8 text-center text-apple-text-muted text-sm">
         <span v-if="configs.mode === 'Direct'">{{ t('proxies.empty_direct') }}</span>
         <span v-else-if="configs.mode === 'Global'">{{ t('proxies.empty_global') }}</span>
         <span v-else>{{ t('proxies.empty') }}</span>
@@ -379,15 +394,15 @@ onUnmounted(() => {
         class="fixed inset-0 z-[9999] glass-mask flex items-center justify-center p-4"
         @click.self="showSettingsDialog = false"
       >
-        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] max-h-[90vh] overflow-y-auto">
-          <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
+        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-lg border border-apple-border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] max-h-[90vh] overflow-y-auto shadow-none">
+          <h4 class="text-lg font-bold text-apple-text">{{ t('proxies.settings_title') }}</h4>
 
           <!-- 排序 -->
           <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.sort_order') }}</label>
+            <label class="text-xs font-semibold text-apple-text-muted">{{ t('proxies.sort_order') }}</label>
             <select
               v-model="settingsForm.sort"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+              class="w-full bg-apple-input border border-apple-border rounded-sm px-3.5 py-2 text-sm focus:ring-1 focus:ring-accent outline-none text-apple-text"
             >
               <option value="default">{{ t('proxies.sort_default') }}</option>
               <option value="name">{{ t('proxies.sort_name') }}</option>
@@ -398,60 +413,60 @@ onUnmounted(() => {
 
           <!-- 低延迟阈值 -->
           <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_low') }}</label>
+            <label class="text-xs font-semibold text-apple-text-muted">{{ t('proxies.threshold_low') }}</label>
             <input
               type="number"
               v-model.number="settingsForm.thresholdLow"
               min="1"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+              class="w-full bg-apple-input border border-apple-border rounded-sm px-3.5 py-2 text-sm focus:ring-1 focus:ring-accent outline-none text-apple-text"
             />
           </div>
 
           <!-- 中延迟阈值 -->
           <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_mid') }}</label>
+            <label class="text-xs font-semibold text-apple-text-muted">{{ t('proxies.threshold_mid') }}</label>
             <input
               type="number"
               v-model.number="settingsForm.thresholdMid"
               min="1"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+              class="w-full bg-apple-input border border-apple-border rounded-sm px-3.5 py-2 text-sm focus:ring-1 focus:ring-accent outline-none text-apple-text"
             />
           </div>
 
           <!-- 历史条数 -->
           <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.history_count') }}</label>
+            <label class="text-xs font-semibold text-apple-text-muted">{{ t('proxies.history_count') }}</label>
             <input
               type="number"
               v-model.number="settingsForm.historyCount"
               min="5"
               max="10"
               step="1"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+              class="w-full bg-apple-input border border-apple-border rounded-sm px-3.5 py-2 text-sm focus:ring-1 focus:ring-accent outline-none text-apple-text"
             />
           </div>
 
           <!-- 节点过滤正则 -->
           <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.filter_regex') }}</label>
+            <label class="text-xs font-semibold text-apple-text-muted">{{ t('proxies.filter_regex') }}</label>
             <textarea
               v-model="settingsForm.filterRegex"
               :placeholder="t('proxies.filter_regex_placeholder')"
               rows="2"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none font-mono resize-y min-h-[3.5rem]"
+              class="w-full bg-apple-input border border-apple-border rounded-sm px-3.5 py-2 text-sm focus:ring-1 focus:ring-accent outline-none font-mono resize-y min-h-[3.5rem] text-apple-text placeholder-apple-text-muted/50"
             ></textarea>
           </div>
 
-          <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+          <div class="flex justify-end gap-2.5 pt-3 border-t border-apple-border">
             <button
               @click="showSettingsDialog = false"
-              class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all"
+              class="px-4 py-2 text-sm font-semibold rounded-sm bg-apple-bg border border-apple-border hover:bg-apple-border/50 text-apple-text-muted active:scale-95 transition-all"
             >
               {{ t('common.cancel') }}
             </button>
             <button
               @click="saveSettings"
-              class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15"
+              class="px-4 py-2 text-sm font-semibold rounded-sm bg-accent hover:bg-accent-hover text-white transition-all shadow-none active:scale-[0.95]"
             >
               {{ t('common.save') }}
             </button>

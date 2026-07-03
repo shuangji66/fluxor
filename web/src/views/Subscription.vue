@@ -65,11 +65,11 @@ const loadConfig = async () => {
 const fetchSubscriptionInfo = subscriptionStore.fetchSubscriptionInfo
 
 const getHealthClass = (info?: SubscriptionInfo | null) => {
-  if (!info || info.aliveCount === 0) return 'text-red-500'
-  if (info.avgDelay === undefined || info.avgDelay === 0) return 'text-slate-400'
+  if (!info || info.aliveCount === 0) return 'text-danger'
+  if (info.avgDelay === undefined || info.avgDelay === 0) return 'text-apple-text-muted'
   if (info.avgDelay <= 200) return 'text-success'
-  if (info.avgDelay <= 500) return 'text-amber-500'
-  return 'text-red-400'
+  if (info.avgDelay <= 500) return 'text-warning'
+  return 'text-danger'
 }
 
 // 记录正在轮询的定时器，避免多次触发或卸载泄露
@@ -417,79 +417,79 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <!-- 顶部操作栏 -->
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-lg border border-apple-border flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
       <h3 class="text-base font-semibold flex items-center gap-2">
         <MailOutline class="w-5 h-5 text-accent" />
         {{ t('subscription.title') }}
-         <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
+         <button @click="showHelpModal = true" class="flex items-center justify-center text-apple-text-muted hover:text-apple-text transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
            <InformationCircleOutline class="w-4 h-4" />
          </button>
       </h3>
-      <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+      <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-full shadow-none transition-all flex items-center gap-1.5 disabled:cursor-not-allowed active:scale-[0.95]">
         <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
         {{ isApplying ? '保存并应用中...' : t('subscription.save_and_apply') }}
       </button>
     </div>
 
     <!-- 内容区域内滚动容器 -->
-    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none p-6 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-4">
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none p-6 rounded-lg border border-apple-border transition-all pr-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.proxy_port') }}</label>
-          <input type="number" v-model="currentConfig.proxy_port" min="0" max="65535" step="1" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+          <label class="text-sm font-medium text-apple-text-muted">{{ t('subscription.proxy_port') }}</label>
+          <input type="number" v-model="currentConfig.proxy_port" min="0" max="65535" step="1" class="px-4 py-2.5 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none w-full" />
         </div>
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.panel_port') }}</label>
-          <input type="number" v-model="currentConfig.panel_port" min="0" max="65535" step="1" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+          <label class="text-sm font-medium text-apple-text-muted">{{ t('subscription.panel_port') }}</label>
+          <input type="number" v-model="currentConfig.panel_port" min="0" max="65535" step="1" class="px-4 py-2.5 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none w-full" />
         </div>
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.tproxy_port') }}</label>
+          <label class="text-sm font-medium text-apple-text-muted">{{ t('subscription.tproxy_port') }}</label>
           <input
             type="number"
             v-model.number="currentConfig.tproxy_port"
             min="0" max="65535" step="1" 
             @input="onTproxyPortInput"
             :placeholder="t('config.port_disabled_hint')"
-            class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
+            class="px-4 py-2.5 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none w-full placeholder-apple-text-muted/50"
           />
         </div>
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.panel_secret') }}</label>
+          <label class="text-sm font-medium text-apple-text-muted">{{ t('subscription.panel_secret') }}</label>
           <div class="relative flex items-center">
-            <input :type="showSecret ? 'text' : 'password'" v-model="currentConfig.panel_secret" class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
-            <button @click="showSecret = !showSecret" class="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <input :type="showSecret ? 'text' : 'password'" v-model="currentConfig.panel_secret" class="w-full pl-4 pr-10 py-2.5 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none placeholder-apple-text-muted/50" />
+            <button @click="showSecret = !showSecret" class="absolute right-3 text-apple-text-muted hover:text-apple-text active:scale-90 transition-all">
               <EyeOutline v-if="showSecret" class="w-5 h-5" />
               <EyeOffOutline v-else class="w-5 h-5" />
             </button>
           </div>
         </div>
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
-          <select v-model="currentConfig.rule_group" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+          <label class="text-sm font-medium text-apple-text-muted">{{ t('subscription.rule_group') }}</label>
+          <select v-model="currentConfig.rule_group" class="px-4 py-2.5 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none w-full">
             <option value="base">{{ t('subscription.rule_group_base') }}</option>
             <option value="full">{{ t('subscription.rule_group_full') }}</option>
           </select>
         </div>
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ui_panel') }}</label>
-          <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+          <label class="text-sm font-medium text-apple-text-muted">{{ t('subscription.ui_panel') }}</label>
+          <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none w-full">
             <option value="metacubexd">MetaCubeXD</option>
             <option value="zashboard">Zashboard</option>
           </select>
         </div>
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.meta_backend_url') }}</label>
+          <label class="text-sm font-medium text-apple-text-muted">{{ t('subscription.meta_backend_url') }}</label>
           <div class="relative flex items-center">
             <input
               :type="showBackendUrl ? 'text' : 'password'"
               v-model="currentConfig.meta_backend_url"
               :placeholder="t('subscription.meta_backend_url_placeholder')"
-              class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
+              class="w-full pl-4 pr-10 py-2.5 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none placeholder-apple-text-muted/50"
             />
             <button
               @click="showBackendUrl = !showBackendUrl"
-              class="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              class="absolute right-3 text-apple-text-muted hover:text-apple-text active:scale-90 transition-all"
             >
               <EyeOutline v-if="showBackendUrl" class="w-5 h-5" />
               <EyeOffOutline v-else class="w-5 h-5" />
@@ -499,30 +499,34 @@ onUnmounted(() => {
       </div>
 
       <div class="flex flex-wrap gap-y-3 gap-x-4 items-center justify-between mt-8 mb-4">
-        <h4 class="font-semibold text-base shrink-0 order-1">{{ t('subscription.subscription_list') }}</h4>
-        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0 order-3 sm:order-2 w-full sm:w-auto sm:ml-auto">
+        <h4 class="font-semibold text-base shrink-0 order-1 text-apple-text">{{ t('subscription.subscription_list') }}</h4>
+        <div class="flex bg-apple-input rounded-full p-0.5 transition-all shrink-0 order-3 sm:order-2 w-full sm:w-48 sm:ml-auto border border-apple-border relative select-none">
+          <div 
+            class="absolute top-0.5 bottom-0.5 left-0.5 rounded-full bg-accent transition-all duration-300 ease-in-out z-0 w-[calc(50%-2px)]"
+            :class="currentConfig.mode === 'merge' ? 'translate-x-0' : 'translate-x-full'"
+          ></div>
           <button
             @click="currentConfig.mode = 'merge'"
-            class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-            :class="currentConfig.mode === 'merge' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            class="flex-1 px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 active:scale-95 z-10 text-center"
+            :class="currentConfig.mode === 'merge' ? 'text-white' : 'text-apple-text-muted hover:text-apple-text'"
           >
             {{ t('subscription.mode_merge') }}
           </button>
           <button
             @click="currentConfig.mode = 'switch'"
-            class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-            :class="currentConfig.mode === 'switch' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            class="flex-1 px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 active:scale-95 z-10 text-center"
+            :class="currentConfig.mode === 'switch' ? 'text-white' : 'text-apple-text-muted hover:text-apple-text'"
           >
             {{ t('subscription.mode_switch') }}
           </button>
         </div>
-        <button @click="openSubModal(-1)" class="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 order-2 sm:order-3">
+        <button @click="openSubModal(-1)" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-full shadow-none transition-all flex items-center gap-1 shrink-0 order-2 sm:order-3 active:scale-[0.95]">
           <AddOutline class="w-4 h-4" /> {{ t('subscription.add_subscription') }}
         </button>
       </div>
 
       <div id="subList" class="space-y-4">
-        <div v-if="!currentConfig.subscriptions || currentConfig.subscriptions.length === 0" class="text-slate-400 dark:text-slate-600 text-sm py-4 text-center">
+        <div v-if="!currentConfig.subscriptions || currentConfig.subscriptions.length === 0" class="text-apple-text-muted text-sm py-4 text-center">
           {{ t('subscription.no_subscriptions') }}
         </div>
         <!-- 卡片循环（已修改：支持点击选中和高亮） -->
@@ -531,37 +535,37 @@ onUnmounted(() => {
           v-for="(sub, idx) in currentConfig.subscriptions" 
           :key="sub.name" 
           @click="selectSubscription(sub.name)"
-          class="live-card p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 transition-all duration-300 relative overflow-hidden cursor-pointer"
+          class="live-card p-4 rounded-lg border border-apple-border bg-apple-card/50 flex flex-col gap-3 transition-all duration-300 relative overflow-hidden cursor-pointer hover:border-accent/40 active:scale-[0.98]"
           :class="{
-            'border-accent ring-2 ring-accent/30': currentConfig.mode === 'switch' && currentConfig.active_subscription === sub.name
+            'border-accent ring-1 ring-accent/30': currentConfig.mode === 'switch' && currentConfig.active_subscription === sub.name
           }"
         >
           <!-- 正在更新/健康检查的卡片遮罩层 -->
-          <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 glass-light rounded-xl z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
-            <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
-            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+          <div v-if="isUpdating[idx] || isCheckingHealth[idx]" class="absolute inset-0 glass-light rounded-lg z-10 flex items-center justify-center gap-2 animate-[fadeIn_0.15s_ease-out]">
+            <div class="w-4 h-4 border-2 border-apple-border !border-t-accent rounded-full animate-spin"></div>
+            <span class="text-[11px] font-bold text-apple-text-muted">
               {{ isUpdating[idx] ? t('rules.updating') : t('subscription.health_check') + '...' }}
             </span>
           </div>
           <div class="flex justify-between items-start gap-4">
-            <div class="min-width-0 flex-1">
-              <span class="font-semibold text-slate-800 dark:text-slate-100 break-all">{{ sub.name }}</span>
-              <div class="text-xs text-slate-400 dark:text-slate-500 mt-1 select-all break-all flex items-center gap-1.5">
-                <button @click.stop="showUrls[idx] = !showUrls[idx]" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showUrls[idx] ? t('subscription.hide_url') : t('subscription.show_url')">
+            <div class="min-w-0 flex-1">
+              <span class="font-semibold text-apple-text break-all">{{ sub.name }}</span>
+              <div class="text-xs text-apple-text-muted mt-1 select-all break-all flex items-center gap-1.5">
+                <button @click.stop="showUrls[idx] = !showUrls[idx]" class="text-apple-text-muted hover:text-apple-text focus:outline-none" :title="showUrls[idx] ? t('subscription.hide_url') : t('subscription.show_url')">
                   <EyeOffOutline v-if="showUrls[idx]" class="w-3.5 h-3.5" />
                   <EyeOutline v-else class="w-3.5 h-3.5" />
                 </button>
                 <span>{{ showUrls[idx] ? sub.url : '••••••••' }}</span>
               </div>
             </div>
-            <div class="flex gap-1.5" @click.stop>
-              <button v-if="savedSubNames.has(sub.name)" @click="handleUpdateSub(idx)" :disabled="isUpdating[idx] || isCheckingHealth[idx]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('rules.update')">
+            <div class="flex gap-2.5 items-center shrink-0" @click.stop>
+              <button v-if="savedSubNames.has(sub.name)" @click="handleUpdateSub(idx)" :disabled="isUpdating[idx] || isCheckingHealth[idx]" class="w-8 h-8 flex items-center justify-center bg-apple-input hover:bg-apple-border text-apple-text-muted hover:text-apple-text rounded-full active:scale-95 transition-all border border-apple-border/40" :title="t('rules.update')">
                 <SyncOutline class="w-4 h-4 inline-block" :class="{ 'animate-spin': isUpdating[idx] }" />
               </button>
-              <button @click="openSubModal(idx)" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('common.edit')">
+              <button @click="openSubModal(idx)" class="w-8 h-8 flex items-center justify-center bg-apple-input hover:bg-apple-border text-apple-text-muted hover:text-apple-text rounded-full active:scale-95 transition-all border border-apple-border/40" :title="t('common.edit')">
                 <CreateOutline class="w-4 h-4" />
               </button>
-              <button @click="handleDeleteSub(idx)" class="p-2 hover:bg-red-500/10 hover:text-red-500 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('common.delete')">
+              <button @click="handleDeleteSub(idx)" class="w-8 h-8 flex items-center justify-center bg-apple-input hover:bg-danger/10 text-apple-text-muted hover:text-danger rounded-full active:scale-95 transition-all border border-apple-border/40" :title="t('common.delete')">
                 <TrashOutline class="w-4 h-4" />
               </button>
             </div>
@@ -570,20 +574,20 @@ onUnmounted(() => {
           <!-- 信息展示 -->
           <div v-if="sub.info" class="space-y-2">
             <div class="flex items-center gap-3">
-              <div class="flex-1 bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div class="flex-1 bg-apple-border h-2 rounded-full overflow-hidden">
                 <div class="bg-accent h-full rounded-full transition-all" :style="{ width: Math.min(((sub.info.upload + sub.info.download) / (sub.info.total || 1)) * 100, 100) + '%' }"></div>
               </div>
               <span class="text-xs font-semibold text-accent">{{ ((sub.info.upload + sub.info.download) / (sub.info.total || 1) * 100).toFixed(1) }}%</span>
             </div>
-            <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+            <div class="flex justify-between text-xs text-apple-text-muted">
               <span>{{ formatGB(sub.info.upload + sub.info.download) }} / {{ formatGB(sub.info.total) }}</span>
               <span>{{ t('subscription.valid_until_label') }}{{ formatExpire(sub.info.expire) }}</span>
             </div>
-            <div class="flex justify-between text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+            <div class="flex justify-between text-[11px] text-apple-text-muted mt-1">
               <span>{{ t('subscription.updated_at_label') }}{{ formatUpdateTime(sub.info.updatedAt) || t('common.unknown') }}</span>
             </div>
           </div>
-          <div v-else class="text-xs text-slate-400 dark:text-slate-500">
+          <div v-else class="text-xs text-apple-text-muted">
             <template v-if="!savedSubNames.has(sub.name)">
               {{ t('subscription.save_to_show_info') }}
             </template>
@@ -598,9 +602,9 @@ onUnmounted(() => {
     <!-- 保存并应用全屏模糊加载浮层 -->
     <Teleport to="body">
       <div v-if="isApplying" class="fixed inset-0 glass-mask z-[9999] flex flex-col items-center justify-center gap-3 animate-[fadeIn_0.2s_ease-out]">
-        <div class="glass-medium border px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
-          <div class="w-5 h-5 border-2 border-slate-200 dark:border-slate-800 !border-t-accent rounded-full animate-spin"></div>
-          <span class="text-xs font-bold text-slate-600 dark:text-slate-300">{{ t('subscription.applying') }}</span>
+        <div class="glass-medium border border-apple-border px-6 py-4 rounded-lg shadow-none flex items-center gap-3">
+          <div class="w-5 h-5 border-2 border-apple-border !border-t-accent rounded-full animate-spin"></div>
+          <span class="text-xs font-bold text-apple-text-muted">{{ t('subscription.applying') }}</span>
         </div>
       </div>
     </Teleport>
@@ -608,14 +612,14 @@ onUnmounted(() => {
     <!-- 使用说明弹窗 -->
     <Teleport to="body">
       <div v-if="showHelpModal" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showHelpModal = false">
-        <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
-          <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h2 class="text-lg font-bold">{{ t('subscription.help_title') }}</h2>
-            <button @click="showHelpModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+        <div class="glass-heavy w-full max-w-lg rounded-lg border border-apple-border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] shadow-none">
+          <div class="flex justify-between items-center border-b border-apple-border pb-3">
+            <h2 class="text-lg font-bold text-apple-text">{{ t('subscription.help_title') }}</h2>
+            <button @click="showHelpModal = false" class="text-apple-text-muted hover:text-apple-text flex items-center justify-center p-1 rounded-sm hover:bg-apple-border/50 transition-all active:scale-95">
               <CloseOutline class="w-5 h-5" />
             </button>
           </div>
-          <div class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+          <div class="text-sm text-apple-text-muted whitespace-pre-wrap leading-relaxed">
             {{ t('subscription.help_content') }}
           </div>
         </div>
@@ -625,44 +629,44 @@ onUnmounted(() => {
     <!-- Modal -->
     <Teleport to="body">
       <div v-if="showModal" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4">
-        <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
-          <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h2 class="text-lg font-bold">{{ modalTitle }}</h2>
-            <button @click="closeSubModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+        <div class="glass-heavy w-full max-w-lg rounded-lg border border-apple-border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] shadow-none">
+          <div class="flex justify-between items-center border-b border-apple-border pb-3">
+            <h2 class="text-lg font-bold text-apple-text">{{ modalTitle }}</h2>
+            <button @click="closeSubModal" class="text-apple-text-muted hover:text-apple-text flex items-center justify-center p-1 rounded-sm hover:bg-apple-border/50 transition-all active:scale-95">
               <CloseOutline class="w-5 h-5" />
             </button>
           </div>
 
           <div class="space-y-4">
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.name') }}</label>
-              <input type="text" v-model="editForm.name" :placeholder="t('subscription.name_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+              <label class="text-xs font-semibold text-apple-text-muted">{{ t('subscription.name') }}</label>
+              <input type="text" v-model="editForm.name" :placeholder="t('subscription.name_placeholder')" class="px-3.5 py-2 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none text-sm placeholder-apple-text-muted/50" />
             </div>
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.url') }}</label>
-              <input type="text" v-model="editForm.url" placeholder="https://example.com/sub" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+              <label class="text-xs font-semibold text-apple-text-muted">{{ t('subscription.url') }}</label>
+              <input type="text" v-model="editForm.url" placeholder="https://example.com/sub" class="px-3.5 py-2 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none text-sm placeholder-apple-text-muted/50" />
             </div>
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.update_interval') }}</label>
-              <input type="number" v-model="editForm.update_interval" placeholder="86400" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+              <label class="text-xs font-semibold text-apple-text-muted">{{ t('subscription.update_interval') }}</label>
+              <input type="number" v-model="editForm.update_interval" placeholder="86400" class="px-3.5 py-2 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none text-sm placeholder-apple-text-muted/50" />
             </div>
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.health_interval') }}</label>
-              <input type="number" v-model="editForm.health_interval" placeholder="300" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+              <label class="text-xs font-semibold text-apple-text-muted">{{ t('subscription.health_interval') }}</label>
+              <input type="number" v-model="editForm.health_interval" placeholder="300" class="px-3.5 py-2 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none text-sm placeholder-apple-text-muted/50" />
             </div>
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.prefix') }}</label>
-              <input type="text" v-model="editForm.prefix" :placeholder="t('subscription.prefix_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+              <label class="text-xs font-semibold text-apple-text-muted">{{ t('subscription.prefix') }}</label>
+              <input type="text" v-model="editForm.prefix" :placeholder="t('subscription.prefix_placeholder')" class="px-3.5 py-2 rounded-sm border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none text-sm placeholder-apple-text-muted/50" />
             </div>
           </div>
 
-          <p class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ t('subscription.modal_hint') }}</p>
+          <p class="text-xs text-apple-text-muted leading-normal">{{ t('subscription.modal_hint') }}</p>
 
-          <div class="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button @click="closeSubModal" class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
+          <div class="flex justify-end gap-2.5 pt-4 border-t border-apple-border">
+            <button @click="closeSubModal" class="px-5 py-2 text-sm font-semibold rounded-full bg-apple-bg border border-apple-border hover:bg-apple-border/50 text-apple-text-muted transition-all active:scale-95">
               {{ t('subscription.cancel') }}
             </button>
-            <button @click="saveSubToList" class="px-4 py-2 text-sm font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
+            <button @click="saveSubToList" class="px-5 py-2 text-sm font-semibold rounded-full bg-accent hover:bg-accent-hover text-white transition-all shadow-none active:scale-[0.95]">
               {{ t('subscription.save_to_list') }}
             </button>
           </div>

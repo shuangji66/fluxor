@@ -27,7 +27,9 @@ import {
   CloseCircleOutline,
   AlertCircleOutline,
   CloseOutline,
-  ApertureOutline
+  ApertureOutline,
+  LeafOutline,
+  WaterOutline
 } from '@vicons/ionicons5'
 
 // 视图组件导入
@@ -189,14 +191,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen w-screen overflow-hidden bg-[#f1f5f9] dark:bg-[#0f172a] transition-colors duration-200 relative">
+  <div class="flex h-screen w-screen overflow-hidden bg-transparent text-apple-text transition-colors duration-200 relative">
     
+
+
     <!-- 侧边栏 aside -->
-    <aside class="hidden md:flex md:static my-4 ml-4 mr-0 h-[calc(100vh-32px)] glass-medium border border-slate-200/60 dark:border-slate-800/60 rounded-[24px] z-50 flex-col justify-between transition-all duration-300 overflow-y-auto overflow-x-hidden shadow-md"
+    <aside class="hidden md:flex md:static my-4 ml-4 mr-0 h-[calc(100vh-32px)] glass-medium border border-apple-border rounded-lg z-50 flex-col justify-between transition-all duration-300 overflow-y-auto overflow-x-hidden"
       :class="[
         globalStore.isSidebarCollapsed ? 'md:w-16 sidebar-collapsed' : 'md:w-60'
       ]">
-      <div class="flex items-center p-4 border-b border-slate-100 dark:border-slate-800/60 w-full transition-all duration-300 justify-between">
+      <div class="flex items-center p-4 border-b border-apple-border w-full transition-all duration-300 justify-between">
         <!-- Logo + Title 组合区域 -->
         <div class="flex items-center select-none cursor-pointer group/logo"
              @click="toggleSidebar"
@@ -207,14 +211,14 @@ onUnmounted(() => {
             <ApertureOutline class="w-5.5 h-5.5" />
           </div>
           <!-- 标题，随折叠平滑收缩 -->
-          <span class="font-bold text-sm text-slate-700 dark:text-slate-200 tracking-wider transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
+          <span class="font-bold text-sm text-apple-text tracking-wider transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
             :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-32 ml-2.5'">
             Fluxor
           </span>
         </div>
         <!-- 折叠/展开按钮 -->
         <button v-if="!globalStore.isSidebarCollapsed" @click="toggleSidebar" 
-          class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center justify-center animate-[fadeIn_0.2s]" aria-label="Toggle Sidebar">
+          class="p-1.5 text-apple-text-muted hover:text-apple-text rounded-sm hover:bg-apple-bg/50 active:scale-95 transition-all flex items-center justify-center animate-[fadeIn_0.2s]" aria-label="Toggle Sidebar">
           <ChevronBackOutline class="w-4 h-4 transition-all duration-200 hover:scale-110" />
         </button>
       </div>
@@ -223,9 +227,9 @@ onUnmounted(() => {
       <nav class="flex-1 px-3 py-4 space-y-1 transition-all duration-300">
         <!-- 概览 -->
         <button @click="selectTab('overview')" 
-          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
+          class="w-full flex items-center rounded-sm font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
           :class="[
-            globalStore.activeTab === 'overview' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'overview' ? 'sidebar-active font-bold' : 'text-apple-text-muted hover:bg-apple-bg/50 hover:text-apple-text',
             globalStore.isSidebarCollapsed 
               ? 'px-2.5 py-2 hover:scale-105' 
               : 'px-3.5 py-2.5 hover:translate-x-1'
@@ -240,9 +244,9 @@ onUnmounted(() => {
 
         <!-- 代理 -->
         <button @click="selectTab('proxies')" 
-          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
+          class="w-full flex items-center rounded-sm font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
           :class="[
-            globalStore.activeTab === 'proxies' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'proxies' ? 'sidebar-active font-bold' : 'text-apple-text-muted hover:bg-apple-bg/50 hover:text-apple-text',
             globalStore.isSidebarCollapsed 
               ? 'px-2.5 py-2 hover:scale-105' 
               : 'px-3.5 py-2.5 hover:translate-x-1'
@@ -257,9 +261,9 @@ onUnmounted(() => {
 
         <!-- 订阅 -->
         <button @click="selectTab('subscription')" 
-          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
+          class="w-full flex items-center rounded-sm font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
           :class="[
-            globalStore.activeTab === 'subscription' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'subscription' ? 'sidebar-active font-bold' : 'text-apple-text-muted hover:bg-apple-bg/50 hover:text-apple-text',
             globalStore.isSidebarCollapsed 
               ? 'px-2.5 py-2 hover:scale-105' 
               : 'px-3.5 py-2.5 hover:translate-x-1'
@@ -274,9 +278,9 @@ onUnmounted(() => {
 
         <!-- 规则 -->
         <button @click="selectTab('rules')" 
-          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
+          class="w-full flex items-center rounded-sm font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
           :class="[
-            globalStore.activeTab === 'rules' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'rules' ? 'sidebar-active font-bold' : 'text-apple-text-muted hover:bg-apple-bg/50 hover:text-apple-text',
             globalStore.isSidebarCollapsed 
               ? 'px-2.5 py-2 hover:scale-105' 
               : 'px-3.5 py-2.5 hover:translate-x-1'
@@ -291,9 +295,9 @@ onUnmounted(() => {
 
         <!-- 连接 -->
         <button @click="selectTab('connections')" 
-          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
+          class="w-full flex items-center rounded-sm font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
           :class="[
-            globalStore.activeTab === 'connections' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'connections' ? 'sidebar-active font-bold' : 'text-apple-text-muted hover:bg-apple-bg/50 hover:text-apple-text',
             globalStore.isSidebarCollapsed 
               ? 'px-2.5 py-2 hover:scale-105' 
               : 'px-3.5 py-2.5 hover:translate-x-1'
@@ -308,9 +312,9 @@ onUnmounted(() => {
 
         <!-- 日志 -->
         <button @click="selectTab('logs')" 
-          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
+          class="w-full flex items-center rounded-sm font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
           :class="[
-            globalStore.activeTab === 'logs' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'logs' ? 'sidebar-active font-bold' : 'text-apple-text-muted hover:bg-apple-bg/50 hover:text-apple-text',
             globalStore.isSidebarCollapsed 
               ? 'px-2.5 py-2 hover:scale-105' 
               : 'px-3.5 py-2.5 hover:translate-x-1'
@@ -325,9 +329,9 @@ onUnmounted(() => {
 
         <!-- 配置 -->
         <button @click="selectTab('config')" 
-          class="w-full flex items-center rounded-xl font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
+          class="w-full flex items-center rounded-sm font-medium text-sm transition-all duration-300 active:scale-95 group relative justify-start"
           :class="[
-            globalStore.activeTab === 'config' ? 'sidebar-active font-bold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+            globalStore.activeTab === 'config' ? 'sidebar-active font-bold' : 'text-apple-text-muted hover:bg-apple-bg/50 hover:text-apple-text',
             globalStore.isSidebarCollapsed 
               ? 'px-2.5 py-2 hover:scale-105' 
               : 'px-3.5 py-2.5 hover:translate-x-1'
@@ -342,7 +346,7 @@ onUnmounted(() => {
       </nav>
 
       <!-- 底部操作：中英文与主题 -->
-      <div class="border-t border-slate-100 dark:border-slate-800/60 p-3 transition-all duration-300">
+      <div class="border-t border-apple-border p-3 transition-all duration-300">
         <!-- 底部聚合容器卡片，在展开时提供整合的质感，折叠时平滑淡化过渡 -->
         <div class="flex flex-col transition-all duration-300"
           :class="[
@@ -355,9 +359,9 @@ onUnmounted(() => {
             :class="globalStore.isSidebarCollapsed ? 'flex-col items-center gap-1.5' : 'flex-row gap-2'">
             <!-- 切换语言 -->
             <button @click="toggleLanguage" 
-              class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden shrink-0"
+              class="flex items-center justify-center text-xs font-normal rounded-sm bg-apple-input hover:bg-apple-border/50 transition-all text-apple-text-muted hover:text-apple-text active:scale-95 border border-apple-border group overflow-hidden shrink-0"
               :class="[
-                globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none hover:scale-105 py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
+                globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
               ]"
               :title="locale === 'zh' ? '切换语言' : 'Switch Language'">
               <LanguageOutline class="w-4 h-4 shrink-0 sidebar-bottom-icon group-hover:scale-110 group-hover:rotate-12" />
@@ -369,16 +373,18 @@ onUnmounted(() => {
             
             <!-- 切换主题 -->
             <button @click="switchThemeCycle" 
-              class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 active:scale-95 border border-slate-100/50 dark:border-slate-800/30 group overflow-hidden shrink-0"
+              class="flex items-center justify-center text-xs font-normal rounded-sm bg-apple-input hover:bg-apple-border/50 transition-all text-apple-text-muted hover:text-apple-text active:scale-95 border border-apple-border group overflow-hidden shrink-0"
               :class="[
-                globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none hover:scale-105 py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
+                globalStore.isSidebarCollapsed ? 'w-9 h-9 flex-none py-0 px-0' : 'flex-1 py-2 px-2.5 hover:scale-[1.02]'
               ]"
               aria-label="Toggle Theme"
               :title="t('config.theme') + ': ' + t('config.theme_' + globalStore.theme)">
               <SunnyOutline v-if="globalStore.theme === 'light'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-amber-500 group-hover:scale-110 group-hover:rotate-45" />
               <MoonOutline v-else-if="globalStore.theme === 'dark'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-indigo-400 group-hover:scale-110 group-hover:-rotate-12" />
-              <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-purple-500 dark:text-purple-400 group-hover:scale-110 group-hover:-rotate-12" />
+              <ColorPaletteOutline v-else-if="globalStore.theme === 'purple'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-purple-400 group-hover:scale-110 group-hover:-rotate-12" />
               <HeartOutline v-else-if="globalStore.theme === 'pink'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-rose-500 group-hover:scale-110 group-hover:-rotate-12" />
+              <LeafOutline v-else-if="globalStore.theme === 'green'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-emerald-500 group-hover:scale-110 group-hover:rotate-12" />
+              <WaterOutline v-else-if="globalStore.theme === 'blue'" class="w-4 h-4 shrink-0 sidebar-bottom-icon text-sky-500 group-hover:scale-110 group-hover:scale-125" />
               <ContrastOutline v-else class="w-4 h-4 shrink-0 sidebar-bottom-icon text-slate-500 dark:text-slate-400 group-hover:scale-110 group-hover:-rotate-12" />
               <span class="transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden"
                 :class="globalStore.isSidebarCollapsed ? 'opacity-0 max-w-0 ml-0' : 'opacity-100 max-w-20 ml-1.5'">
@@ -401,39 +407,39 @@ onUnmounted(() => {
       </main>
 
       <!-- 移动端底部选项卡 Bar -->
-      <nav class="md:hidden fixed bottom-0 inset-x-0 h-14 glass-heavy border-t flex items-center justify-around z-40 shadow-lg">
+      <nav class="md:hidden fixed bottom-0 inset-x-0 h-14 glass-heavy border-t border-apple-border flex items-center justify-around z-40 shadow-none">
         <!-- 概览 -->
-        <button @click="selectTab('overview')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'overview' ? 'text-accent font-semibold scale-105' : 'text-slate-500 dark:text-slate-400'">
+        <button @click="selectTab('overview')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'overview' ? 'text-accent font-semibold scale-105' : 'text-apple-text-muted'">
           <GridOutline class="w-5 h-5" />
           <span class="text-[9px] font-medium">{{ t('nav.overview') }}</span>
         </button>
         <!-- 代理 -->
-        <button @click="selectTab('proxies')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'proxies' ? 'text-accent font-semibold scale-105' : 'text-slate-500 dark:text-slate-400'">
+        <button @click="selectTab('proxies')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'proxies' ? 'text-accent font-semibold scale-105' : 'text-apple-text-muted'">
           <GlobeOutline class="w-5 h-5" />
           <span class="text-[9px] font-medium">{{ t('nav.proxies') }}</span>
         </button>
         <!-- 订阅 -->
-        <button @click="selectTab('subscription')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'subscription' ? 'text-accent font-semibold scale-105' : 'text-slate-500 dark:text-slate-400'">
+        <button @click="selectTab('subscription')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'subscription' ? 'text-accent font-semibold scale-105' : 'text-apple-text-muted'">
           <MailOutline class="w-5 h-5" />
           <span class="text-[9px] font-medium">{{ t('nav.subscription') }}</span>
         </button>
         <!-- 规则 -->
-        <button @click="selectTab('rules')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'rules' ? 'text-accent font-semibold scale-105' : 'text-slate-500 dark:text-slate-400'">
+        <button @click="selectTab('rules')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'rules' ? 'text-accent font-semibold scale-105' : 'text-apple-text-muted'">
           <LayersOutline class="w-5 h-5" />
           <span class="text-[9px] font-medium">{{ t('nav.rules') }}</span>
         </button>
         <!-- 连接 -->
-        <button @click="selectTab('connections')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'connections' ? 'text-accent font-semibold scale-105' : 'text-slate-500 dark:text-slate-400'">
+        <button @click="selectTab('connections')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'connections' ? 'text-accent font-semibold scale-105' : 'text-apple-text-muted'">
           <LinkOutline class="w-5 h-5" />
           <span class="text-[9px] font-medium">{{ t('nav.connections') }}</span>
         </button>
         <!-- 日志 -->
-        <button @click="selectTab('logs')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'logs' ? 'text-accent font-semibold scale-105' : 'text-slate-500 dark:text-slate-400'">
+        <button @click="selectTab('logs')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'logs' ? 'text-accent font-semibold scale-105' : 'text-apple-text-muted'">
           <DocumentTextOutline class="w-5 h-5" />
           <span class="text-[9px] font-medium">{{ t('nav.logs') }}</span>
         </button>
         <!-- 配置 -->
-        <button @click="selectTab('config')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'config' ? 'text-accent font-semibold scale-105' : 'text-slate-500 dark:text-slate-400'">
+        <button @click="selectTab('config')" class="flex flex-col items-center gap-0.5 transition-all duration-200 active:scale-95" :class="globalStore.activeTab === 'config' ? 'text-accent font-semibold scale-105' : 'text-apple-text-muted'">
           <SettingsOutline class="w-5 h-5" />
           <span class="text-[9px] font-medium">{{ t('nav.config') }}</span>
         </button>
@@ -443,35 +449,35 @@ onUnmounted(() => {
     <!-- 关于 Fluxor 模态弹窗 -->
     <Teleport to="body">
       <div v-if="globalStore.showAbout" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="globalStore.showAbout = false">
-        <div class="glass-heavy border w-full max-w-[92vw] sm:max-w-md rounded-[24px] shadow-2xl p-6 flex flex-col gap-6 animate-[zoomIn_0.15s_ease-out] relative overflow-hidden">
+        <div class="glass-heavy border border-apple-border w-full max-w-[92vw] sm:max-w-md rounded-lg shadow-none p-6 flex flex-col gap-6 animate-[zoomIn_0.15s_ease-out] relative overflow-hidden">
 
           <!-- 头部信息 -->
           <div class="flex flex-col items-center text-center gap-2 pt-2">
-            <h3 class="text-xl font-extrabold bg-gradient-to-r from-accent to-purple-600 dark:from-accent dark:to-purple-400 bg-clip-text text-transparent tracking-wide select-none">
+            <h3 class="text-xl font-extrabold text-accent tracking-tight select-none">
               Fluxor
             </h3>
-            <p class="text-xs text-slate-600 dark:text-slate-300/90 font-semibold px-4">
+            <p class="text-xs text-apple-text-muted font-normal px-4">
               {{ t('about.description') }}
             </p>
           </div>
 
           <!-- 详细信息面板 -->
-          <div class="bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/50 rounded-2xl p-4 flex flex-col gap-3.5">
+          <div class="bg-apple-bg border border-apple-border rounded-lg p-4 flex flex-col gap-3.5">
             <div class="flex items-center justify-between text-xs">
-              <span class="font-bold text-slate-500 dark:text-slate-400">{{ t('about.version') }}</span>
-              <span class="font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">v{{ appVersion }}</span>
+              <span class="font-bold text-apple-text-muted">{{ t('about.version') }}</span>
+              <span class="font-mono font-bold px-2 py-0.5 rounded-sm bg-apple-input text-apple-text border border-apple-border">v{{ appVersion }}</span>
             </div>
             <!-- 内核版本 -->
             <div class="flex items-center justify-between text-xs">
-              <span class="font-bold text-slate-500 dark:text-slate-400">{{ t('about.core_version') }}</span>
-              <span class="font-bold px-2 py-0.5 rounded bg-accent/10 text-accent dark:text-accent/90">
+              <span class="font-bold text-apple-text-muted">{{ t('about.core_version') }}</span>
+              <span class="font-mono font-bold px-2 py-0.5 rounded-sm bg-accent/10 text-accent border border-accent/20">
                 Mihomo {{ overviewStore.stats.coreVersion || 'Unknown' }}
               </span>
             </div>
             <!-- 开源仓库 -->
-            <div class="flex items-center justify-between text-xs border-t border-slate-100 dark:border-slate-800/40 pt-3">
-              <span class="font-bold text-slate-500 dark:text-slate-400">{{ t('about.github') }}</span>
-              <a href="https://github.com/shuangji66/fluxor" target="_blank" class="flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-accent dark:hover:text-accent font-bold transition-colors">
+            <div class="flex items-center justify-between text-xs border-t border-apple-border pt-3">
+              <span class="font-bold text-apple-text-muted">{{ t('about.github') }}</span>
+              <a href="https://github.com/shuangji66/fluxor" target="_blank" class="flex items-center gap-1 text-apple-text hover:text-accent font-bold transition-colors">
                 <LogoGithub class="w-3.5 h-3.5" />
                 <span>Github</span>
               </a>
@@ -480,20 +486,20 @@ onUnmounted(() => {
 
           <!-- 技术特性 -->
           <div class="flex flex-col gap-2">
-            <h4 class="text-xs font-extrabold text-slate-500 dark:text-slate-400 tracking-wider">
+            <h4 class="text-xs font-extrabold text-apple-text-muted tracking-wider">
               {{ t('about.features') }}
             </h4>
             <ul class="flex flex-col gap-1.5 pl-1">
-              <li class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
+              <li class="text-[11px] font-normal text-apple-text-muted flex items-start gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-accent mt-1 shrink-0"></span>
                 <span>{{ t('about.feature_1') }}</span>
               </li>
-              <li class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1 shrink-0"></span>
+              <li class="text-[11px] font-normal text-apple-text-muted flex items-start gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-accent mt-1 shrink-0"></span>
                 <span>{{ t('about.feature_2') }}</span>
               </li>
-              <li class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-pink-500 mt-1 shrink-0"></span>
+              <li class="text-[11px] font-normal text-apple-text-muted flex items-start gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-accent mt-1 shrink-0"></span>
                 <span>{{ t('about.feature_3') }}</span>
               </li>
             </ul>
@@ -501,7 +507,7 @@ onUnmounted(() => {
 
           <!-- 底部关闭按钮 -->
           <div class="flex justify-center pt-2">
-            <button @click="globalStore.showAbout = false" class="w-full py-2.5 text-xs font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300 transition-all duration-200 active:scale-95 shadow-sm">
+            <button @click="globalStore.showAbout = false" class="w-full py-2.5 text-xs font-semibold rounded-full bg-apple-bg border border-apple-border hover:bg-apple-border/50 text-apple-text transition-all shadow-none">
               {{ t('common.close') }}
             </button>
           </div>
@@ -510,18 +516,19 @@ onUnmounted(() => {
     </Teleport>
 
     <!-- 全局 Confirm 确认框 -->
+    <!-- 全局 Confirm 确认框 -->
     <Teleport to="body">
       <div v-if="globalStore.confirmDialog && globalStore.confirmDialog.visible" class="fixed inset-0 glass-mask z-[10000] flex items-center justify-center p-4">
-        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-5 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
+        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-lg border border-apple-border p-5 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] shadow-none">
           
           <div class="flex items-start gap-3.5">
             <!-- 状态图标 -->
             <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 ring-4"
               :class="{
-                'bg-red-500/10 text-red-500 ring-red-500/5 dark:bg-red-500/20': globalStore.confirmDialog.type === 'danger',
-                'bg-amber-500/10 text-amber-500 ring-amber-500/5 dark:bg-amber-500/20': globalStore.confirmDialog.type === 'warning',
-                'bg-emerald-500/10 text-emerald-500 ring-emerald-500/5 dark:bg-emerald-500/20': globalStore.confirmDialog.type === 'success',
-                'bg-accent/10 text-accent ring-accent/5 dark:bg-accent/20': globalStore.confirmDialog.type === 'info'
+                'bg-danger/10 text-danger ring-danger/10': globalStore.confirmDialog.type === 'danger',
+                'bg-warning/10 text-warning ring-warning/10': globalStore.confirmDialog.type === 'warning',
+                'bg-success/10 text-success ring-success/10': globalStore.confirmDialog.type === 'success',
+                'bg-accent/10 text-accent ring-accent/10': globalStore.confirmDialog.type === 'info'
               }">
               <AlertCircleOutline v-if="globalStore.confirmDialog.type === 'danger' || globalStore.confirmDialog.type === 'warning'" class="w-5.5 h-5.5" />
               <CheckmarkCircleOutline v-else-if="globalStore.confirmDialog.type === 'success'" class="w-5.5 h-5.5" />
@@ -530,10 +537,10 @@ onUnmounted(() => {
 
             <!-- 文字区域 -->
             <div class="flex-1 min-w-0">
-              <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">
+              <h3 class="text-sm font-bold text-apple-text">
                 {{ globalStore.confirmDialog.title || t('common.confirm') }}
               </h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed break-words whitespace-pre-line">
+              <p class="text-xs text-apple-text-muted mt-1 leading-relaxed break-words whitespace-pre-line font-normal">
                 {{ globalStore.confirmDialog.message }}
               </p>
             </div>
@@ -544,10 +551,10 @@ onUnmounted(() => {
             <label class="relative flex items-center cursor-pointer gap-2">
               <input type="checkbox" v-model="globalStore.confirmDialog.checkboxChecked" class="sr-only" />
               <!-- 复选框图标 -->
-              <div class="w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center shadow-sm shrink-0"
+              <div class="w-4 h-4 rounded-sm border transition-all duration-200 flex items-center justify-center shrink-0 border-apple-border bg-apple-input"
                 :class="globalStore.confirmDialog.checkboxChecked 
                   ? 'bg-accent border-accent text-white' 
-                  : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-transparent'">
+                  : 'bg-apple-input border-apple-border text-transparent'">
                 <svg class="w-2.5 h-2.5 transform transition-all duration-200" 
                   :class="globalStore.confirmDialog.checkboxChecked ? 'scale-100 opacity-100' : 'scale-50 opacity-0'"
                   fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
@@ -555,25 +562,25 @@ onUnmounted(() => {
                 </svg>
               </div>
               <!-- 联动文本 -->
-              <span class="text-xs font-semibold text-slate-600 dark:text-slate-400 select-none">
+              <span class="text-xs font-normal text-apple-text-muted select-none">
                 {{ globalStore.confirmDialog.checkboxLabel }}
               </span>
             </label>
           </div>
 
           <!-- 底部操作区 -->
-          <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+          <div class="flex justify-end gap-2.5 pt-3 border-t border-apple-border">
             <button @click="globalStore.handleConfirmResult(false)" 
-              class="px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all duration-200 active:scale-95 select-none">
+              class="px-5 py-2 text-xs font-semibold rounded-full bg-apple-bg border border-apple-border hover:bg-apple-border/50 text-apple-text transition-all select-none">
               {{ globalStore.confirmDialog.cancelText || t('common.cancel') }}
             </button>
             <button @click="globalStore.handleConfirmResult(true)" 
-              class="px-4 py-2 text-xs font-semibold rounded-xl text-white transition-all duration-200 active:scale-95 shadow-sm select-none"
+              class="px-5 py-2 text-xs font-semibold rounded-full text-white transition-all shadow-none select-none"
               :class="{
-                'bg-red-500 hover:bg-red-600 shadow-red-500/10': globalStore.confirmDialog.type === 'danger',
-                'bg-amber-500 hover:bg-amber-600 shadow-amber-500/10': globalStore.confirmDialog.type === 'warning',
-                'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/10': globalStore.confirmDialog.type === 'success',
-                'bg-accent hover:bg-accent-hover shadow-accent/10': globalStore.confirmDialog.type === 'info'
+                'bg-danger hover:bg-danger-hover': globalStore.confirmDialog.type === 'danger',
+                'bg-warning hover:bg-warning-hover text-apple-text': globalStore.confirmDialog.type === 'warning',
+                'bg-success hover:bg-success-hover': globalStore.confirmDialog.type === 'success',
+                'bg-accent hover:bg-accent-hover': globalStore.confirmDialog.type === 'info'
               }">
               {{ globalStore.confirmDialog.okText || t('common.confirm') }}
             </button>

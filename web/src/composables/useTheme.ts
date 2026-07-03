@@ -39,11 +39,13 @@ export function useTheme() {
   const switchThemeCycle = () => {
     const current = globalStore.theme
     const cycle: Record<string, string> = {
-      light: 'dark',
-      dark: 'purple',
-      purple: 'pink',
-      pink: 'system',
-      system: 'light'
+      pink: 'dark',
+      dark: 'light',
+      light: 'purple',
+      purple: 'green',
+      green: 'blue',
+      blue: 'system',
+      system: 'pink'
     }
     globalStore.theme = cycle[current] || 'system'
   }

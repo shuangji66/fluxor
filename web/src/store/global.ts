@@ -132,11 +132,12 @@ export const useGlobalStore = defineStore('global', () => {
     localStorage.setItem('fluxor-start-page', newVal)
   })
 
+
   return { 
     startPage,
     activeTab, 
     isSidebarCollapsed, 
-    theme, 
+    theme,
     toasts, 
     confirmDialog,
     showAbout,
@@ -146,4 +147,3 @@ export const useGlobalStore = defineStore('global', () => {
     handleConfirmResult 
   }
 })
-

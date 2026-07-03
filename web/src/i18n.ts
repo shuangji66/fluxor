@@ -263,7 +263,10 @@ const messages = {
     'config.theme_dark': '深色',
     'config.theme_purple': '基佬紫',
     'config.theme_pink': '可爱粉',
+    'config.theme_green': '抹茶绿',
+    'config.theme_blue': '冰海蓝',
     'config.theme_system': '跟随系统',
+
     'config.language': '界面语言',
     'config.lang_zh': '简体中文',
     'config.lang_en': 'English',
@@ -634,7 +637,10 @@ const messages = {
     'config.theme_dark': 'Dark',
     'config.theme_purple': 'Deep Purple',
     'config.theme_pink': 'Cute Pink',
+    'config.theme_green': 'Matcha Green',
+    'config.theme_blue': 'Ocean Blue',
     'config.theme_system': 'System',
+
     'config.language': 'Language',
     'config.lang_zh': '简体中文',
     'config.lang_en': 'English',

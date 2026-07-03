@@ -196,17 +196,21 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-lg border border-apple-border flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
       <div class="flex items-center justify-between md:justify-start gap-4 flex-1 md:flex-initial">
         <h3 class="text-base font-semibold flex items-center gap-2">
           <LinkOutline class="w-5 h-5 text-accent" />
           {{ t('connections.title') }}
         </h3>
-        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
-          <button @click="activeTab = 'active'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'active' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
+        <div class="flex bg-apple-input rounded-full p-0.5 transition-all shrink-0 border border-apple-border relative select-none w-60 sm:w-64">
+          <div 
+            class="absolute top-0.5 bottom-0.5 left-0.5 rounded-full bg-accent transition-all duration-300 ease-in-out z-0 w-[calc(50%-2px)]"
+            :class="activeTab === 'active' ? 'translate-x-0' : 'translate-x-full'"
+          ></div>
+          <button @click="activeTab = 'active'" class="px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 active:scale-95 z-10 text-center" :class="activeTab === 'active' ? 'text-white' : 'text-apple-text-muted hover:text-apple-text'">
             {{ t('connections.active') }} ({{ activeConnections.length }})
           </button>
-          <button @click="activeTab = 'closed'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'closed' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
+          <button @click="activeTab = 'closed'" class="px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 active:scale-95 z-10 text-center" :class="activeTab === 'closed' ? 'text-white' : 'text-apple-text-muted hover:text-apple-text'">
             {{ t('connections.closed') }} ({{ closedConnections.length }})
           </button>
         </div>
@@ -214,29 +218,29 @@ onUnmounted(() => {
 
       <!-- 右侧：搜索框与控制按钮合并容器（在大屏下横向右对齐，绝不换行） -->
       <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0 flex-nowrap">
-        <input type="text" v-model="searchText" :placeholder="t('connections.search_placeholder')" class="w-full sm:w-60 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+        <input type="text" v-model="searchText" :placeholder="t('connections.search_placeholder')" class="w-full sm:w-60 px-4 py-1.5 text-xs rounded-full border border-apple-border bg-apple-input text-apple-text focus:ring-1 focus:ring-accent outline-none placeholder-apple-text-muted/50" />
         
         <div class="flex gap-2 shrink-0">
-          <button v-if="activeTab === 'active'" @click="isPaused = !isPaused" class="px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all whitespace-nowrap" :class="isPaused ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-transparent'">
+          <button v-if="activeTab === 'active'" @click="isPaused = !isPaused" class="px-4 py-1.5 text-xs font-semibold rounded-full border transition-all whitespace-nowrap active:scale-95" :class="isPaused ? 'bg-warning/10 text-warning border-warning/20' : 'bg-apple-bg hover:bg-apple-border/50 text-apple-text-muted border-apple-border'">
             {{ isPaused ? t('connections.resume') : t('connections.pause') }}
           </button>
-          <button v-if="activeTab === 'active'" @click="handleCloseAll" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10 whitespace-nowrap">
+          <button v-if="activeTab === 'active'" @click="handleCloseAll" class="px-4 py-1.5 text-xs font-semibold rounded-full bg-danger/10 hover:bg-danger/20 text-danger transition-all border border-danger/20 whitespace-nowrap active:scale-95">
             {{ t('connections.close_all') }}
           </button>
-          <button v-if="activeTab === 'closed'" @click="handleClearAllClosed" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-all border border-red-500/10 whitespace-nowrap">
+          <button v-if="activeTab === 'closed'" @click="handleClearAllClosed" class="px-4 py-1.5 text-xs font-semibold rounded-full bg-danger/10 hover:bg-danger/20 text-danger transition-all border border-danger/20 whitespace-nowrap active:scale-95">
             {{ t('connections.clear_all_closed') }}
           </button>
         </div>
       </div>
     </div>
 
-    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-1">
+    <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-lg border border-apple-border transition-all">
       <!-- 桌面端表格视图 -->
-      <div class="hidden md:block overflow-x-auto">
+      <div class="hidden md:block overflow-x-auto rounded-t-lg">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
-            <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold select-none">
-              <th class="py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors" @click="handleSort('host')">
+            <tr class="bg-apple-input border-b border-apple-border text-apple-text-muted font-semibold select-none">
+              <th class="py-3 px-4 cursor-pointer hover:bg-apple-border/50 transition-colors" @click="handleSort('host')">
                 {{ t('connections.host') }}
                 <span v-if="sortBy === 'host'" class="inline-flex align-middle ml-0.5">
                   <ArrowDownOutline v-if="sortDesc" class="w-3.5 h-3.5" />
@@ -244,35 +248,35 @@ onUnmounted(() => {
                 </span>
               </th>
               <th class="py-3 px-4 shrink-0 w-20 text-center">{{ t('connections.type') }}</th>
-              <th class="hidden md:table-cell py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors" @click="handleSort('rule')">
+              <th class="hidden md:table-cell py-3 px-4 cursor-pointer hover:bg-apple-border/50 transition-colors" @click="handleSort('rule')">
                 {{ t('connections.rule') }}
                 <span v-if="sortBy === 'rule'" class="inline-flex align-middle ml-0.5">
                   <ArrowDownOutline v-if="sortDesc" class="w-3.5 h-3.5" />
                   <ArrowUpOutline v-else class="w-3.5 h-3.5" />
                 </span>
               </th>
-              <th class="hidden lg:table-cell py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors" @click="handleSort('chain')">
+              <th class="hidden lg:table-cell py-3 px-4 cursor-pointer hover:bg-apple-border/50 transition-colors" @click="handleSort('chain')">
                 {{ t('connections.chain') }}
                 <span v-if="sortBy === 'chain'" class="inline-flex align-middle ml-0.5">
                   <ArrowDownOutline v-if="sortDesc" class="w-3.5 h-3.5" />
                   <ArrowUpOutline v-else class="w-3.5 h-3.5" />
                 </span>
               </th>
-              <th class="py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors" @click="handleSort('uploadSpeed')">
+              <th class="py-3 px-4 cursor-pointer hover:bg-apple-border/50 transition-colors" @click="handleSort('uploadSpeed')">
                 {{ activeTab === 'active' ? t('connections.upload_speed') : t('connections.total_upload') }}
                 <span v-if="sortBy === 'uploadSpeed'" class="inline-flex align-middle ml-0.5">
                   <ArrowDownOutline v-if="sortDesc" class="w-3.5 h-3.5" />
                   <ArrowUpOutline v-else class="w-3.5 h-3.5" />
                 </span>
               </th>
-              <th class="py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors" @click="handleSort('downloadSpeed')">
+              <th class="py-3 px-4 cursor-pointer hover:bg-apple-border/50 transition-colors" @click="handleSort('downloadSpeed')">
                 {{ activeTab === 'active' ? t('connections.download_speed') : t('connections.total_download') }}
                 <span v-if="sortBy === 'downloadSpeed'" class="inline-flex align-middle ml-0.5">
                   <ArrowDownOutline v-if="sortDesc" class="w-3.5 h-3.5" />
                   <ArrowUpOutline v-else class="w-3.5 h-3.5" />
                 </span>
               </th>
-              <th class="py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors" @click="handleSort('duration')">
+              <th class="py-3 px-4 cursor-pointer hover:bg-apple-border/50 transition-colors" @click="handleSort('duration')">
                 {{ activeTab === 'active' ? t('connections.duration') : t('connections.closed_at') }}
                 <span v-if="sortBy === 'duration'" class="inline-flex align-middle ml-0.5">
                   <ArrowDownOutline v-if="sortDesc" class="w-3.5 h-3.5" />
@@ -282,82 +286,82 @@ onUnmounted(() => {
               <th class="py-3 px-4 shrink-0 w-20 text-center whitespace-nowrap">{{ t('connections.action') }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody class="divide-y divide-apple-border">
             <!-- 桌面端表格骨架屏 -->
             <template v-if="!isWsConnected && activeConnections.length === 0">
               <tr v-for="i in 3" :key="i" class="animate-pulse select-none">
                 <td class="py-4.5 px-4">
                   <div class="flex items-center gap-1.5 flex-wrap">
-                    <div class="w-10 h-3.5 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
-                    <div class="w-40 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                    <div class="w-10 h-3.5 bg-apple-border rounded-xs shrink-0"></div>
+                    <div class="w-40 h-4 bg-apple-border rounded-xs"></div>
                   </div>
-                  <div class="w-24 h-3 bg-slate-200 dark:bg-slate-800 rounded mt-1.5"></div>
+                  <div class="w-24 h-3 bg-apple-border rounded-xs mt-1.5"></div>
                 </td>
                 <td class="py-4.5 px-4 text-center">
-                  <div class="w-8 h-4 bg-slate-200 dark:bg-slate-800 rounded mx-auto"></div>
+                  <div class="w-8 h-4 bg-apple-border rounded-xs mx-auto"></div>
                 </td>
                 <td class="hidden md:table-cell py-4.5 px-4">
-                  <div class="w-16 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                  <div class="w-16 h-3.5 bg-apple-border rounded-xs"></div>
                 </td>
                 <td class="hidden lg:table-cell py-4.5 px-4">
-                  <div class="w-32 h-3 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                  <div class="w-32 h-3 bg-apple-border rounded-xs"></div>
                 </td>
                 <td class="py-4.5 px-4">
-                  <div class="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                  <div class="w-12 h-3.5 bg-apple-border rounded-xs"></div>
                 </td>
                 <td class="py-4.5 px-4">
-                  <div class="w-12 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                  <div class="w-12 h-3.5 bg-apple-border rounded-xs"></div>
                 </td>
                 <td class="py-4.5 px-4">
-                  <div class="w-10 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                  <div class="w-10 h-3.5 bg-apple-border rounded-xs"></div>
                 </td>
                 <td class="py-4.5 px-4 text-center">
-                  <div class="w-10 h-6 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto"></div>
+                  <div class="w-10 h-6 bg-apple-border rounded-sm mx-auto"></div>
                 </td>
               </tr>
             </template>
             <!-- 真实列表 -->
             <template v-else>
-              <tr v-if="filteredConnections.length === 0" class="text-slate-400 dark:text-slate-600 text-center">
+              <tr v-if="filteredConnections.length === 0" class="text-apple-text-muted text-center">
                 <td colspan="8" class="py-8 text-sm">{{ t('connections.empty') }}</td>
               </tr>
-            <tr v-else v-for="c in filteredConnections.slice(0, 150)" :key="c.id" class="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+            <tr v-else v-for="c in filteredConnections.slice(0, 150)" :key="c.id" class="hover:bg-apple-card transition-colors duration-200">
               <td class="py-3 px-4">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span v-if="c.metadata?.type" class="px-1 py-0.5 text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded tracking-wide uppercase">
+                <div class="flex items-center gap-1.5 flex-wrap align-middle">
+                  <span v-if="c.metadata?.type" class="inline-flex items-center px-1 py-0.5 text-[9px] font-semibold bg-apple-bg text-apple-text-muted rounded-xs tracking-wide uppercase select-none align-middle">
                     {{ c.metadata.type }}
                   </span>
-                  <div class="font-medium text-slate-800 dark:text-slate-200 select-all max-w-[150px] sm:max-w-[250px] truncate break-all" :title="c.metadata?.host || c.metadata?.destinationIP">
+                  <div class="font-medium text-apple-text select-all max-w-[150px] sm:max-w-[250px] truncate break-all align-middle" :title="c.metadata?.host || c.metadata?.destinationIP">
                     {{ c.metadata?.host || c.metadata?.destinationIP }}
                   </div>
                 </div>
-                <div v-if="c.metadata?.destinationIP" class="text-[10px] text-slate-400 dark:text-slate-500 select-all">{{ c.metadata.destinationIP }}{{ c.metadata.destinationPort ? ':' + c.metadata.destinationPort : '' }}</div>
+                <div v-if="c.metadata?.destinationIP" class="text-[10px] text-apple-text-muted select-all">{{ c.metadata.destinationIP }}{{ c.metadata.destinationPort ? ':' + c.metadata.destinationPort : '' }}</div>
               </td>
               <td class="py-3 px-4 text-center shrink-0">
-                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded tracking-wide uppercase" :class="(c.metadata?.network || 'tcp').toUpperCase() === 'UDP' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'">
+                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-xs tracking-wide uppercase" :class="(c.metadata?.network || 'tcp').toUpperCase() === 'UDP' ? 'bg-warning/10 text-warning' : 'bg-accent/10 text-accent'">
                   {{ c.metadata?.network || 'tcp' }}
                 </span>
               </td>
-              <td class="hidden md:table-cell py-3 px-4 text-slate-600 dark:text-slate-300 font-medium">
+              <td class="hidden md:table-cell py-3 px-4 text-apple-text font-medium">
                 {{ c.rule }}
               </td>
-              <td class="hidden lg:table-cell py-3 px-4 text-slate-400 select-all font-mono text-[10px]">
+              <td class="hidden lg:table-cell py-3 px-4 text-apple-text-muted select-all font-mono text-[10px]">
                 {{ c.chains.join(' → ') }}
               </td>
-              <td class="py-3 px-4 font-mono font-medium text-blue-500">
+              <td class="py-3 px-4 font-mono font-medium text-accent">
                 {{ activeTab === 'active' ? formatSpeed(c.speedUp || 0) : formatBytes(c.upload) }}
               </td>
               <td class="py-3 px-4 font-mono font-medium text-success">
                 {{ activeTab === 'active' ? formatSpeed(c.speedDown || 0) : formatBytes(c.download) }}
               </td>
-              <td class="py-3 px-4 font-mono text-slate-500">
+              <td class="py-3 px-4 font-mono text-apple-text-muted">
                 {{ activeTab === 'active' ? formatDuration(c.start) : c.closedAt }}
               </td>
               <td class="py-3 px-4 text-center shrink-0 whitespace-nowrap">
-                <button v-if="activeTab === 'active'" @click="handleCloseConnection(c.id)" class="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded font-semibold text-[10px] transition-all whitespace-nowrap">
+                <button v-if="activeTab === 'active'" @click="handleCloseConnection(c.id)" class="px-2 py-1 bg-danger/10 hover:bg-danger/20 text-danger rounded-sm font-semibold text-[10px] transition-all whitespace-nowrap active:scale-95">
                   {{ t('connections.close') }}
                 </button>
-                <button v-else @click="handleClearClosedItem(c.id)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold text-[10px] transition-all whitespace-nowrap">
+                <button v-else @click="handleClearClosedItem(c.id)" class="px-2 py-1 bg-apple-bg hover:bg-apple-border/50 text-apple-text-muted rounded-sm font-semibold text-[10px] transition-all whitespace-nowrap active:scale-95">
                   {{ t('connections.clear') }}
                 </button>
               </td>
@@ -367,65 +371,65 @@ onUnmounted(() => {
         </table>
       </div>
       <!-- 桌面端渲染截断提示 -->
-      <div v-if="filteredConnections.length > 150" class="px-5 py-3 bg-slate-50 dark:bg-slate-800/10 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/50">
+      <div v-if="filteredConnections.length > 150" class="px-5 py-3 bg-apple-input text-center text-xs text-apple-text-muted border-t border-apple-border">
         {{ t('connections.limit_hint') }}
       </div>
 
       <!-- 移动端卡片视图 -->
-      <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+      <div class="md:hidden divide-y divide-apple-border">
         <!-- 移动端连接骨架屏 -->
         <template v-if="!isWsConnected && activeConnections.length === 0">
           <div v-for="i in 3" :key="i" class="p-4 space-y-3.5 animate-pulse select-none">
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1 space-y-1.5">
-                <div class="w-3/4 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
-                <div class="w-1/2 h-3 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div class="w-3/4 h-4 bg-apple-border rounded-xs"></div>
+                <div class="w-1/2 h-3 bg-apple-border rounded-xs"></div>
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
-                <div class="w-10 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
-                <div class="w-8 h-4 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div class="w-10 h-4 bg-apple-border rounded-xs"></div>
+                <div class="w-8 h-4 bg-apple-border rounded-xs"></div>
               </div>
             </div>
             <div class="space-y-1.5">
-              <div class="w-1/3 h-3.5 bg-slate-200 dark:bg-slate-800 rounded"></div>
-              <div class="w-2/3 h-3 bg-slate-200 dark:bg-slate-800 rounded"></div>
+              <div class="w-1/3 h-3.5 bg-apple-border rounded-xs"></div>
+              <div class="w-2/3 h-3 bg-apple-border rounded-xs"></div>
             </div>
             <div class="flex items-center justify-between gap-3 pt-1">
               <div class="flex gap-4">
-                <div class="w-10 h-5 bg-slate-200 dark:bg-slate-800 rounded"></div>
-                <div class="w-10 h-5 bg-slate-200 dark:bg-slate-800 rounded"></div>
-                <div class="w-10 h-5 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                <div class="w-10 h-5 bg-apple-border rounded-xs"></div>
+                <div class="w-10 h-5 bg-apple-border rounded-xs"></div>
+                <div class="w-10 h-5 bg-apple-border rounded-xs"></div>
               </div>
-              <div class="w-12 h-6 bg-slate-200 dark:bg-slate-800 rounded-md"></div>
+              <div class="w-12 h-6 bg-apple-border rounded-sm"></div>
             </div>
           </div>
         </template>
         <!-- 真实卡片 -->
         <template v-else>
-          <div v-if="filteredConnections.length === 0" class="py-8 text-center text-slate-400 dark:text-slate-600 text-sm">
+          <div v-if="filteredConnections.length === 0" class="py-8 text-center text-apple-text-muted text-sm">
             {{ t('connections.empty') }}
           </div>
         <div
           v-else
           v-for="c in filteredConnections.slice(0, 150)"
           :key="c.id"
-          class="p-4 space-y-3 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-900/10"
+          class="p-4 space-y-3 transition-colors hover:bg-apple-card"
         >
           <!-- 第一行：名称 + 网络类型 & 协议 -->
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <div class="font-bold text-slate-800 dark:text-slate-200 select-all break-all text-xs leading-snug">
+              <div class="font-bold text-apple-text select-all break-all text-xs leading-snug">
                 {{ c.metadata?.host || c.metadata?.destinationIP }}
               </div>
-              <div v-if="c.metadata?.destinationIP" class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 select-all">
+              <div v-if="c.metadata?.destinationIP" class="text-[10px] text-apple-text-muted mt-0.5 select-all">
                 {{ c.metadata.destinationIP }}{{ c.metadata.destinationPort ? ':' + c.metadata.destinationPort : '' }}
               </div>
             </div>
             <div class="flex items-center gap-1.5 shrink-0 select-none">
-              <span v-if="c.metadata?.type" class="px-1.5 py-0.5 text-[9px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded uppercase">
+              <span v-if="c.metadata?.type" class="px-1.5 py-0.5 text-[9px] font-semibold bg-apple-bg text-apple-text-muted rounded-xs uppercase">
                 {{ c.metadata.type }}
               </span>
-              <span class="px-1.5 py-0.5 text-[9px] font-bold rounded uppercase" :class="(c.metadata?.network || 'tcp').toUpperCase() === 'UDP' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'">
+              <span class="px-1.5 py-0.5 text-[9px] font-bold rounded-xs uppercase" :class="(c.metadata?.network || 'tcp').toUpperCase() === 'UDP' ? 'bg-warning/10 text-warning' : 'bg-accent/10 text-accent'">
                 {{ c.metadata?.network || 'tcp' }}
               </span>
             </div>
@@ -434,12 +438,12 @@ onUnmounted(() => {
           <!-- 第二行：分流规则 & 链路 -->
           <div class="text-[10px] space-y-1.5">
             <div class="flex items-center gap-1">
-              <span class="text-slate-400">{{ t('connections.rule') }}:</span>
-              <span class="font-medium text-slate-600 dark:text-slate-300 bg-slate-100/50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded">{{ c.rule }}</span>
+              <span class="text-apple-text-muted">{{ t('connections.rule') }}:</span>
+              <span class="font-medium text-apple-text bg-apple-input px-1.5 py-0.5 rounded-xs border border-apple-border">{{ c.rule }}</span>
             </div>
             <div v-if="c.chains && c.chains.length > 0" class="flex items-start gap-1">
-              <span class="text-slate-400 shrink-0">{{ t('connections.chain') }}:</span>
-              <span class="font-mono text-slate-500 dark:text-slate-400 leading-tight break-all">{{ c.chains.join(' → ') }}</span>
+              <span class="text-apple-text-muted shrink-0">{{ t('connections.chain') }}:</span>
+              <span class="font-mono text-apple-text-muted leading-tight break-all">{{ c.chains.join(' → ') }}</span>
             </div>
           </div>
 
@@ -447,37 +451,37 @@ onUnmounted(() => {
           <div class="flex items-center justify-between gap-3 pt-1">
             <div class="flex gap-4 text-[10px]">
               <div class="flex flex-col">
-                <span class="text-slate-400">{{ activeTab === 'active' ? t('connections.upload_speed') : t('connections.total_upload') }}</span>
-                <span class="font-mono font-bold text-blue-500 mt-0.5">
+                <span class="text-apple-text-muted">{{ activeTab === 'active' ? t('connections.upload_speed') : t('connections.total_upload') }}</span>
+                <span class="font-mono font-bold text-accent mt-0.5">
                   {{ activeTab === 'active' ? formatSpeed(c.speedUp || 0) : formatBytes(c.upload) }}
                 </span>
               </div>
               <div class="flex flex-col">
-                <span class="text-slate-400">{{ activeTab === 'active' ? t('connections.download_speed') : t('connections.total_download') }}</span>
+                <span class="text-apple-text-muted">{{ activeTab === 'active' ? t('connections.download_speed') : t('connections.total_download') }}</span>
                 <span class="font-mono font-bold text-success mt-0.5">
                   {{ activeTab === 'active' ? formatSpeed(c.speedDown || 0) : formatBytes(c.download) }}
                 </span>
               </div>
               <div class="flex flex-col">
-                <span class="text-slate-400">{{ activeTab === 'active' ? t('connections.duration') : t('connections.closed_at') }}</span>
-                <span class="font-mono text-slate-500 mt-0.5">
+                <span class="text-apple-text-muted">{{ activeTab === 'active' ? t('connections.duration') : t('connections.closed_at') }}</span>
+                <span class="font-mono text-apple-text-muted mt-0.5">
                   {{ activeTab === 'active' ? formatDuration(c.start) : c.closedAt }}
                 </span>
               </div>
             </div>
 
             <div class="shrink-0 select-none">
-              <button v-if="activeTab === 'active'" @click="handleCloseConnection(c.id)" class="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-md font-semibold text-[10px] transition-all">
+              <button v-if="activeTab === 'active'" @click="handleCloseConnection(c.id)" class="px-2.5 py-1 bg-danger/10 hover:bg-danger/20 text-danger rounded-sm font-semibold text-[10px] transition-all active:scale-95">
                 {{ t('connections.close') }}
               </button>
-              <button v-else @click="handleClearClosedItem(c.id)" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-md font-semibold text-[10px] transition-all">
+              <button v-else @click="handleClearClosedItem(c.id)" class="px-2.5 py-1 bg-apple-bg hover:bg-apple-border/50 text-apple-text-muted rounded-sm font-semibold text-[10px] transition-all active:scale-95">
                 {{ t('connections.clear') }}
               </button>
             </div>
           </div>
         </div>
         <!-- 移动端渲染截断提示 -->
-        <div v-if="filteredConnections.length > 150" class="p-4 bg-slate-50 dark:bg-slate-800/10 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800/50">
+        <div v-if="filteredConnections.length > 150" class="p-4 bg-apple-input text-center text-xs text-apple-text-muted border-t border-apple-border">
           {{ t('connections.limit_hint') }}
         </div>
       </template>

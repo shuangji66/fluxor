@@ -6,336 +6,235 @@
 
 :root {
   /* 默认暗色 */
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-card: #1e293b;
-  --bg-input: #1e293b;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --border-color: #334155;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --sidebar-bg: #1e293b;
-  --card-bg: #1e293b;
+  --bg-primary: #000000;
+  --bg-secondary: #272729;
+  --bg-card: #272729;
+  --bg-input: #252527;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --border-color: #333333;
+  --accent: #2997ff;
+  --accent-hover: #0071e3;
+  --danger: #ff453a;
+  --danger-hover: #ff3b30;
+  --success: #30d158;
+  --warning: #ffd60a;
+  --sidebar-bg: #000000;
+  --card-bg: #272729;
   --hover-bg: rgba(255, 255, 255, 0.08);
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow: none;
   --btn-secondary-bg: #2d3748;
   --btn-secondary-hover-bg: rgba(255, 255, 255, 0.12);
 
-  /* 默认磨砂玻璃 */
-  --bg-glass-heavy: rgba(23, 31, 48, 0.65);
-  --bg-glass-medium: rgba(23, 31, 48, 0.45);
-  --bg-glass-light: rgba(23, 31, 48, 0.25);
-  --bg-mask: rgba(15, 23, 42, 0.5);
+  /* 磨砂玻璃 */
+  --bg-glass-heavy: rgba(39, 39, 41, 0.65);
+  --bg-glass-medium: rgba(39, 39, 41, 0.45);
+  --bg-glass-light: rgba(39, 39, 41, 0.25);
+  --bg-mask: rgba(0, 0, 0, 0.65);
   --border-glass: rgba(255, 255, 255, 0.06);
 
   /* 全局交互与滚动条 */
-  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
-  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.4);
-  --focus-ring: rgba(59, 130, 246, 0.2);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.30);
+  --focus-ring: rgba(41, 151, 255, 0.2);
 
-  /* 侧边栏激活高对比 */
+  /* 侧边栏激活 */
   --sidebar-active-bg: var(--accent);
   --sidebar-active-text: #ffffff;
-  --sidebar-active-shadow: rgba(59, 130, 246, 0.25);
+  --sidebar-active-shadow: transparent;
 }
 
 [data-theme="light"] {
   /* 浅色主题 */
-  --bg-primary: #f1f5f9;
+  --bg-primary: #f5f5f7;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-input: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --border-color: #cbd5e1;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --danger: #dc2626;
-  --danger-hover: #b91c1c;
-  --success: #059669;
-  --warning: #d97706;
-  --sidebar-bg: #f8fafc;
+  --bg-input: #f5f5f7;
+  --text-primary: #1d1d1f;
+  --text-secondary: #7a7a7a;
+  --border-color: #e0e0e0;
+  --accent: #0066cc;
+  --accent-hover: #0071e3;
+  --danger: #ff3b30;
+  --danger-hover: #be123c;
+  --success: #34c759;
+  --warning: #ff9500;
+  --sidebar-bg: #f5f5f7;
   --card-bg: #ffffff;
-  --hover-bg: rgba(15, 23, 42, 0.04);
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --hover-bg: rgba(29, 29, 31, 0.04);
+  --shadow: none;
   --btn-secondary-bg: #e8ecf0;
-  --btn-secondary-hover-bg: rgba(15, 23, 42, 0.08);
+  --btn-secondary-hover-bg: rgba(29, 29, 31, 0.08);
 
   /* 浅色磨砂玻璃 */
-  --bg-glass-heavy: rgba(255, 255, 255, 0.65);
-  --bg-glass-medium: rgba(255, 255, 255, 0.45);
-  --bg-glass-light: rgba(255, 255, 255, 0.25);
-  --bg-mask: rgba(15, 23, 42, 0.2);
-  --border-glass: rgba(15, 23, 42, 0.06);
+  --bg-glass-heavy: rgba(255, 255, 255, 0.75);
+  --bg-glass-medium: rgba(255, 255, 255, 0.55);
+  --bg-glass-light: rgba(255, 255, 255, 0.35);
+  --bg-mask: rgba(29, 29, 31, 0.2);
+  --border-glass: rgba(29, 29, 31, 0.06);
 
   /* 浅色交互与滚动条 */
-  --scrollbar-thumb: rgba(15, 23, 42, 0.15);
-  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.3);
-  --focus-ring: rgba(59, 130, 246, 0.2);
+  --scrollbar-thumb: rgba(29, 29, 31, 0.15);
+  --scrollbar-thumb-hover: rgba(29, 29, 31, 0.3);
+  --focus-ring: rgba(0, 102, 204, 0.2);
 
-  /* 侧边栏激活高对比 */
   --sidebar-active-bg: var(--accent);
   --sidebar-active-text: #ffffff;
-  --sidebar-active-shadow: rgba(59, 130, 246, 0.15);
+  --sidebar-active-shadow: transparent;
 }
 
 [data-theme="purple"] {
-  /* 紫色主题 */
-  --bg-primary: #0a0516;
-  --bg-secondary: #120a24;
-  --bg-card: #120a24;
-  --bg-input: #1b0f35;
+  /* 紫色主题 (暗色基调) */
+  --bg-primary: #0c0714;
+  --bg-secondary: #1b122c;
+  --bg-card: #1b122c;
+  --bg-input: #150d22;
   --text-primary: #f3e8ff;
   --text-secondary: #a78bfa;
-  --border-color: #2e1065;
-  --accent: #c084fc;
+  --border-color: #2e1a47;
+  --accent: #bf5af2;
   --accent-hover: #a855f7;
-  --danger: #f43f5e;
-  --danger-hover: #e11d48;
-  --success: #10b981;
-  --warning: #fbbf24;
-  --sidebar-bg: #0e071e;
-  --card-bg: #120a24;
-  --hover-bg: rgba(192, 132, 252, 0.12);
-  --shadow: 0 8px 30px rgba(147, 51, 234, 0.12);
-  --btn-secondary-bg: #1e113a;
-  --btn-secondary-hover-bg: rgba(192, 132, 252, 0.18);
+  --danger: #ff3b30;
+  --danger-hover: #c92a2a;
+  --success: #30d158;
+  --warning: #ffd60a;
+  --sidebar-bg: #0c0714;
+  --card-bg: #1b122c;
+  --hover-bg: rgba(191, 90, 242, 0.08);
+  --shadow: none;
+  --btn-secondary-bg: #2e1a47;
+  --btn-secondary-hover-bg: rgba(191, 90, 242, 0.15);
 
   /* 紫色磨砂玻璃 */
-  --bg-glass-heavy: rgba(10, 5, 22, 0.65);
-  --bg-glass-medium: rgba(10, 5, 22, 0.45);
-  --bg-glass-light: rgba(18, 10, 36, 0.25);
-  --bg-mask: rgba(10, 5, 22, 0.5);
-  --border-glass: rgba(192, 132, 252, 0.15);
+  --bg-glass-heavy: rgba(27, 18, 44, 0.75);
+  --bg-glass-medium: rgba(27, 18, 44, 0.55);
+  --bg-glass-light: rgba(27, 18, 44, 0.35);
+  --bg-mask: rgba(12, 7, 20, 0.65);
+  --border-glass: rgba(191, 90, 242, 0.1);
 
-  /* 紫色交互与滚动条 */
-  --scrollbar-thumb: rgba(168, 85, 247, 0.2);
-  --scrollbar-thumb-hover: rgba(168, 85, 247, 0.4);
-  --focus-ring: rgba(192, 132, 252, 0.25);
+  --scrollbar-thumb: rgba(191, 90, 242, 0.2);
+  --scrollbar-thumb-hover: rgba(191, 90, 242, 0.4);
+  --focus-ring: rgba(191, 90, 242, 0.25);
 
-  /* 侧边栏激活高对比 */
   --sidebar-active-bg: var(--accent);
-  --sidebar-active-text: #0a0516;
-  /* 深紫字色 */
-  --sidebar-active-shadow: rgba(192, 132, 252, 0.25);
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-shadow: transparent;
 }
 
 [data-theme="pink"] {
-  /* 粉色主题 */
+  /* 粉色主题 (默认可爱粉) */
   --bg-primary: #fff1f2;
   --bg-secondary: #ffffff;
-  --bg-card: #fff1f2;
-  --bg-input: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #fff5f6;
   --text-primary: #881337;
-  --text-secondary: #e11d48;
+  --text-secondary: #f43f5e;
   --border-color: #ffe4e6;
-  --accent: #f43f5e;
+  --accent: #ff2d55;
   --accent-hover: #e11d48;
-  --danger: #e11d48;
+  --danger: #ff3b30;
   --danger-hover: #be123c;
-  --success: #059669;
-  --warning: #d97706;
-  --sidebar-bg: #fff1f2;
+  --success: #34c759;
+  --warning: #ff9500;
+  --sidebar-bg: #fff6f7;
   --card-bg: #ffffff;
-  --hover-bg: rgba(244, 63, 94, 0.06);
-  --shadow: 0 8px 30px rgba(244, 63, 94, 0.08);
-  --btn-secondary-bg: #fff1f2;
-  --btn-secondary-hover-bg: rgba(244, 63, 94, 0.12);
+  --hover-bg: rgba(255, 45, 85, 0.05);
+  --shadow: none;
+  --btn-secondary-bg: #ffe4e6;
+  --btn-secondary-hover-bg: rgba(255, 45, 85, 0.12);
 
-  /* 粉色磨砂玻璃 */
-  --bg-glass-heavy: rgba(255, 255, 255, 0.65);
-  --bg-glass-medium: rgba(255, 255, 255, 0.45);
-  --bg-glass-light: rgba(255, 241, 242, 0.25);
-  --bg-mask: rgba(136, 19, 55, 0.12);
-  --border-glass: rgba(244, 63, 94, 0.12);
+  /* 磨砂玻璃 */
+  --bg-glass-heavy: rgba(255, 246, 247, 0.82);
+  --bg-glass-medium: rgba(255, 246, 247, 0.65);
+  --bg-glass-light: rgba(255, 246, 247, 0.38);
+  --bg-mask: rgba(136, 19, 55, 0.1);
+  --border-glass: rgba(255, 45, 85, 0.1);
 
-  /* 粉色交互与滚动条 */
-  --scrollbar-thumb: rgba(244, 63, 94, 0.2);
-  --scrollbar-thumb-hover: rgba(244, 63, 94, 0.4);
-  --focus-ring: rgba(244, 63, 94, 0.2);
+  --scrollbar-thumb: rgba(255, 45, 85, 0.15);
+  --scrollbar-thumb-hover: rgba(255, 45, 85, 0.3);
+  --focus-ring: rgba(255, 45, 85, 0.2);
 
-  /* 侧边栏激活高对比 */
   --sidebar-active-bg: var(--accent);
   --sidebar-active-text: #ffffff;
-  --sidebar-active-shadow: rgba(244, 63, 94, 0.20);
+  --sidebar-active-shadow: transparent;
 }
 
-/* 2. 主题覆盖 */
+[data-theme="green"] {
+  /* 抹茶绿主题 (浅翠绿) */
+  --bg-primary: #f0fdf4;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #eafcf0;
+  --text-primary: #052e16;
+  --text-secondary: #166534;
+  --border-color: #dcfce7;
+  --accent: #34c759;
+  --accent-hover: #2f9e44;
+  --danger: #ff3b30;
+  --danger-hover: #e03131;
+  --success: #34c759;
+  --warning: #ff9500;
+  --sidebar-bg: #f5fdf7;
+  --card-bg: #ffffff;
+  --hover-bg: rgba(52, 199, 89, 0.05);
+  --shadow: none;
+  --btn-secondary-bg: #dcfce7;
+  --btn-secondary-hover-bg: rgba(52, 199, 89, 0.12);
 
-/* 紫色主题 */
-[data-theme="purple"] .bg-white,
-[data-theme="purple"] .dark\:bg-\[\#1e293b\] {
-  background-color: var(--bg-secondary) !important;
+  /* 磨砂玻璃 */
+  --bg-glass-heavy: rgba(244, 254, 247, 0.82);
+  --bg-glass-medium: rgba(244, 254, 247, 0.65);
+  --bg-glass-light: rgba(244, 254, 247, 0.38);
+  --bg-mask: rgba(20, 83, 45, 0.1);
+  --border-glass: rgba(52, 199, 89, 0.1);
+
+  --scrollbar-thumb: rgba(52, 199, 89, 0.15);
+  --scrollbar-thumb-hover: rgba(52, 199, 89, 0.3);
+  --focus-ring: rgba(52, 199, 89, 0.2);
+
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-shadow: transparent;
 }
 
-[data-theme="purple"] .bg-\[\#f1f5f9\],
-[data-theme="purple"] .dark\:bg-\[\#0f172a\] {
-  background-color: var(--bg-primary) !important;
+[data-theme="blue"] {
+  /* 冰海蓝主题 */
+  --bg-primary: #f0f9ff;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #e6f4fe;
+  --text-primary: #082f49;
+  --text-secondary: #075985;
+  --border-color: #e0f2fe;
+  --accent: #007aff;
+  --accent-hover: #0056b3;
+  --danger: #ff3b30;
+  --danger-hover: #c92a2a;
+  --success: #34c759;
+  --warning: #ff9500;
+  --sidebar-bg: #f5faff;
+  --card-bg: #ffffff;
+  --hover-bg: rgba(0, 122, 255, 0.05);
+  --shadow: none;
+  --btn-secondary-bg: #e0f2fe;
+  --btn-secondary-hover-bg: rgba(0, 122, 255, 0.12);
+
+  /* 磨砂玻璃 */
+  --bg-glass-heavy: rgba(244, 251, 255, 0.82);
+  --bg-glass-medium: rgba(244, 251, 255, 0.65);
+  --bg-glass-light: rgba(244, 251, 255, 0.38);
+  --bg-mask: rgba(12, 74, 110, 0.1);
+  --border-glass: rgba(0, 122, 255, 0.1);
+
+  --scrollbar-thumb: rgba(0, 122, 255, 0.15);
+  --scrollbar-thumb-hover: rgba(0, 122, 255, 0.3);
+  --focus-ring: rgba(0, 122, 255, 0.2);
+
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-shadow: transparent;
 }
 
-[data-theme="purple"] .bg-slate-50,
-[data-theme="purple"] .bg-slate-100,
-[data-theme="purple"] .dark\:bg-slate-800,
-[data-theme="purple"] .dark\:bg-slate-800\/40,
-[data-theme="purple"] .dark\:bg-slate-800\/50 {
-  background-color: var(--btn-secondary-bg) !important;
-}
-
-[data-theme="purple"] .hover\:bg-slate-100:hover,
-[data-theme="purple"] .hover\:bg-slate-200:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-700:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-800:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-700\/60:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-700\/80:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-800\/80:hover {
-  background-color: var(--btn-secondary-hover-bg) !important;
-}
-
-[data-theme="purple"] .border-slate-100,
-[data-theme="purple"] .border-slate-200,
-[data-theme="purple"] .border-slate-100\/50,
-[data-theme="purple"] .border-slate-200\/80,
-[data-theme="purple"] .dark\:border-slate-800,
-[data-theme="purple"] .dark\:border-slate-800\/80,
-[data-theme="purple"] .dark\:border-slate-800\/60,
-[data-theme="purple"] .dark\:border-slate-800\/50,
-[data-theme="purple"] .dark\:border-slate-800\/40,
-[data-theme="purple"] .dark\:border-slate-800\/30 {
-  border-color: var(--border-color) !important;
-}
-
-[data-theme="purple"] .text-slate-800,
-[data-theme="purple"] .dark\:text-slate-100,
-[data-theme="purple"] .text-slate-700,
-[data-theme="purple"] .dark\:text-slate-200 {
-  color: var(--text-primary) !important;
-}
-
-[data-theme="purple"] .text-slate-400,
-[data-theme="purple"] .text-slate-500,
-[data-theme="purple"] .text-slate-600,
-[data-theme="purple"] .dark\:text-slate-300,
-[data-theme="purple"] .dark\:text-slate-400,
-[data-theme="purple"] .dark\:text-slate-500 {
-  color: var(--text-secondary) !important;
-}
-
-[data-theme="purple"] .bg-slate-50\/50,
-[data-theme="purple"] .dark\:bg-slate-900\/30 {
-  background-color: rgba(27, 15, 53, 0.45) !important;
-}
-
-[data-theme="purple"] .hover\:bg-slate-50\/50:hover,
-[data-theme="purple"] .dark\:hover\:bg-slate-900\/10:hover {
-  background-color: rgba(168, 85, 247, 0.06) !important;
-}
-
-[data-theme="purple"] .bg-slate-200,
-[data-theme="purple"] .dark\:bg-slate-700 {
-  background-color: var(--btn-secondary-hover-bg) !important;
-}
-
-[data-theme="purple"] .bg-white.shadow-sm,
-[data-theme="purple"] .dark\:bg-slate-700.shadow-sm {
-  background-color: var(--hover-bg) !important;
-  color: var(--text-primary) !important;
-}
-
-[data-theme="purple"] aside {
-  background-color: var(--bg-glass-heavy) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-/* 粉色主题 */
-[data-theme="pink"] .bg-white,
-[data-theme="pink"] .dark\:bg-\[\#1e293b\] {
-  background-color: var(--bg-secondary) !important;
-}
-
-[data-theme="pink"] .bg-\[\#f1f5f9\],
-[data-theme="pink"] .dark\:bg-\[\#0f172a\] {
-  background-color: var(--bg-primary) !important;
-}
-
-[data-theme="pink"] .bg-slate-50,
-[data-theme="pink"] .bg-slate-100,
-[data-theme="pink"] .dark\:bg-slate-800,
-[data-theme="pink"] .dark\:bg-slate-800\/40,
-[data-theme="pink"] .dark\:bg-slate-800\/50 {
-  background-color: var(--btn-secondary-bg) !important;
-}
-
-[data-theme="pink"] .hover\:bg-slate-100:hover,
-[data-theme="pink"] .hover\:bg-slate-200:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-700:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-800:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-700\/60:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-700\/80:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-800\/80:hover {
-  background-color: var(--btn-secondary-hover-bg) !important;
-}
-
-[data-theme="pink"] .border-slate-100,
-[data-theme="pink"] .border-slate-200,
-[data-theme="pink"] .border-slate-100\/50,
-[data-theme="pink"] .border-slate-200\/80,
-[data-theme="pink"] .dark\:border-slate-800,
-[data-theme="pink"] .dark\:border-slate-800\/80,
-[data-theme="pink"] .dark\:border-slate-800\/60,
-[data-theme="pink"] .dark\:border-slate-800\/50,
-[data-theme="pink"] .dark\:border-slate-800\/40,
-[data-theme="pink"] .dark\:border-slate-800\/30 {
-  border-color: var(--border-color) !important;
-}
-
-[data-theme="pink"] .text-slate-800,
-[data-theme="pink"] .dark\:text-slate-100,
-[data-theme="pink"] .text-slate-700,
-[data-theme="pink"] .dark\:text-slate-200 {
-  color: var(--text-primary) !important;
-}
-
-[data-theme="pink"] .text-slate-400,
-[data-theme="pink"] .text-slate-500,
-[data-theme="pink"] .text-slate-600,
-[data-theme="pink"] .dark\:text-slate-300,
-[data-theme="pink"] .dark\:text-slate-400,
-[data-theme="pink"] .dark\:text-slate-500 {
-  color: var(--text-secondary) !important;
-}
-
-[data-theme="pink"] .bg-slate-50\/50,
-[data-theme="pink"] .dark\:bg-slate-900\/30 {
-  background-color: rgba(255, 241, 242, 0.50) !important;
-}
-
-[data-theme="pink"] .hover\:bg-slate-50\/50:hover,
-[data-theme="pink"] .dark\:hover\:bg-slate-900\/10:hover {
-  background-color: rgba(244, 63, 94, 0.05) !important;
-}
-
-[data-theme="pink"] .bg-slate-200,
-[data-theme="pink"] .dark\:bg-slate-700 {
-  background-color: var(--btn-secondary-hover-bg) !important;
-}
-
-[data-theme="pink"] .bg-white.shadow-sm,
-[data-theme="pink"] .dark\:bg-slate-700.shadow-sm {
-  background-color: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
-}
-
-[data-theme="pink"] aside {
-  background-color: var(--bg-glass-heavy) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
 
 /* 3. 全局样式与交互 */
 
@@ -353,6 +252,37 @@ body {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image: 
+    linear-gradient(var(--border-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: 0.12;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+body::after {
+  content: '';
+  position: absolute;
+  top: -15%;
+  right: -10%;
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  filter: blur(120px);
+  opacity: 0.05;
+  z-index: -1;
+  pointer-events: none;
+  transition: background 0.3s, opacity 0.3s;
 }
 
 /* 允许复制与输入的区域 */
@@ -391,11 +321,37 @@ img,
   -ms-user-select: none !important;
 }
 
+/* 全局 Apple 紧凑字距排版 (DESIGN.md) */
+h1, h2, h3, h4, h5, h6, .font-bold {
+  letter-spacing: -0.02em !important;
+}
+
+/* 全局交互点击微缩微反馈 (DESIGN.md) */
+button,
+a,
+[role="button"] {
+  transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94), background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+button:active,
+a:active,
+[role="button"]:active {
+  transform: scale(0.96) !important;
+}
+
 /* 输入控件聚焦 */
 input,
 select,
 textarea {
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
 }
 
 input:focus,
@@ -405,6 +361,201 @@ textarea:focus {
   outline-offset: 2px !important;
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 2px var(--focus-ring) !important;
+  background-color: var(--bg-card) !important;
+}
+
+/* 磨砂玻璃容器内的输入框及半透微型面板适配 */
+.glass-heavy input,
+.glass-heavy select,
+.glass-heavy textarea,
+.glass-heavy [class*="bg-apple-input"],
+.glass-medium input,
+.glass-medium select,
+.glass-medium textarea,
+.glass-medium [class*="bg-apple-input"] {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+[data-theme="light"] .glass-heavy input,
+[data-theme="light"] .glass-heavy select,
+[data-theme="light"] .glass-heavy textarea,
+[data-theme="light"] .glass-heavy [class*="bg-apple-input"],
+[data-theme="light"] .glass-medium input,
+[data-theme="light"] .glass-medium select,
+[data-theme="light"] .glass-medium textarea,
+[data-theme="light"] .glass-medium [class*="bg-apple-input"] {
+  background-color: rgba(29, 29, 31, 0.03) !important;
+  border-color: rgba(29, 29, 31, 0.06) !important;
+}
+
+[data-theme="purple"] .glass-heavy input,
+[data-theme="purple"] .glass-heavy select,
+[data-theme="purple"] .glass-heavy textarea,
+[data-theme="purple"] .glass-heavy [class*="bg-apple-input"],
+[data-theme="purple"] .glass-medium input,
+[data-theme="purple"] .glass-medium select,
+[data-theme="purple"] .glass-medium textarea,
+[data-theme="purple"] .glass-medium [class*="bg-apple-input"] {
+  background-color: rgba(191, 90, 242, 0.05) !important;
+  border-color: rgba(191, 90, 242, 0.1) !important;
+}
+
+[data-theme="pink"] .glass-heavy input,
+[data-theme="pink"] .glass-heavy select,
+[data-theme="pink"] .glass-heavy textarea,
+[data-theme="pink"] .glass-heavy [class*="bg-apple-input"],
+[data-theme="pink"] .glass-medium input,
+[data-theme="pink"] .glass-medium select,
+[data-theme="pink"] .glass-medium textarea,
+[data-theme="pink"] .glass-medium [class*="bg-apple-input"] {
+  background-color: rgba(255, 45, 85, 0.04) !important;
+  border-color: rgba(255, 45, 85, 0.08) !important;
+}
+
+[data-theme="green"] .glass-heavy input,
+[data-theme="green"] .glass-heavy select,
+[data-theme="green"] .glass-heavy textarea,
+[data-theme="green"] .glass-heavy [class*="bg-apple-input"],
+[data-theme="green"] .glass-medium input,
+[data-theme="green"] .glass-medium select,
+[data-theme="green"] .glass-medium textarea,
+[data-theme="green"] .glass-medium [class*="bg-apple-input"] {
+  background-color: rgba(52, 199, 89, 0.12) !important;
+  border-color: rgba(52, 199, 89, 0.18) !important;
+}
+
+[data-theme="blue"] .glass-heavy input,
+[data-theme="blue"] .glass-heavy select,
+[data-theme="blue"] .glass-heavy textarea,
+[data-theme="blue"] .glass-heavy [class*="bg-apple-input"],
+[data-theme="blue"] .glass-medium input,
+[data-theme="blue"] .glass-medium select,
+[data-theme="blue"] .glass-medium textarea,
+[data-theme="blue"] .glass-medium [class*="bg-apple-input"] {
+  background-color: rgba(0, 122, 255, 0.12) !important;
+  border-color: rgba(0, 122, 255, 0.18) !important;
+}
+
+/* 磨砂玻璃容器内的输入框聚焦效果 */
+.glass-heavy input:focus,
+.glass-heavy select:focus,
+.glass-heavy textarea:focus,
+.glass-medium input:focus,
+.glass-medium select:focus,
+.glass-medium textarea:focus {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="light"] .glass-heavy input:focus,
+[data-theme="light"] .glass-heavy select:focus,
+[data-theme="light"] .glass-heavy textarea:focus,
+[data-theme="light"] .glass-medium input:focus,
+[data-theme="light"] .glass-medium select:focus,
+[data-theme="light"] .glass-medium textarea:focus {
+  background-color: rgba(29, 29, 31, 0.01) !important;
+}
+
+/* 磨砂玻璃容器内的次要按钮和链接按钮（取消、关闭、次要普通按钮及文档链接等）适配 */
+.glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+.glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+.glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"],
+.glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"] {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* 悬停与激活态 */
+.glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+.glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+.glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"]:hover,
+.glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"]:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* 亮色主题适配 */
+[data-theme="light"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="light"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="light"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"],
+[data-theme="light"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"] {
+  background-color: rgba(29, 29, 31, 0.03) !important;
+  border-color: rgba(29, 29, 31, 0.06) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="light"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="light"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"]:hover,
+[data-theme="light"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"]:hover {
+  background-color: rgba(29, 29, 31, 0.08) !important;
+  border-color: rgba(29, 29, 31, 0.12) !important;
+}
+
+/* 抹茶绿主题适配 */
+[data-theme="green"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="green"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="green"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"],
+[data-theme="green"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"] {
+  background-color: rgba(52, 199, 89, 0.04) !important;
+  border-color: rgba(52, 199, 89, 0.08) !important;
+}
+
+[data-theme="green"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="green"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="green"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"]:hover,
+[data-theme="green"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"]:hover {
+  background-color: rgba(52, 199, 89, 0.10) !important;
+}
+
+/* 冰海蓝主题适配 */
+[data-theme="blue"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="blue"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="blue"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"],
+[data-theme="blue"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"] {
+  background-color: rgba(0, 122, 255, 0.04) !important;
+  border-color: rgba(0, 122, 255, 0.08) !important;
+}
+
+[data-theme="blue"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="blue"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="blue"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"]:hover,
+[data-theme="blue"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"]:hover {
+  background-color: rgba(0, 122, 255, 0.10) !important;
+}
+
+/* 可爱粉主题适配 */
+[data-theme="pink"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="pink"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="pink"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"],
+[data-theme="pink"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"] {
+  background-color: rgba(255, 45, 85, 0.04) !important;
+  border-color: rgba(255, 45, 85, 0.08) !important;
+}
+
+[data-theme="pink"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="pink"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="pink"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"]:hover,
+[data-theme="pink"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"]:hover {
+  background-color: rgba(255, 45, 85, 0.10) !important;
+}
+
+/* 基佬紫主题适配 */
+[data-theme="purple"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="purple"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning),
+[data-theme="purple"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"],
+[data-theme="purple"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"] {
+  background-color: rgba(191, 90, 242, 0.05) !important;
+  border-color: rgba(191, 90, 242, 0.1) !important;
+}
+
+[data-theme="purple"] .glass-heavy:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="purple"] .glass-medium:not(aside):not(nav) button:not(.bg-accent):not(.bg-danger):not(.bg-success):not(.bg-warning):hover,
+[data-theme="purple"] .glass-heavy:not(aside):not(nav) a[class*="bg-apple-bg"]:hover,
+[data-theme="purple"] .glass-medium:not(aside):not(nav) a[class*="bg-apple-bg"]:hover {
+  background-color: rgba(191, 90, 242, 0.12) !important;
 }
 
 /* 占位符颜色 */
@@ -551,6 +702,26 @@ textarea:focus {
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
 }
 
+[data-theme="light"] .glass-medium {
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.03);
+}
+
+[data-theme="green"] .glass-heavy {
+  box-shadow: 0 20px 50px rgba(20, 83, 45, 0.05);
+}
+
+[data-theme="green"] .glass-medium {
+  box-shadow: 0 8px 32px rgba(20, 83, 45, 0.02);
+}
+
+[data-theme="blue"] .glass-heavy {
+  box-shadow: 0 20px 50px rgba(12, 74, 110, 0.05);
+}
+
+[data-theme="blue"] .glass-medium {
+  box-shadow: 0 8px 32px rgba(12, 74, 110, 0.02);
+}
+
 .dark .glass-heavy {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
@@ -579,6 +750,18 @@ textarea:focus {
 [data-theme="purple"] .glass-medium,
 [data-theme="purple"] .glass-light {
   --text-secondary: #d8b4fe;
+}
+
+[data-theme="green"] .glass-heavy,
+[data-theme="green"] .glass-medium,
+[data-theme="green"] .glass-light {
+  --text-secondary: #166534;
+}
+
+[data-theme="blue"] .glass-heavy,
+[data-theme="blue"] .glass-medium,
+[data-theme="blue"] .glass-light {
+  --text-secondary: #075985;
 }
 
 /* 覆盖文本色 */
@@ -637,10 +820,8 @@ nav.md\:hidden button.text-accent {
 main .bg-white,
 main .dark\:bg-\[\#1e293b\],
 main .dark\:bg-slate-800,
-[data-theme="purple"] main .bg-white,
-[data-theme="purple"] main .dark\:bg-\[\#1e293b\],
-[data-theme="pink"] main .bg-white,
-[data-theme="pink"] main .dark\:bg-\[\#1e293b\] {
+[data-theme] main .bg-white,
+[data-theme] main .dark\:bg-\[\#1e293b\] {
   background-color: var(--bg-glass-medium) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
@@ -680,7 +861,7 @@ main .dark\:bg-slate-800,
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* 亮色/粉色主题 Hover 反转 */
+/* 亮色/浅色基底主题 Hover 反转 */
 [data-theme="light"] .glass-heavy .hover\:bg-slate-100:hover,
 [data-theme="light"] .glass-heavy .hover\:bg-slate-200:hover,
 [data-theme="light"] .glass-medium .hover\:bg-slate-100:hover,
@@ -692,7 +873,19 @@ main .dark\:bg-slate-800,
 [data-theme="pink"] .glass-medium .hover\:bg-slate-100:hover,
 [data-theme="pink"] .glass-medium .hover\:bg-slate-200:hover,
 [data-theme="pink"] .bg-white .hover\:bg-slate-100:hover,
-[data-theme="pink"] .bg-white .hover\:bg-slate-200:hover {
+[data-theme="pink"] .bg-white .hover\:bg-slate-200:hover,
+[data-theme="green"] .glass-heavy .hover\:bg-slate-100:hover,
+[data-theme="green"] .glass-heavy .hover\:bg-slate-200:hover,
+[data-theme="green"] .glass-medium .hover\:bg-slate-100:hover,
+[data-theme="green"] .glass-medium .hover\:bg-slate-200:hover,
+[data-theme="green"] .bg-white .hover\:bg-slate-100:hover,
+[data-theme="green"] .bg-white .hover\:bg-slate-200:hover,
+[data-theme="blue"] .glass-heavy .hover\:bg-slate-100:hover,
+[data-theme="blue"] .glass-heavy .hover\:bg-slate-200:hover,
+[data-theme="blue"] .glass-medium .hover\:bg-slate-100:hover,
+[data-theme="blue"] .glass-medium .hover\:bg-slate-200:hover,
+[data-theme="blue"] .bg-white .hover\:bg-slate-100:hover,
+[data-theme="blue"] .bg-white .hover\:bg-slate-200:hover {
   background-color: rgba(15, 23, 42, 0.05) !important;
 }
 
@@ -723,4 +916,92 @@ aside {
   -webkit-backface-visibility: hidden;
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
+}
+
+/* 终端滚动条 */
+.terminal-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.terminal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.terminal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-radius: 99px;
+}
+.terminal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 按钮禁用状态 */
+button:disabled {
+  background-color: #1c1c1e;
+  color: #8e8e93;
+  border-color: #2c2c2e;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* 亮色及彩色主题按钮禁用状态 */
+[data-theme="light"] button:disabled,
+[data-theme="pink"] button:disabled,
+[data-theme="green"] button:disabled,
+[data-theme="blue"] button:disabled {
+  background-color: #f2f2f7;
+  color: #636366;
+  border-color: #e5e5ea;
+}
+
+/* 状态色按钮禁用状态不透明度 */
+button.bg-accent:disabled,
+button.bg-danger:disabled,
+button.bg-success:disabled,
+button.bg-warning:disabled {
+  background-color: inherit;
+  color: inherit;
+  border-color: inherit;
+  opacity: 0.7;
+}
+
+/* 开关关闭状态背景色 */
+.switch-bg-off {
+  background-color: #39393d !important;
+  transition: background-color 0.2s ease;
+}
+
+/* 亮色及彩色主题关闭状态背景色 */
+[data-theme="light"] .switch-bg-off,
+[data-theme="pink"] .switch-bg-off,
+[data-theme="green"] .switch-bg-off,
+[data-theme="blue"] .switch-bg-off {
+  background-color: #d1d1d6 !important;
+}
+
+/* 下拉框及选项主题适配 */
+select {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme="light"] select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme="pink"] select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+[data-theme="green"] select option {
+  background-color: #eafcf0 !important;
+  color: #052e16 !important;
+}
+[data-theme="blue"] select option {
+  background-color: #e6f4fe !important;
+  color: #082f49 !important;
 }
