@@ -42,7 +42,9 @@ export function useTheme() {
       light: 'dark',
       dark: 'purple',
       purple: 'pink',
-      pink: 'system',
+      pink: 'green',
+      green: 'blue',
+      blue: 'system',
       system: 'light'
     }
     globalStore.theme = cycle[current] || 'system'

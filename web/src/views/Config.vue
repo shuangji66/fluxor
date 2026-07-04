@@ -807,6 +807,8 @@ onActivated(() => {
                 <option value="dark">{{ t('config.theme_dark') }}</option>
                 <option value="purple">{{ t('config.theme_purple') }}</option>
                 <option value="pink">{{ t('config.theme_pink') }}</option>
+                <option value="green">{{ t('config.theme_green') }}</option>
+                <option value="blue">{{ t('config.theme_blue') }}</option>
                 <option value="system">{{ t('config.theme_system') }}</option>
               </select>
             </div>
