@@ -76,8 +76,8 @@ const filteredConnections = computed(() => {
       const valB = b.rule || ''
       return sortDesc.value ? valB.localeCompare(valA) : valA.localeCompare(valB)
     } else if (sortBy.value === 'chain') {
-      const valA = (a.chains || []).join(' → ')
-      const valB = (b.chains || []).join(' → ')
+      const valA = [...(a.chains || [])].reverse().join(' → ')
+      const valB = [...(b.chains || [])].reverse().join(' → ')
       return sortDesc.value ? valB.localeCompare(valA) : valA.localeCompare(valB)
     }
     return 0
@@ -342,7 +342,7 @@ onUnmounted(() => {
                 {{ c.rule }}
               </td>
               <td class="hidden lg:table-cell py-3 px-4 text-slate-400 select-all font-mono text-[10px]">
-                {{ c.chains.join(' → ') }}
+                {{ [...c.chains].reverse().join(' → ') }}
               </td>
               <td class="py-3 px-4 font-mono font-medium text-blue-500">
                 {{ activeTab === 'active' ? formatSpeed(c.speedUp || 0) : formatBytes(c.upload) }}
@@ -439,7 +439,7 @@ onUnmounted(() => {
             </div>
             <div v-if="c.chains && c.chains.length > 0" class="flex items-start gap-1">
               <span class="text-slate-400 shrink-0">{{ t('connections.chain') }}:</span>
-              <span class="font-mono text-slate-500 dark:text-slate-400 leading-tight break-all">{{ c.chains.join(' → ') }}</span>
+              <span class="font-mono text-slate-500 dark:text-slate-400 leading-tight break-all">{{ [...c.chains].reverse().join(' → ') }}</span>
             </div>
           </div>
 
@@ -485,4 +485,3 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-
