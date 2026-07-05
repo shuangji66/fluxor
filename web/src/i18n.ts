@@ -69,6 +69,7 @@ const messages = {
     'overview.isp': '运营商',
     'overview.asn': '自治系统',
     'overview.subscription': '订阅',
+    'overview.proxy_mode': '代理模式',
     'overview.proxy_group': '代理组',
     'overview.proxy_port': '代理端口',
     'overview.no_ipinfo': '未获取到ip',
@@ -502,6 +503,7 @@ const messages = {
     'overview.asn': 'ASN',
     'overview.subscription': 'Subscription',
     'overview.proxy_group': 'Proxy Group',
+    'overview.proxy_mode': 'Proxy Mode',
 
     'proxies.title': 'Proxy Groups',
     'proxies.current': 'Current',

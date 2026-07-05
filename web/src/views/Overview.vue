@@ -16,6 +16,7 @@ const overviewStore = useOverviewStore()
 const { stats, uiPanel, uploadHistory, downloadHistory, timeHistory } = storeToRefs(overviewStore)
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
+const { configs } = storeToRefs(configStore)
 const subscriptionStore = useSubscriptionStore()
 const { currentConfig } = storeToRefs(subscriptionStore)
 
@@ -793,8 +794,17 @@ onUnmounted(() => {
                   t('overview.subscription') }}</span>
                 <div class="flex-1 min-w-0 ml-4 flex justify-end">
                   <span
-                    class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap text-right"
+                    class="text-xs font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap text-right"
                     :title="currentSubscriptionDisplay">{{ currentSubscriptionDisplay }}</span>
+                </div>
+              </div>
+              <!-- 代理模式 -->
+              <div class="glass-light border !rounded-lg px-3.5 py-2.5 flex justify-between items-center">
+                <span class="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{{ t('overview.proxy_mode') }}</span>
+                <div class="flex-1 min-w-0 ml-4 flex justify-end">
+                  <span class="text-xs font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap text-right">
+                    {{ t(`config.mode_${configs.mode.toLowerCase()}`) }}
+                  </span>
                 </div>
               </div>
               <!-- 代理组 -->
@@ -803,7 +813,7 @@ onUnmounted(() => {
                   }}</span>
                 <div class="flex-1 min-w-0 ml-4 flex justify-end">
                   <span
-                    class="font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap text-right"
+                    class="text-xs font-semibold text-slate-800 dark:text-slate-100 overflow-x-auto whitespace-nowrap text-right"
                     :title="stats.currentGroup">{{ stats.currentGroup }}</span>
                 </div>
               </div>
@@ -813,7 +823,7 @@ onUnmounted(() => {
                   t('overview.current_node') }}</span>
                 <div class="flex-1 min-w-0 ml-4 flex justify-end">
                   <span
-                    class="font-semibold text-accent overflow-x-auto whitespace-nowrap text-right"
+                    class="text-xs font-semibold text-accent overflow-x-auto whitespace-nowrap text-right"
                     :title="currentNodeDisplay">{{ currentNodeDisplay }}</span>
                 </div>
               </div>
