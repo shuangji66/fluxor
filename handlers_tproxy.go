@@ -252,7 +252,6 @@ func enableTProxyRules(port int) error {
 	if port <= 0 {
 		return nil
 	}
-	log.Printf("[TProxy] 正在加载流量拦截规则 (端口: %d)...", port)
 
 	// 辅助函数：执行命令并忽略错误（保留原行为）
 	runCmd := func(name string, args ...string) {
@@ -377,13 +376,12 @@ func enableTProxyRules(port int) error {
 	return nil
 }
 
-// disableTProxyRules 清理规则（与原函数相同）
+// disableTProxyRules 清理规则
 func disableTProxyRules() {
-	log.Printf("[TProxy] 清理流量拦截规则...")
 	exec.Command("nft", "delete", "table", "ip", "fluxor_tproxy").Run()
 	exec.Command("ip", "rule", "del", "fwmark", "1", "table", "100").Run()
 	exec.Command("ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", "100").Run()
-	log.Printf("[TProxy] 清理完成。")
+	log.Printf("[TProxy] 流量规则清理完成。")
 }
 
 // GetTproxyState 导出状态

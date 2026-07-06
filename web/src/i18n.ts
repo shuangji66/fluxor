@@ -23,6 +23,13 @@ const messages = {
     'common.copied': '已成功复制',
     'common.warning': '警告',
     'welcome_back': '欢迎回来，{username}',
+    'update.available_toast': '新版本 {latest}，前往“关于”查看。',
+    'update.update_button': '更新版本 {latest}',
+    'update.updating': '更新中...',
+    'update.update_started': '正在更新，请稍后...',
+    'update.update_failed': '更新失败',
+
+
 
     'nav.overview': '概览',
     'nav.overview_desc': '仪表盘',
@@ -449,6 +456,11 @@ const messages = {
     'common.copied': 'Copied successfully',
     'common.warning': 'Warning',
     'welcome_back': 'Welcome back, {username}',
+    'update.available_toast': 'New version {latest} , go to the "About" page to check updates.',
+    'update.update_button': 'Update to {latest}',
+    'update.updating': 'Updating...',
+    'update.update_started': 'Updating, please wait...',
+    'update.update_failed': 'Update failed',
 
     'nav.overview': 'Overview',
     'nav.overview_desc': 'Dashboard',

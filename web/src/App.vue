@@ -146,6 +146,35 @@ const handleCopy = (e: ClipboardEvent) => {
   }
 }
 
+// self更新
+const isUpdatingSelf = ref(false)
+
+const handleSelfUpdate = async () => {
+  if (isUpdatingSelf.value) return
+  isUpdatingSelf.value = true
+  try {
+    const resp = await apiFetch('/update-self', { method: 'POST' })
+    if (resp.ok) {
+      globalStore.showToast(t('update.update_started'), 'success')
+      // 延迟后刷新页面，因为进程即将重启
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+    } else {
+      let msg = t('update.update_failed')
+      try {
+        const data = await resp.json()
+        if (data.message) msg = data.message
+      } catch (_) {}
+      globalStore.showToast(msg, 'error')
+    }
+  } catch (e) {
+    globalStore.showToast(t('update.update_failed') + ': ' + (e as Error).message, 'error')
+  } finally {
+    isUpdatingSelf.value = false
+  }
+}
+
 onMounted(() => {
   initTheme()
   updateTitle(globalStore.activeTab)
@@ -178,6 +207,22 @@ onMounted(() => {
       }
     })
     .catch(() => {}) // 静默失败，不影响正常使用
+
+  // 检查 Fluxor 自身更新
+  apiFetch(`/check-update?current=${appVersion}`)
+    .then(res => res.ok ? res.json() : null)
+    .then(data => {
+      if (data) {
+        globalStore.updateInfo = data  // 存储完整信息
+        if (data.hasUpdate) {
+          globalStore.showToast(
+            t('update.available_toast', { latest: data.latest }),
+            'info'
+          )
+        }
+      }
+    })
+    .catch(() => {})
 })
 
 onUnmounted(() => {
@@ -457,9 +502,22 @@ onUnmounted(() => {
 
           <!-- 详细信息面板 -->
           <div class="bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100 dark:border-slate-800/50 rounded-2xl p-4 flex flex-col gap-3.5">
+            <!-- 面板版本行（左侧标签，右侧按钮+版本号） -->
             <div class="flex items-center justify-between text-xs">
               <span class="font-bold text-slate-500 dark:text-slate-400">{{ t('about.version') }}</span>
-              <span class="font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">v{{ appVersion }}</span>
+              <div class="flex items-center gap-2">
+                <!-- 更新按钮（有更新时显示） -->
+                <button
+                  v-if="globalStore.updateInfo?.hasUpdate"
+                  @click="handleSelfUpdate"
+                  :disabled="isUpdatingSelf"
+                  class="px-2 py-0.5 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {{ isUpdatingSelf ? t('update.updating') : t('update.update_button', { latest: globalStore.updateInfo.latest }) }}
+                </button>
+                <!-- 版本号 -->
+                <span class="font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">v{{ appVersion }}</span>
+              </div>
             </div>
             <!-- 内核版本 -->
             <div class="flex items-center justify-between text-xs">

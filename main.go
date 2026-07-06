@@ -22,6 +22,8 @@ var staticFS fs.FS
 var (
     socketPath          string
     baseURL             string
+	fluxorPidFile       string
+	fluxorBinDir        string
     corePidFile         string
     coreBin             string
     coreSocket          string
@@ -38,6 +40,8 @@ var (
 func init() {
     socketPath = getEnv("SOCKET_PATH", "/var/apps/Fluxor/target/app.sock")
     baseURL = getEnv("BASE_URL", "/app/Fluxor")
+	fluxorPidFile = getEnv("FLUXOR_PID_FILE", "/var/apps/Fluxor/var/fluxor.pid")
+	fluxorBinDir = getEnv("FLUXOR_BIN_DIR", "/var/apps/Fluxor/target/bin/")
     corePidFile = getEnv("CORE_PID_FILE", "/var/apps/Fluxor/var/core.pid")
     coreBin = getEnv("CORE_BIN", "/var/apps/Fluxor/target/bin/mihomo")
     coreSocket = getEnv("CORE_SOCKET", "/var/apps/Fluxor/target/core.sock")
@@ -83,6 +87,22 @@ func main() {
 			fmt.Printf("生成基本配置文件失败: %v\n", err)
 		} else {
 			fmt.Println("已生成基本配置文件 (config.yaml)")
+		}
+	}
+
+		if err := os.MkdirAll(filepath.Dir(fluxorPidFile), 0755); err != nil {
+		fmt.Printf("无法创建 PID 目录: %v\n", err)
+	} else {
+		pidData := []byte(fmt.Sprintf("%d", os.Getpid()))
+		if err := os.WriteFile(fluxorPidFile, pidData, 0644); err != nil {
+			fmt.Printf("写入 PID 文件失败: %v\n", err)
+		} else {
+			// 程序退出时自动删除 PID 文件
+			defer func() {
+				if err := os.Remove(fluxorPidFile); err != nil {
+					fmt.Printf("删除 PID 文件失败: %v\n", err)
+				}
+			}()
 		}
 	}
 
@@ -210,6 +230,10 @@ func main() {
 		}
 	})
 
+	// fluxor 版本更新 API
+    mux.HandleFunc(baseURL+"/check-update", handleCheckUpdate)
+	mux.HandleFunc(baseURL+"/update-self", handleSelfUpdate)
+
 	// 质量分数 API
     mux.HandleFunc(baseURL+"/proxies/quality", handleQualityScores)
 
@@ -240,11 +264,8 @@ func main() {
 
 	// 自动启动内核
 	if !isCoreRunning() {
-		fmt.Println("内核未运行，尝试自动启动...")
 		if err := startCore(); err != nil {
 			fmt.Printf("自动启动内核失败: %v\n", err)
-		} else {
-			fmt.Println("内核已自动启动")
 		}
 	} else {
 		fmt.Println("内核已在运行，跳过自动启动")
@@ -252,7 +273,6 @@ func main() {
 
 	// 启动 UNIX 服务
 	go func() {
-		fmt.Printf("Fluxor UNIX 服务已启动，监听 Unix socket: %s\n", socketPath)
 		err := http.Serve(listener, mux)
 		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
 			fmt.Printf("HTTP 服务错误: %v\n", err)
@@ -274,20 +294,17 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	fmt.Println("\n收到退出信号，正在关闭 Fluxor...")
+	fmt.Printf("收到退出信号，正在关闭 Fluxor...\n")
 	stopAllTimers()
 	disableTProxyRules() // 面板退出时强制执行一次系统级 TProxy 防火墙与路由规则彻底清退，避免断网残留
 	if isCoreRunning() {
-		fmt.Println("正在停止内核...")
 		if err := stopCore(); err != nil {
 			fmt.Printf("停止内核失败: %v\n", err)
-		} else {
-			fmt.Println("内核已停止")
 		}
 	} else {
-		fmt.Println("内核未运行，无需停止")
+		fmt.Printf("内核未运行，无需停止\n")
 	}
-	fmt.Println("Fluxor 已安全退出")
+	fmt.Printf("Fluxor 已安全退出\n")
 }
 
 // wsProxyHandler 返回处理 WebSocket 代理的 HandlerFunc

@@ -120,6 +120,8 @@ export const useGlobalStore = defineStore('global', () => {
     confirmDialog.value = null
   }
 
+  const updateInfo = ref<{ hasUpdate: boolean; latest: string; current: string } | null>(null)
+
   watch(activeTab, (newTab) => {
     localStorage.setItem('fluxor-active-tab', newTab)
   })
@@ -143,6 +145,7 @@ export const useGlobalStore = defineStore('global', () => {
     showToast, 
     removeToast,
     showConfirm, 
+    updateInfo,
     handleConfirmResult 
   }
 })
