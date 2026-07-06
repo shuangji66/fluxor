@@ -1,0 +1,86 @@
+name: Build and Release fluxor
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v5
+
+      - name: 设置 Node.js 环境
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: 修改 package.json 版本号（追加 commit 哈希）
+        run: |
+          HASH=$(git rev-parse --short HEAD)
+          VERSION=$(jq -r '.version' web/package.json)
+          NEW_VERSION="${VERSION}~${HASH}"
+          jq --arg new "$NEW_VERSION" '.version = $new' web/package.json > web/package.json.tmp && mv web/package.json.tmp web/package.json
+          echo "新版本号: $NEW_VERSION"
+
+      - name: 构建前端 (web)
+        working-directory: ./web
+        run: |
+          npm ci
+          npm run build
+
+      - name: 构建 Go 后端（${{ matrix.arch }}）
+        run: |
+          GOOS=linux GOARCH=${{ matrix.arch }} go build -tags vue -ldflags="-s -w" -o fluxor-${{ matrix.arch }}
+
+      - name: 上传 fluxor-${{ matrix.arch }} 作为 Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: fluxor-${{ matrix.arch }}
+          path: fluxor-${{ matrix.arch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # 允许创建 Release
+    steps:
+      - name: 检出源码（用于读取原始版本号）
+        uses: actions/checkout@v5
+
+      - name: 读取 package.json 中的版本号
+        id: get_version
+        run: |
+          VERSION=$(jq -r '.version' web/package.json)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: 创建或更新 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: ${{ steps.get_version.outputs.VERSION }}
+          files: artifacts/**/fluxor-*
+          draft: false
+          prerelease: false
+          allow_updates: true  # 如果 tag 已存在则更新
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
