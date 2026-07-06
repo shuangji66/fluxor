@@ -18,6 +18,7 @@
 │       └── fluxor            # Fluxor 后端二进制管理程序
 ├── var/
 │   ├── core.pid              # 内核进程的 PID 运行记录文件
+│   ├── fluxor.pid            # fluxor面板 PID 运行记录文件
 │   └── fluxor.json           # 面板设置与订阅持久化 JSON 数据库
 └── shares/
     ├── Fluxor/
@@ -48,8 +49,14 @@ export CORE_SOCKET="/var/apps/Fluxor/target/core.sock"
 # 设置内核二进制程序的主路径
 export CORE_BIN="/var/apps/Fluxor/target/bin/mi鸿蒙"
 
+# 设置fluxor二进制程序的路径
+export FLUXOR_BIN_DIR="/var/apps/Fluxor/target/bin/"
+
 # 设置内核运行时的 PID 进程锁定文件路径
 export CORE_PID_FILE="/var/apps/Fluxor/var/core.pid"
+
+# 设置fluxor运行时的 PID 进程锁定文件路径
+export FLUXOR_PID_FILE="/var/apps/Fluxor/var/fluxor.pid"
 
 # 设置持久化保存您订阅与全局端口密钥等设置的文件路径
 export FLUXOR_CONFIG_FILE="/var/apps/Fluxor/var/fluxor.json"
