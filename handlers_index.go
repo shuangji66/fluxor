@@ -57,6 +57,15 @@ type githubRelease struct {
 	} `json:"assets"`
 }
 
+// stripVersionSuffix 去除版本号中的后缀（如 ~670ab34），仅保留主版本号
+func stripVersionSuffix(v string) string {
+	parts := strings.Split(v, "~")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return v
+}
+
 // handleCheckUpdate 检查 Fluxor 自身是否有新版本
 func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -69,6 +78,7 @@ func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "missing current version")
 		return
 	}
+	current = stripVersionSuffix(current)
 
 	latest, err := getLatestVersion()
 	if err != nil {
@@ -209,6 +219,8 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "当前已是最新版本，无需更新")
 		return
 	}
+	current = stripVersionSuffix(current)
+
 
 	// 确定目标路径
 	targetPath := filepath.Join(fluxorBinDir, "fluxor")
