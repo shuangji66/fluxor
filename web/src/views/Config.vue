@@ -379,19 +379,101 @@ const handleUpdateGeo = async () => {
   }
 }
 
-const handleUpgradeCore = async () => {
+// 新增响应式状态
+const showUpgradeMenu = ref(false)
+const upgradeMenuRef = ref<HTMLElement | null>(null)
+
+// 切换下拉菜单
+const toggleUpgradeMenu = () => {
+  showUpgradeMenu.value = !showUpgradeMenu.value
+}
+
+// 升级核心（支持通道参数）
+const handleUpgradeCore = async (channel?: string) => {
+  if (isUpgrading.value) return
   isUpgrading.value = true
   try {
-    const resp = await apiFetch('/upgrade', { method: 'POST' })
+    let url = '/upgrade'
+    if (channel) url += `?channel=${channel}`
+    const resp = await apiFetch(url, { method: 'POST' })
     if (resp.ok) {
-      overviewStore.fetchVersionAndStatus()
+      // **** 关键修复：强制重置版本号为“加载中...”，使下次请求重新获取 ****
+      overviewStore.stats.coreVersion = '加载中...'
+      globalStore.showToast(t('config.upgrade_success'), 'success')
+      // 延迟刷新，等待内核完成更新
+      setTimeout(async () => {
+        let attempts = 0
+        const maxAttempts = 10 // 增加尝试次数
+        while (attempts < maxAttempts) {
+          try {
+            await overviewStore.fetchVersionAndStatus()
+            // 检查是否成功获取到有效版本（非“加载中...”或“未知”）
+            if (overviewStore.stats.coreVersion && 
+                overviewStore.stats.coreVersion !== '加载中...' && 
+                overviewStore.stats.coreVersion !== '未知') {
+              break
+            }
+          } catch (_) {}
+          attempts++
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+        fetchConfigs()
+      }, 2000) // 初始延迟 2 秒
+    } else {
+      // 错误处理（保持不变）
+      let errorMsg = ''
+      try {
+        const data = await resp.json()
+        if (data.message) errorMsg = data.message
+      } catch (_) {
+        try {
+          errorMsg = await resp.text()
+        } catch (_) {}
+      }
+      if (errorMsg.includes('already using latest version')) {
+        const channelName = channel === 'alpha' ? t('config.upgrade_alpha') : (channel === 'release' ? t('config.upgrade_stable') : '')
+        if (channelName) {
+          globalStore.showToast(t('config.upgrade_already_latest_channel', { channel: channelName }), 'warning')
+        } else {
+          globalStore.showToast(t('config.upgrade_already_latest'), 'warning')
+        }
+      } else {
+        globalStore.showToast(`${t('config.upgrade_failed')}${errorMsg ? ': ' + errorMsg : ''}`, 'error')
+      }
     }
   } catch (e) {
-    // 忽略升级中可能的502或连接中断
+    globalStore.showToast(t('config.upgrade_network_error'), 'error')
   } finally {
     isUpgrading.value = false
+    showUpgradeMenu.value = false
   }
 }
+
+// Alpha 通道升级
+const handleUpgradeAlpha = () => {
+  handleUpgradeCore('alpha')
+}
+
+// 稳定版通道升级
+const handleUpgradeStable = () => {
+  handleUpgradeCore('release')
+}
+
+// 点击菜单外部自动关闭
+const handleClickOutside = (event: MouseEvent) => {
+  if (upgradeMenuRef.value && !upgradeMenuRef.value.contains(event.target as Node)) {
+    showUpgradeMenu.value = false
+  }
+}
+
+// 监听菜单显示状态，添加/移除全局点击监听
+watch(showUpgradeMenu, (val) => {
+  if (val) {
+    document.addEventListener('click', handleClickOutside)
+  } else {
+    document.removeEventListener('click', handleClickOutside)
+  }
+})
 
 const handleDNSQuery = async (e?: Event) => {
   if (!dnsQuery.value.name.trim()) return
@@ -484,6 +566,7 @@ onMounted(async () => {
 
 
 onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 
 onActivated(() => {
@@ -746,10 +829,45 @@ onActivated(() => {
                   {{ t('config.restart') }}
                 </button>
               </template>
-              <button @click="handleUpgradeCore" :disabled="isUpgrading || !coreStatus.running"
-                class="py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-xl shadow-md shadow-accent/15 hover:shadow-accent/25 transition-all flex items-center justify-center w-full disabled:opacity-50 disabled:cursor-not-allowed">
-                {{ isUpgrading ? t('config.upgrading_core') : t('config.upgrade_core') }}
-              </button>
+              <!-- 拆分更新按钮 -->
+              <div ref="upgradeMenuRef" class="relative flex w-full">
+                <button
+                  @click="handleUpgradeCore()"
+                  :disabled="isUpgrading || !coreStatus.running"
+                  class="flex-1 py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-l-xl shadow-md shadow-accent/15 hover:shadow-accent/25 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {{ isUpgrading ? t('config.upgrading_core') : t('config.upgrade_core') }}
+                </button>
+                <button
+                  @click="toggleUpgradeMenu"
+                  :disabled="isUpgrading || !coreStatus.running"
+                  class="py-2 px-2 bg-accent hover:bg-accent-hover text-white rounded-r-xl shadow-md shadow-accent/15 hover:shadow-accent/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center border-l border-white/20"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <!-- 下拉菜单 -->
+                <div
+                  v-if="showUpgradeMenu"
+                  class="absolute top-full left-0 mt-1 w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-50"
+                >
+                  <button
+                    @click="handleUpgradeStable"
+                    :disabled="isUpgrading || !coreStatus.running"
+                    class="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    {{ t('config.upgrade_stable') }}
+                  </button>
+                  <button
+                    @click="handleUpgradeAlpha"
+                    :disabled="isUpgrading || !coreStatus.running"
+                    class="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    {{ t('config.upgrade_alpha') }}
+                  </button>
+                </div>
+              </div>
             </div>
    
             <!-- 分割线 -->

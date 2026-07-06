@@ -404,16 +404,18 @@ func handleUpgrade(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method Not Allowed")
 		return
 	}
-
-	resp, err := coreRequest("POST", "/upgrade", nil)
+	// 构建目标路径，包含查询参数
+	targetPath := "/upgrade"
+	if r.URL.RawQuery != "" {
+		targetPath += "?" + r.URL.RawQuery
+	}
+	resp, err := coreRequest("POST", targetPath, nil)
 	if err != nil {
-		// 连接内核失败（如内核未运行或 socket 不可达）
 		writeJSONError(w, http.StatusBadGateway, "请求内核失败: "+err.Error())
 		return
 	}
 	defer resp.Body.Close()
 
-	// 原样透传状态码和响应体（包括 500 以及 JSON 消息）
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
