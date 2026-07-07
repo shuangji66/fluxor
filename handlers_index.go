@@ -51,6 +51,7 @@ var (
 
 type githubRelease struct {
 	TagName string `json:"tag_name"`
+	Body    string `json:"body"`
 	Assets  []struct {
 		Name               string `json:"name"`
 		BrowserDownloadURL string `json:"browser_download_url"`
@@ -80,18 +81,33 @@ func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	current = stripVersionSuffix(current)
 
-	latest, err := getLatestVersion()
+	// 尝试获取完整 Release 信息（含更新日志）
+	rel, err := getLatestReleaseInfo()
 	if err != nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "failed to check update: "+err.Error())
+		// 降级方案：仅获取版本号（不返回 releaseNotes）
+		latest, err2 := getLatestVersion()
+		if err2 != nil {
+			writeJSONError(w, http.StatusServiceUnavailable, "failed to check update: "+err2.Error())
+			return
+		}
+		hasUpdate := compareVersions(latest, current) > 0
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"hasUpdate": hasUpdate,
+			"latest":    latest,
+			"current":   current,
+			// 无 releaseNotes 字段
+		})
 		return
 	}
 
-	hasUpdate := compareVersions(latest, current) > 0
+	hasUpdate := compareVersions(rel.TagName, current) > 0
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"hasUpdate": hasUpdate,
-		"latest":    latest,
-		"current":   current,
+		"hasUpdate":    hasUpdate,
+		"latest":       rel.TagName,
+		"current":      current,
+		"releaseNotes": rel.Body, // 返回 Release 正文
 	})
 }
 

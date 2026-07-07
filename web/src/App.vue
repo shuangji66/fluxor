@@ -519,6 +519,24 @@ onUnmounted(() => {
                 <span class="font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">v{{ appVersion }}</span>
               </div>
             </div>
+            <!-- 更新日志区域（仅当有更新且存在 releaseNotes 时显示） -->
+            <div v-if="globalStore.updateInfo?.hasUpdate && globalStore.updateInfo?.releaseNotes"
+                 class="border-t border-slate-100 dark:border-slate-800/40 pt-3 mt-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-500 dark:text-slate-400">
+                  {{ t('about.release_notes') }}
+                </span>
+                <span class="text-xs text-accent font-medium">
+                  v{{ globalStore.updateInfo.latest }}
+                </span>
+              </div>
+              <div class="mt-1 max-h-32 overflow-y-auto text-xs text-slate-600 dark:text-slate-300 
+                          bg-slate-50 dark:bg-slate-800/20 p-2 rounded-lg 
+                          border border-slate-100 dark:border-slate-800/40 
+                          whitespace-pre-wrap select-text">
+                {{ globalStore.updateInfo.releaseNotes }}
+              </div>
+            </div>
             <!-- 内核版本 -->
             <div class="flex items-center justify-between text-xs">
               <span class="font-bold text-slate-500 dark:text-slate-400">{{ t('about.core_version') }}</span>
