@@ -18,15 +18,41 @@ import (
 
 // handleIndex 渲染主页单页应用
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != baseURL && r.URL.Path != baseURL+"/" {
-		http.NotFound(w, r)
-		return
-	}
-	if indexTmpl == nil {
-		http.Error(w, "主页模板未加载", http.StatusInternalServerError)
-		return
-	}
-	indexTmpl.Execute(w, map[string]string{"BaseURL": baseURL})
+    expected := baseURL
+    if expected == "" {
+        expected = "/"
+    }
+    if r.URL.Path != expected && r.URL.Path != expected+"/" {
+        if !(expected == "/" && r.URL.Path == "/") {
+            http.NotFound(w, r)
+            return
+        }
+    }
+    if indexTmpl == nil {
+        http.Error(w, "主页模板未加载", http.StatusInternalServerError)
+        return
+    }
+
+    // 构造 baseHref（用于 <base> 标签，保证以 / 开头和结尾）
+    baseHref := baseURL
+    if baseHref == "" {
+        baseHref = "/"
+    } else {
+        if !strings.HasPrefix(baseHref, "/") {
+            baseHref = "/" + baseHref
+        }
+        if !strings.HasSuffix(baseHref, "/") {
+            baseHref += "/"
+        }
+    }
+    // rawBase 保留原始值，用于 window.BASE_URL
+    rawBase := originalBaseURL
+
+    data := map[string]string{
+        "BaseHref": baseHref,
+        "RawBase":  rawBase,
+    }
+    indexTmpl.Execute(w, data)
 }
 
 // handleWhoAmI 返回当前用户信息（从 X-Trim-Username 请求头读取）

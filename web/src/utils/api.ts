@@ -10,7 +10,8 @@ function isMockEnabled(): boolean {
 
 export function withBase(path: string): string {
   if (!BASE || BASE === '/') return path;
-  return BASE.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
+  const base = BASE.replace(/^\/|\/$/g, '');
+  return '/' + base + '/' + path.replace(/^\//, '');
 }
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {

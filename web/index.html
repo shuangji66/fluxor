@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0f172a">
     <link rel="icon" type="image/png" href="/ICON.PNG">
+    <base href="{{.BaseHref}}">
     <title>Fluxor</title>
 </head>
 <body class="bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 antialiased">
     <div id="app"></div>
     <script>
-        // 自动识别并降级 Go 模板占位符，以支持本地 Vite 开发和线上嵌入运行
-        const rawBase = '{{.BaseURL}}';
+        const rawBase = '{{.RawBase}}';
         window.BASE_URL = rawBase.startsWith('{' + '{') ? '' : rawBase;
     </script>
     <script type="module" src="/src/main.ts"></script>
