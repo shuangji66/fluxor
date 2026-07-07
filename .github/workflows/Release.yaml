@@ -57,16 +57,34 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     permissions:
-      contents: write  # 允许创建 Release
+      contents: write
     steps:
-      - name: 检出源码（用于读取原始版本号）
+      - name: 检出源码（用于读取版本号和 commit 日志）
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # 确保拉取所有历史，以便获取 tag 信息
 
       - name: 读取 package.json 中的版本号
         id: get_version
         run: |
           VERSION=$(jq -r '.version' web/package.json)
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: 生成 Release Notes（从上一个 tag 到现在的 commit 摘要）
+        id: get_notes
+        run: |
+          # 尝试获取最近的 tag
+          if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            LAST_TAG=$(git describe --tags --abbrev=0)
+            NOTES=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s")
+          else
+            # 首次发布：显示所有 commit 摘要
+            NOTES=$(git log --pretty=format:"- %s")
+          fi
+          # 使用 heredoc 支持多行输出
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: 下载所有构建产物
         uses: actions/download-artifact@v6
@@ -78,9 +96,10 @@ jobs:
         with:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           name: ${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.get_notes.outputs.NOTES }}
           files: artifacts/**/fluxor-*
           draft: false
           prerelease: false
-          allow_updates: true  # 如果 tag 已存在则更新
+          allow_updates: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
