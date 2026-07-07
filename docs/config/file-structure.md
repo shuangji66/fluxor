@@ -34,7 +34,7 @@
 
 ## 启动与运行环境变量参考
 
-若您是在自建 Linux 环境中部署，或者需要调整后台的工作目录，请在启动二进制文件前，配置并导出以下环境变量：
+若您是在fnOS环境中部署，或者需要调整后台的工作目录，请在启动二进制文件前，配置并导出以下环境变量：
 
 ```bash
 # 设置管理面板访问的前缀路径（适用于飞牛 OS 等 NAS 网关环境）
@@ -79,7 +79,7 @@ export INFO_LOG_FILE="/var/apps/Fluxor/shares/Fluxor/info.log"
 # 可选：如果需要通过传统的端口号（如 http://IP:8080）访问面板，可设置此项
 # export FLUXOR_ADDR="0.0.0.0:8080"
 ```
-若您是在openwrt等嵌入式环境中部署，可创建`/etc/fluxor`目录，将fluxor和mi鸿蒙内核放置在此目录，以`./fluxor -w`启动内置的openwrt运行设置：
+若您是在openwrt等嵌入式环境中部署，可创建`/etc/fluxor`目录，将fluxor和mi鸿蒙内核放置在此目录，以`./fluxor -w`启动以下预设的openwrt运行设置或自行修改相应环境变量：
 
 ```bash
 # 通过传统的端口号（如 http://IP:8080）访问面板
@@ -102,10 +102,10 @@ export CORE_BIN="/etc/fluxor/mi鸿蒙"
 export FLUXOR_BIN_DIR="/etc/fluxor/"
 
 # 设置内核运行时的 PID 进程锁定文件路径
-export CORE_PID_FILE="/var/apps/Fluxor/var/core.pid"
+export CORE_PID_FILE="/var/run/core.pid"
 
 # 设置fluxor运行时的 PID 进程锁定文件路径
-export FLUXOR_PID_FILE="/var/apps/Fluxor/var/fluxor.pid"
+export FLUXOR_PID_FILE="/var/run/fluxor.pid"
 
 # 设置持久化保存您订阅与全局端口密钥等设置的文件路径
 export FLUXOR_CONFIG_FILE="/etc/fluxor/fluxor.json"
