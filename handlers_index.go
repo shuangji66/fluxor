@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url" // 新增导入
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,7 +108,7 @@ func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 		"hasUpdate":    hasUpdate,
 		"latest":       rel.TagName,
 		"current":      current,
-		"releaseNotes": rel.Body, // 返回 Release 正文
+		"releaseNotes": rel.Body,
 	})
 }
 
@@ -128,7 +129,7 @@ func getLatestVersion() (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", err // 可进一步处理非200状态
+		return "", err
 	}
 
 	var result struct {
@@ -138,7 +139,6 @@ func getLatestVersion() (string, error) {
 		return "", err
 	}
 
-	// 去除前缀 'v'
 	version := strings.TrimPrefix(result.TagName, "v")
 	if version == "" {
 		version = result.TagName
@@ -152,8 +152,7 @@ func getLatestVersion() (string, error) {
 	return version, nil
 }
 
-// compareVersions 比较两个语义化版本号，返回 1（v1 > v2）、-1（v1 < v2）、0（相等）
-// 格式如 "1.2.3" 或 "1.2"，无前缀 'v'
+// compareVersions 比较两个语义化版本号
 func compareVersions(v1, v2 string) int {
 	parts1 := strings.Split(v1, ".")
 	parts2 := strings.Split(v2, ".")
@@ -189,8 +188,8 @@ func getLatestReleaseInfo() (*githubRelease, error) {
 	}
 	releaseCacheMutex.RUnlock()
 
-	url := "https://api.github.com/repos/shuangji66/fluxor/releases/latest"
-	resp, err := http.Get(url)
+	apiURL := "https://api.github.com/repos/shuangji66/fluxor/releases/latest"
+	resp, err := http.Get(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +202,6 @@ func getLatestReleaseInfo() (*githubRelease, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
 		return nil, err
 	}
-	// 去除 tag 前缀 v
 	rel.TagName = strings.TrimPrefix(rel.TagName, "v")
 
 	releaseCacheMutex.Lock()
@@ -212,6 +210,90 @@ func getLatestReleaseInfo() (*githubRelease, error) {
 	releaseCacheMutex.Unlock()
 
 	return &rel, nil
+}
+
+// 加速源列表（按优先级排序）
+var ghProxyAccelerators = []string{
+	"https://gh-proxy.org/",
+	"https://hk.gh-proxy.org/",
+	"https://cdn.gh-proxy.org/",
+	"https://edgeone.gh-proxy.org/",
+	"https://gh-proxy.com/",
+}
+
+// downloadOnce 执行单次下载，支持代理，并写入目标文件
+func downloadOnce(dst *os.File, rawURL string, proxyAddr string) error {
+	client := &http.Client{
+		Timeout: 60 * time.Second,
+	}
+	if proxyAddr != "" {
+		proxyURL, err := url.Parse(proxyAddr)
+		if err != nil {
+			return err
+		}
+		client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+	}
+
+	resp, err := client.Get(rawURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	// 重置文件指针并清空内容
+	if _, err := dst.Seek(0, 0); err != nil {
+		return err
+	}
+	if err := dst.Truncate(0); err != nil {
+		return err
+	}
+
+	_, err = io.Copy(dst, resp.Body)
+	return err
+}
+
+// downloadWithFallback 尝试多种方式下载文件，每个尝试支持重试
+func downloadWithFallback(dst *os.File, originalURL string, proxyAddr string, accelerators []string) error {
+	type attempt struct {
+		url   string
+		proxy string // 空表示无代理
+	}
+
+	var attempts []attempt
+	// 1. 优先通过代理直接下载（如果代理可用）
+	if proxyAddr != "" {
+		attempts = append(attempts, attempt{url: originalURL, proxy: proxyAddr})
+	}
+	// 2. 直连原始URL
+	attempts = append(attempts, attempt{url: originalURL, proxy: ""})
+	// 3. 尝试各个加速源（不带代理）
+	for _, acc := range accelerators {
+		attempts = append(attempts, attempt{url: acc + originalURL, proxy: ""})
+	}
+
+	for _, att := range attempts {
+		for retry := 0; retry < 3; retry++ {
+			if retry > 0 {
+				time.Sleep(1 * time.Second)
+			}
+			err := downloadOnce(dst, att.url, att.proxy)
+			if err == nil {
+				return nil
+			}
+			// 失败后重置文件以便下次重试
+			if _, err := dst.Seek(0, 0); err != nil {
+				return err
+			}
+			if err := dst.Truncate(0); err != nil {
+				return err
+			}
+		}
+	}
+	return fmt.Errorf("所有下载尝试均失败")
 }
 
 // handleSelfUpdate 更新自身
@@ -237,10 +319,8 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	current = stripVersionSuffix(current)
 
-
 	// 确定目标路径
 	targetPath := filepath.Join(fluxorBinDir, "fluxor")
-	// 备份目录
 	backupDir := filepath.Join(fluxorBinDir, "fluxor-backup")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "创建备份目录失败: "+err.Error())
@@ -273,7 +353,14 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. 下载到临时文件
+	// 获取代理端口
+	proxyPort := getProxyPortFromConfig()
+	proxyAddr := ""
+	if proxyPort > 0 {
+		proxyAddr = fmt.Sprintf("http://127.0.0.1:%d", proxyPort)
+	}
+
+	// 创建临时文件
 	tmpFile, err := os.CreateTemp("", "fluxor-update-*")
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "创建临时文件失败: "+err.Error())
@@ -282,37 +369,28 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
 	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
-	resp, err := http.Get(downloadURL)
-	if err != nil {
+	// 下载（包含代理、加速源、直连）
+	if err := downloadWithFallback(tmpFile, downloadURL, proxyAddr, ghProxyAccelerators); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "下载失败: "+err.Error())
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		writeJSONError(w, http.StatusInternalServerError, "下载失败，状态码: "+strconv.Itoa(resp.StatusCode))
-		return
-	}
-
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "写入临时文件失败: "+err.Error())
-		return
-	}
 	tmpFile.Close()
+
 	if err := os.Chmod(tmpPath, 0755); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "设置临时文件权限失败: "+err.Error())
 		return
 	}
 
-	// 2. 备份旧文件（如果存在）
+	// 备份旧文件
 	if _, err := os.Stat(targetPath); err == nil {
-        backupName := filepath.Join(backupDir, "fluxor")
-        if err := os.Rename(targetPath, backupName); err != nil {
-            writeJSONError(w, http.StatusInternalServerError, "备份旧文件失败: "+err.Error())
-            return
-        }
-    }
+		backupName := filepath.Join(backupDir, "fluxor")
+		if err := os.Rename(targetPath, backupName); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "备份旧文件失败: "+err.Error())
+			return
+		}
+	}
 
-	// 3. 复制新文件到目标路径
+	// 复制新文件
 	srcFile, err := os.Open(tmpPath)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "打开临时文件失败: "+err.Error())
@@ -336,11 +414,11 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. 响应成功
+	// 响应成功
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "更新成功，即将重启"})
 
-	// 5. 启动新进程并退出
+	// 启动新进程并退出
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		cmd := exec.Command(targetPath, os.Args[1:]...)
