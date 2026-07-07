@@ -79,3 +79,49 @@ export INFO_LOG_FILE="/var/apps/Fluxor/shares/Fluxor/info.log"
 # 可选：如果需要通过传统的端口号（如 http://IP:8080）访问面板，可设置此项
 # export FLUXOR_ADDR="0.0.0.0:8080"
 ```
+若您是在openwrt等嵌入式环境中部署，可创建`/etc/fluxor`目录，将fluxor和mi鸿蒙内核放置在此目录，以`./fluxor -w`启动内置的openwrt运行设置：
+
+```bash
+# 通过传统的端口号（如 http://IP:8080）访问面板
+# 也可通过`-a 0.0.0.0:18080`运行参数传入
+export FLUXOR_ADDR="0.0.0.0:18080"
+
+# 设置管理面板访问的前缀路径
+export BASE_URL="/"
+
+# 可选：设置面板自身监听的本地 Unix Socket 路径
+# export SOCKET_PATH=""
+
+# 设置底层内核运行绑定的 Unix Socket 路径
+export CORE_SOCKET="/etc/fluxor/core.sock"
+
+# 设置内核二进制程序的主路径
+export CORE_BIN="/etc/fluxor/mi鸿蒙"
+
+# 设置fluxor二进制程序的路径
+export FLUXOR_BIN_DIR="/etc/fluxor/"
+
+# 设置内核运行时的 PID 进程锁定文件路径
+export CORE_PID_FILE="/var/apps/Fluxor/var/core.pid"
+
+# 设置fluxor运行时的 PID 进程锁定文件路径
+export FLUXOR_PID_FILE="/var/apps/Fluxor/var/fluxor.pid"
+
+# 设置持久化保存您订阅与全局端口密钥等设置的文件路径
+export FLUXOR_CONFIG_FILE="/etc/fluxor/fluxor.json"
+
+# 设置内核的主工作目录（用于存放 Geo 数据库、测速缓存、临时文件等）
+export CORE_WORK_DIR="/etc/fluxor"
+
+# 设置最终渲染生成的 mi鸿蒙 运行配置文件的目标路径
+export CONFIG_TARGET="/etc/fluxor/config.yaml"
+
+# 设置系统日志的保存文件路径
+export INFO_LOG_FILE="/etc/fluxor/info.log"
+
+# 可选：metacubexd 外置面板路径
+# export META_DIR="/etc/fluxor/ui/meta"
+
+# 可选：zashboard 外置面板路径
+# export ZASH_DIR="/etc/fluxor/ui/zash"              
+```

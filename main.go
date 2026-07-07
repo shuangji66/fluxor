@@ -105,7 +105,7 @@ func main() {
 		baseURL = "/"
 		tcpAddr = "0.0.0.0:18080"
 		fluxorPidFile = "/var/run/fluxor.pid"
-		fluxorBinDir = "/etc/fluxor"
+		fluxorBinDir = "/etc/fluxor/"
 		corePidFile = "/var/run/core.pid"
 		coreBin = "/etc/fluxor/mihomo"
 		coreSocket = "/etc/fluxor/core.sock"
