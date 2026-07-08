@@ -376,12 +376,20 @@ func enableTProxyRules(port int) error {
 	return nil
 }
 
-// disableTProxyRules 清理规则
+// disableTProxyRules 清理规则（仅当规则存在时才执行删除）
 func disableTProxyRules() {
-	exec.Command("nft", "delete", "table", "ip", "fluxor_tproxy").Run()
-	exec.Command("ip", "rule", "del", "fwmark", "1", "table", "100").Run()
-	exec.Command("ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", "100").Run()
-	log.Printf("[TProxy] 流量规则清理完成。")
+    // 1. 检查 nftables 表 fluxor_tproxy 是否存在
+    checkCmd := exec.Command("nft", "list", "table", "ip", "fluxor_tproxy")
+    if err := checkCmd.Run(); err != nil {
+        // 表不存在，说明规则已清除，直接返回
+        return
+    }
+
+    // 表存在，执行清理
+    exec.Command("nft", "delete", "table", "ip", "fluxor_tproxy").Run()
+    exec.Command("ip", "rule", "del", "fwmark", "1", "table", "100").Run()
+    exec.Command("ip", "route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", "100").Run()
+    log.Printf("[TProxy] nftables防火墙规则清理完成。")
 }
 
 // GetTproxyState 导出状态

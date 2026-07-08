@@ -37,24 +37,6 @@ var (
 	originalBaseURL     string
 )
 
-func init() {
-	socketPath = getEnv("SOCKET_PATH", "/var/apps/Fluxor/target/app.sock")
-	baseURL = getEnv("BASE_URL", "/app/Fluxor")
-	originalBaseURL = baseURL
-	fluxorPidFile = getEnv("FLUXOR_PID_FILE", "/var/apps/Fluxor/var/fluxor.pid")
-	fluxorBinDir = getEnv("FLUXOR_BIN_DIR", "/var/apps/Fluxor/target/bin/")
-	corePidFile = getEnv("CORE_PID_FILE", "/var/apps/Fluxor/var/core.pid")
-	coreBin = getEnv("CORE_BIN", "/var/apps/Fluxor/target/bin/mihomo")
-	coreSocket = getEnv("CORE_SOCKET", "/var/apps/Fluxor/target/core.sock")
-	metaDir = getEnv("META_DIR", "/var/apps/Fluxor/shares/ui/meta")
-	zashDir = getEnv("ZASH_DIR", "/var/apps/Fluxor/shares/ui/zash")
-	fluxorConfigFile = getEnv("FLUXOR_CONFIG_FILE", "/var/apps/Fluxor/var/fluxor.json")
-	configTarget = getEnv("CONFIG_TARGET", "/var/apps/Fluxor/shares/Fluxor/config.yaml")
-	infoLogFile = getEnv("INFO_LOG_FILE", "/var/apps/Fluxor/shares/Fluxor/info.log")
-	coreWorkDir = getEnv("CORE_WORK_DIR", "/var/apps/Fluxor/shares/Fluxor")
-	tcpAddr = getEnv("FLUXOR_ADDR", "")
-}
-
 func getEnv(key, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
@@ -75,32 +57,10 @@ var (
 	}
 )
 
-func main() {
-	// === 解析命令行参数 ===
-	openwrtMode := false
-	customAddr := ""
-	args := os.Args[1:]
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch arg {
-		case "-w", "--openwrt":
-			openwrtMode = true
-		case "-a", "--addr":
-			if i+1 < len(args) {
-				customAddr = args[i+1]
-				i++ // 跳过下一个参数
-			} else {
-				fmt.Println("错误：-a 或 --addr 需要指定地址")
-				os.Exit(1)
-			}
-		default:
-			// 忽略未知参数
-		}
-	}
-
-	// === 若为 OpenWrt 模式，设置默认值并允许环境变量覆盖 ===
-	if openwrtMode {
-		// 1. 设置 OpenWrt 默认值
+// setDefaults 根据运行模式设置默认路径
+func setDefaults(mode string) {
+	switch mode {
+	case "openwrt":
 		socketPath = ""
 		baseURL = "/"
 		tcpAddr = "0.0.0.0:18080"
@@ -113,39 +73,91 @@ func main() {
 		zashDir = "/etc/fluxor/ui/zash"
 		fluxorConfigFile = "/etc/fluxor/fluxor.json"
 		configTarget = "/etc/fluxor/config.yaml"
-		infoLogFile = "/etc/fluxor//info.log"
+		infoLogFile = "/etc/fluxor/info.log"
 		coreWorkDir = "/etc/fluxor"
+	default: // fnos 模式（默认）
+		socketPath = "/var/apps/Fluxor/target/app.sock"
+		baseURL = "/app/Fluxor"
+		tcpAddr = ""
+		fluxorPidFile = "/var/apps/Fluxor/var/fluxor.pid"
+		fluxorBinDir = "/var/apps/Fluxor/target/bin/"
+		corePidFile = "/var/apps/Fluxor/var/core.pid"
+		coreBin = "/var/apps/Fluxor/target/bin/mihomo"
+		coreSocket = "/var/apps/Fluxor/target/core.sock"
+		metaDir = "/var/apps/Fluxor/shares/ui/meta"
+		zashDir = "/var/apps/Fluxor/shares/ui/zash"
+		fluxorConfigFile = "/var/apps/Fluxor/var/fluxor.json"
+		configTarget = "/var/apps/Fluxor/shares/Fluxor/config.yaml"
+		infoLogFile = "/var/apps/Fluxor/shares/Fluxor/info.log"
+		coreWorkDir = "/var/apps/Fluxor/shares/Fluxor"
+	}
+	originalBaseURL = baseURL
+}
 
-		// 2. 环境变量覆盖（如果设置了非空值）
-		if v := os.Getenv("SOCKET_PATH"); v != "" { socketPath = v }
-		if v := os.Getenv("BASE_URL"); v != "" { baseURL = v }
-		if v := os.Getenv("FLUXOR_ADDR"); v != "" { tcpAddr = v }
-		if v := os.Getenv("FLUXOR_PID_FILE"); v != "" { fluxorPidFile = v }
-		if v := os.Getenv("FLUXOR_BIN_DIR"); v != "" { fluxorBinDir = v }
-		if v := os.Getenv("CORE_PID_FILE"); v != "" { corePidFile = v }
-		if v := os.Getenv("CORE_BIN"); v != "" { coreBin = v }
-		if v := os.Getenv("CORE_SOCKET"); v != "" { coreSocket = v }
-		if v := os.Getenv("META_DIR"); v != "" { metaDir = v }
-		if v := os.Getenv("ZASH_DIR"); v != "" { zashDir = v }
-		if v := os.Getenv("FLUXOR_CONFIG_FILE"); v != "" { fluxorConfigFile = v }
-		if v := os.Getenv("CONFIG_TARGET"); v != "" { configTarget = v }
-		if v := os.Getenv("INFO_LOG_FILE"); v != "" { infoLogFile = v }
-		if v := os.Getenv("CORE_WORK_DIR"); v != "" { coreWorkDir = v }
-
-		// 3. 命令行 -a 覆盖 TCP 地址（最高优先级）
-		if customAddr != "" {
-			tcpAddr = customAddr
+func main() {
+	// === 解析命令行参数 ===
+	openwrtMode := false
+	fnosMode := false
+	customAddr := ""
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch arg {
+		case "-w", "--openwrt":
+			openwrtMode = true
+		case "-f", "--fnos":
+			fnosMode = true
+		case "-a", "--addr":
+			if i+1 < len(args) {
+				customAddr = args[i+1]
+				i++
+			} else {
+				fmt.Println("错误：-a 或 --addr 需要指定地址")
+				os.Exit(1)
+			}
+		default:
+			// 忽略未知参数
 		}
+	}
 
-		originalBaseURL = baseURL
+	// 确定运行模式：-w 优先，否则若指定 -f 或无参数则 fnos
+	mode := "fnos"
+	if openwrtMode {
+		mode = "openwrt"
+	} else if !fnosMode && len(args) > 0 {
+		// 若指定了其他参数（如 -a 等）但没有 -f/-w，仍视作 fnos
+		// 因此保持 mode = "fnos"
+	}
 
-		fmt.Printf("Fluxor 运行于 OpenWrt 模式，监听 TCP %s\n", tcpAddr)
-	} else {
-		// 非 OpenWrt 模式：若指定了 -a，则覆盖 tcpAddr（仍可配合 Unix socket 共存）
-		if customAddr != "" {
-			tcpAddr = customAddr
-		}
-		// 其余变量保持 init 中从环境变量读取的值
+	// 设置默认值（根据模式）
+	setDefaults(mode)
+
+	// 环境变量覆盖（所有配置均可通过环境变量修改）
+	if v := os.Getenv("SOCKET_PATH"); v != "" { socketPath = v }
+	if v := os.Getenv("BASE_URL"); v != "" { baseURL = v }
+	if v := os.Getenv("FLUXOR_ADDR"); v != "" { tcpAddr = v }
+	if v := os.Getenv("FLUXOR_PID_FILE"); v != "" { fluxorPidFile = v }
+	if v := os.Getenv("FLUXOR_BIN_DIR"); v != "" { fluxorBinDir = v }
+	if v := os.Getenv("CORE_PID_FILE"); v != "" { corePidFile = v }
+	if v := os.Getenv("CORE_BIN"); v != "" { coreBin = v }
+	if v := os.Getenv("CORE_SOCKET"); v != "" { coreSocket = v }
+	if v := os.Getenv("META_DIR"); v != "" { metaDir = v }
+	if v := os.Getenv("ZASH_DIR"); v != "" { zashDir = v }
+	if v := os.Getenv("FLUXOR_CONFIG_FILE"); v != "" { fluxorConfigFile = v }
+	if v := os.Getenv("CONFIG_TARGET"); v != "" { configTarget = v }
+	if v := os.Getenv("INFO_LOG_FILE"); v != "" { infoLogFile = v }
+	if v := os.Getenv("CORE_WORK_DIR"); v != "" { coreWorkDir = v }
+
+	// 命令行 -a 覆盖 TCP 地址（最高优先级）
+	if customAddr != "" {
+		tcpAddr = customAddr
+	}
+
+	// 更新 originalBaseURL（可能被环境变量修改）
+	originalBaseURL = baseURL
+
+	if mode == "openwrt" {
+		fmt.Printf("Fluxor 运行于 OpenWrt 模式")
 	}
 
 	// === 检查和准备 ===
