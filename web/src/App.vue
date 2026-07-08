@@ -223,6 +223,23 @@ onMounted(() => {
       }
     })
     .catch(() => {})
+
+  // 监听内核版本变化，或直接在 fetchVersionAndStatus 成功后调用
+  watch(() => overviewStore.stats.coreVersion, (newVer) => {
+    if (newVer && newVer !== '加载中...' && newVer !== '未知') {
+      apiFetch(`/core/check-update`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.hasUpdate) {
+            globalStore.showToast(
+              t('update.core_update_available', { latest: data.latest }),
+              'info'
+            )
+          }
+        })
+        .catch(() => {})
+    }
+  }, { immediate: true })
 })
 
 onUnmounted(() => {

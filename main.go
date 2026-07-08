@@ -282,6 +282,7 @@ func main() {
 	mux.HandleFunc(baseURL+"/core/stop", handleCoreStop)
 	mux.HandleFunc(baseURL+"/core/restart", handleCoreRestart)
 	mux.HandleFunc(baseURL+"/upgrade", handleUpgrade)
+	mux.HandleFunc(baseURL+"/core/check-update", handleCoreCheckUpdate)
 
 	// 订阅中心 API
 	mux.HandleFunc(baseURL+"/subscribe/config", handleSubscribeConfigAPI)

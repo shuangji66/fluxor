@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context" 
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url" // 新增导入
+	"net/url"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -458,4 +460,117 @@ func handleSelfUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		os.Exit(0)
 	}()
+}
+// ==================== 内核更新检查相关 ====================
+
+var (
+    // 内核远程版本缓存
+    latestCoreVersionCache     string
+    latestCoreVersionCacheTime time.Time
+    coreCacheMutex             sync.RWMutex
+    coreCacheTTL               = 10 * time.Minute
+)
+
+// getLatestCoreVersion 获取 Mihomo 远程最新稳定版本（从 GitHub releases/latest）
+func getLatestCoreVersion() (string, error) {
+    coreCacheMutex.RLock()
+    if latestCoreVersionCache != "" && time.Since(latestCoreVersionCacheTime) < coreCacheTTL {
+        coreCacheMutex.RUnlock()
+        return latestCoreVersionCache, nil
+    }
+    coreCacheMutex.RUnlock()
+
+    url := "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest"
+    resp, err := http.Get(url)
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+        return "", fmt.Errorf("GitHub API 返回状态码 %d", resp.StatusCode)
+    }
+
+    var result struct {
+        TagName string `json:"tag_name"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return "", err
+    }
+    version := strings.TrimPrefix(result.TagName, "v") // 去掉前缀 'v'
+
+    coreCacheMutex.Lock()
+    latestCoreVersionCache = version
+    latestCoreVersionCacheTime = time.Now()
+    coreCacheMutex.Unlock()
+    return version, nil
+}
+
+// getLocalCoreVersion 通过 Unix Socket 获取本地内核版本
+func getLocalCoreVersion() (string, error) {
+    client := &http.Client{
+        Transport: &http.Transport{
+            DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+                return net.Dial("unix", coreSocket)
+            },
+        },
+        Timeout: 5 * time.Second,
+    }
+    resp, err := client.Get("http://localhost/version")
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+        return "", fmt.Errorf("core 版本请求失败: %d", resp.StatusCode)
+    }
+    var data struct {
+        Version string `json:"version"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+        return "", err
+    }
+    return strings.TrimPrefix(data.Version, "v"), nil
+}
+
+// handleCoreCheckUpdate 检查内核更新（仅对稳定版生效）
+func handleCoreCheckUpdate(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    // 1. 获取本地版本
+    localVer, err := getLocalCoreVersion()
+    if err != nil {
+        writeJSONError(w, http.StatusInternalServerError, "获取本地内核版本失败: "+err.Error())
+        return
+    }
+
+    // 2. 若本地版本包含 "alpha"（忽略大小写），则跳过检查
+    if strings.Contains(strings.ToLower(localVer), "alpha") {
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]interface{}{
+            "hasUpdate": false,
+            "latest":    "",
+            "local":     localVer,
+            "message":   "当前为 alpha 版本，不检查稳定更新",
+        })
+        return
+    }
+
+    // 3. 获取远程最新版本
+    remoteVer, err := getLatestCoreVersion()
+    if err != nil {
+        writeJSONError(w, http.StatusServiceUnavailable, "获取远程版本失败: "+err.Error())
+        return
+    }
+
+    // 4. 比较版本号
+    hasUpdate := compareVersions(remoteVer, localVer) > 0
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "hasUpdate": hasUpdate,
+        "latest":    remoteVer,
+        "local":     localVer,
+    })
 }

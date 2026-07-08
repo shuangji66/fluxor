@@ -28,7 +28,7 @@ const messages = {
     'update.updating': '更新中...',
     'update.update_started': '正在更新，请稍后...',
     'update.update_failed': '更新失败',
-
+    'update.core_update_available': '检测到内核更新。',
 
 
     'nav.overview': '概览',
@@ -462,6 +462,7 @@ const messages = {
     'update.updating': 'Updating...',
     'update.update_started': 'Updating, please wait...',
     'update.update_failed': 'Update failed',
+    'update.core_update_available': 'New mihomo',
 
     'nav.overview': 'Overview',
     'nav.overview_desc': 'Dashboard',
