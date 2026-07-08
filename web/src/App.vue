@@ -217,7 +217,14 @@ onMounted(() => {
         if (data.hasUpdate) {
           globalStore.showToast(
             t('update.available_toast', { latest: data.latest }),
-            'info'
+            'info',
+            {
+              label: t('common.go'),
+              callback: () => {
+                globalStore.activeTab = 'config'
+                globalStore.showAbout = true
+              }
+            }
           )
         }
       }
@@ -233,7 +240,13 @@ onMounted(() => {
           if (data && data.hasUpdate) {
             globalStore.showToast(
               t('update.core_update_available', { latest: data.latest }),
-              'info'
+              'info',
+              {
+                label: t('common.go'),
+                callback: () => {
+                  globalStore.activeTab = 'config'
+                }
+              }
             )
           }
         })
@@ -677,6 +690,7 @@ onUnmounted(() => {
 
     <!-- 全局 Toast 提示容器 -->
     <Teleport to="body">
+      <!-- App.vue 模板中 Toast 容器 -->
       <div class="fixed top-4 right-4 z-[10000] inline-flex flex-col items-end gap-2.5 pointer-events-none max-w-[90%] md:max-w-sm">
         <div v-for="toast in globalStore.toasts" :key="toast.id" 
           @click="globalStore.removeToast(toast.id)"
@@ -687,12 +701,18 @@ onUnmounted(() => {
             'bg-amber-50/95 dark:bg-[#78350f]/30 border-amber-500/20 text-amber-600 dark:text-amber-400 shadow-amber-500/5': toast.type === 'warning',
             'glass-heavy text-slate-700 dark:text-slate-300 shadow-slate-500/5': toast.type === 'info'
           }">
-          <div class="flex items-center gap-2.5">
+          <div class="flex items-center gap-2.5 flex-wrap">
             <CheckmarkCircleOutline v-if="toast.type === 'success'" class="w-4 h-4 shrink-0" />
             <CloseCircleOutline v-else-if="toast.type === 'error'" class="w-4 h-4 shrink-0" />
             <AlertCircleOutline v-else-if="toast.type === 'warning'" class="w-4 h-4 shrink-0" />
             <InformationCircleOutline v-else class="w-4 h-4 shrink-0" />
             <span class="leading-normal">{{ toast.text }}</span>
+            <!-- 操作按钮 -->
+            <button v-if="toast.action"
+              @click.stop="toast.action.callback()"
+              class="px-2.5 py-1 text-xs font-bold rounded-lg bg-white/20 hover:bg-white/30 dark:bg-slate-800/40 dark:hover:bg-slate-700/60 text-accent transition-all shadow-sm border border-current/20">
+              {{ toast.action.label }}
+            </button>
           </div>
           <CloseOutline class="w-3.5 h-3.5 shrink-0 opacity-40 hover:opacity-100 transition-opacity" />
         </div>

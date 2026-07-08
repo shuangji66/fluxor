@@ -1,10 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
+// Toast 操作按钮接口
+export interface ToastAction {
+  label: string
+  callback: () => void
+}
+
 export interface ToastMessage {
   id: number
   text: string
   type: 'success' | 'error' | 'warning' | 'info'
+  action?: ToastAction   // 可选操作按钮
 }
 
 export interface ConfirmOptions {
@@ -45,17 +52,38 @@ export const useGlobalStore = defineStore('global', () => {
   const confirmDialog = ref<ConfirmState | null>(null)
   const showAbout = ref<boolean>(false)
 
-  const showToast = (text: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+  // 显示 Toast，支持操作按钮
+  const showToast = (
+    text: string,
+    type: 'success' | 'error' | 'warning' | 'info' = 'info',
+    action?: ToastAction
+  ) => {
     const id = Date.now() + Math.random()
-    toasts.value.push({ id, text, type })
-    setTimeout(() => {
-      toasts.value = toasts.value.filter(t => t.id !== id)
-    }, 3000)
+    // 如果有 action，包装回调，执行后自动移除
+    let wrappedAction: ToastAction | undefined
+    if (action) {
+      wrappedAction = {
+        label: action.label,
+        callback: () => {
+          // 先执行用户定义的回调
+          action.callback()
+          // 然后移除当前 Toast
+          removeToast(id)
+        }
+      }
+    }
+    toasts.value.push({ id, text, type, action: wrappedAction })
+  
+    // 没有 action 时，3秒后自动消失
+    if (!action) {
+      setTimeout(() => {
+        toasts.value = toasts.value.filter(t => t.id !== id)
+      }, 3000)
+    }
   }
 
   const removeToast = (id: number) => {
-    const targetId = id
-    toasts.value = toasts.value.filter(t => t.id !== targetId)
+    toasts.value = toasts.value.filter(t => t.id !== id)
   }
 
   // 触发全局模态确认框
@@ -149,4 +177,3 @@ export const useGlobalStore = defineStore('global', () => {
     handleConfirmResult 
   }
 })
-
