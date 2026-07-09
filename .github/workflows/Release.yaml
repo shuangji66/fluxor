@@ -62,7 +62,7 @@ jobs:
       - name: 检出源码（用于读取版本号和 commit 日志）
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # 确保拉取所有历史，以便获取 tag 信息
+          fetch-depth: 0
 
       - name: 读取 package.json 中的版本号
         id: get_version
@@ -70,18 +70,15 @@ jobs:
           VERSION=$(jq -r '.version' web/package.json)
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: 生成 Release Notes（从上一个 tag 到现在的 commit 摘要）
+      - name: 生成 Release Notes（从上一个 tag 到现在的完整 commit 消息）
         id: get_notes
         run: |
-          # 尝试获取最近的 tag
           if git describe --tags --abbrev=0 >/dev/null 2>&1; then
             LAST_TAG=$(git describe --tags --abbrev=0)
-            NOTES=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s")
+            NOTES=$(git log ${LAST_TAG}..HEAD --pretty=format:"%B")
           else
-            # 首次发布：显示所有 commit 摘要
-            NOTES=$(git log --pretty=format:"- %s")
+            NOTES=$(git log --pretty=format:"%B")
           fi
-          # 使用 heredoc 支持多行输出
           echo "NOTES<<EOF" >> $GITHUB_OUTPUT
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
