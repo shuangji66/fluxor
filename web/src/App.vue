@@ -53,6 +53,15 @@ const subscriptionStore = useSubscriptionStore()
 const { initTheme, switchThemeCycle } = useTheme()
 const { locale, currentLangDisplay, toggleLanguage, updateTitle } = useLanguage()
 
+watch(
+  () => overviewStore.stats.running,
+  (newVal) => {
+    configStore.coreStatus.running = newVal
+    configStore.coreStatus.loading = false
+  },
+  { immediate: true }
+)
+
 const components: Record<string, any> = {
   overview: Overview,
   proxies: Proxies,

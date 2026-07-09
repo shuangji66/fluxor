@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { wsConnect, apiFetch } from '../utils/api'
+import { useProxyStore } from './proxies'
 
 export interface DashboardStats {
   uploadSpeed: number
@@ -12,6 +13,7 @@ export interface DashboardStats {
   coreVersion: string
   currentNode: string
   currentGroup: string
+  running: boolean
 }
 
 export const useOverviewStore = defineStore('overview', () => {
@@ -24,7 +26,8 @@ export const useOverviewStore = defineStore('overview', () => {
     connectionsCount: 0,
     coreVersion: '加载中...',
     currentNode: '加载中...',
-    currentGroup: '加载中...'
+    currentGroup: '加载中...',
+    running: false
   })
 
   const uploadHistory = ref<number[]>([])
@@ -183,24 +186,40 @@ export const useOverviewStore = defineStore('overview', () => {
     }
   }
 
+ const syncCurrentNodeFromProxyStore = () => {
+    const proxyStore = useProxyStore()
+    const groups = proxyStore.proxyGroups
+    const allProxies = proxyStore.allProxiesRaw
+
+    // 查找目标组（优先“节点选择”）
+    let targetGroup = groups.find(g => g.name.includes('节点选择'))
+    if (!targetGroup) {
+      targetGroup = groups.find(g => g.type === 'Selector' && g.name !== 'GLOBAL')
+    }
+    if (targetGroup) {
+      stats.value.currentGroup = targetGroup.name
+      const selected = targetGroup.now || '-'
+      // 递归解析实际节点
+      let current = selected
+      let maxLoop = 10
+      while (maxLoop-- > 0) {
+        const node = allProxies[current]
+        if (node && (node.type === 'Selector' || node.type === 'URLTest') && node.now) {
+          current = node.now
+        } else {
+          break
+        }
+      }
+      stats.value.currentNode = current
+    } else {
+      stats.value.currentGroup = '暂无选择'
+      stats.value.currentNode = '暂无选择'
+    }
+  }
+
   // === Status Polling ===
   const statusSubscribers = ref(0)
   let statusTimer: any = null
-
-  const recursiveResolveNode = (proxies: Record<string, any>, selected: string): string => {
-    const entries = Object.entries(proxies || {}) as [string, any][]
-    let current = selected
-    let maxLoop = 10
-    while (maxLoop-- > 0) {
-      const found = entries.find(([name, g]) => name === current && (g.type === 'Selector' || g.type === 'URLTest'))
-      if (found) {
-        current = found[1].now || '-'
-      } else {
-        break
-      }
-    }
-    return current
-  }
 
   // 防并发状态锁，避免重叠发起轮询请求
   let isFetchingStatus = false
@@ -209,12 +228,10 @@ export const useOverviewStore = defineStore('overview', () => {
     if (isFetchingStatus) return
     isFetchingStatus = true
     try {
-      // 优化：仅当未成功获取过版本号时才拉取，避免每次轮询重复发送静态请求
       const hasVersion = stats.value.coreVersion !== '加载中...' && stats.value.coreVersion !== '未知'
-      const [versionResp, statusResp, proxiesResp] = await Promise.all([
+      const [versionResp, statusResp] = await Promise.all([
         hasVersion ? Promise.resolve(null) : apiFetch('/version').catch(() => null),
-        apiFetch('/core/status').catch(() => null),
-        apiFetch('/proxies').catch(() => null)
+        apiFetch('/core/status').catch(() => null)
       ])
 
       let isRunning = false
@@ -222,6 +239,7 @@ export const useOverviewStore = defineStore('overview', () => {
         const s = await statusResp.json()
         isRunning = s.running
       }
+      stats.value.running = isRunning
 
       if (!isRunning) {
         stats.value.currentNode = '内核未启动'
@@ -229,7 +247,6 @@ export const useOverviewStore = defineStore('overview', () => {
         stats.value.uploadSpeed = 0
         stats.value.downloadSpeed = 0
         stats.value.memory = 0
-        // 内核停止时，重置版本号为“加载中...”，以便下次启动时能重新请求
         stats.value.coreVersion = '加载中...'
       } else {
         if (!hasVersion) {
@@ -240,26 +257,7 @@ export const useOverviewStore = defineStore('overview', () => {
             stats.value.coreVersion = '未知'
           }
         }
-
-        // 在 fetchVersionAndStatus 中，替换查找主组的逻辑
-        if (proxiesResp && proxiesResp.ok) {
-          const data = await proxiesResp.json()
-          const entries = Object.entries(data.proxies || {}) as [string, any][]
-          // 优先查找名称包含"节点选择"的 Selector 组
-          let targetGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name.includes('节点选择'))
-          // 若没有，则取第一个非 GLOBAL 的 Selector 组
-          if (!targetGroup) {
-            targetGroup = entries.find(([, g]) => g.type === 'Selector' && g.name && g.name !== 'GLOBAL')
-          }
-          if (targetGroup) {
-            const selected = targetGroup[1].now || '-'
-            stats.value.currentNode = recursiveResolveNode(data.proxies, selected)
-            stats.value.currentGroup = targetGroup[0]
-          } else {
-            stats.value.currentNode = '暂无选择'
-            stats.value.currentGroup = '暂无选择'
-          }
-        }
+        // 内核运行时，节点信息由 syncCurrentNodeFromProxyStore 负责更新
       }
     } catch (e) {
       console.warn('定时获取状态异常', e)
@@ -277,7 +275,7 @@ export const useOverviewStore = defineStore('overview', () => {
     statusSubscribers.value++
     if (statusSubscribers.value === 1) {
       fetchVersionAndStatus()
-      statusTimer = setInterval(fetchVersionAndStatus, 10000)
+      statusTimer = setInterval(fetchVersionAndStatus, 20000)
     }
   }
 
@@ -320,6 +318,7 @@ export const useOverviewStore = defineStore('overview', () => {
     unsubscribeMemory,
     subscribeStatus,
     unsubscribeStatus,
+    syncCurrentNodeFromProxyStore,
     fetchVersionAndStatus
   }
 })

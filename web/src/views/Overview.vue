@@ -9,6 +9,7 @@ import { useConnectionsStore } from '../store/connections'
 import { useGlobalStore } from '../store/global'
 import { useConfigStore } from '../store/config'
 import { useSubscriptionStore } from '../store/subscription'
+import { useProxyStore } from '../store/proxies'
 
 const { t } = useI18n()
 
@@ -19,6 +20,8 @@ const configStore = useConfigStore()
 const { configs } = storeToRefs(configStore)
 const subscriptionStore = useSubscriptionStore()
 const { currentConfig } = storeToRefs(subscriptionStore)
+const proxyStore = useProxyStore()
+const { proxyGroups } = storeToRefs(proxyStore)
 
 const connectionsStore = useConnectionsStore()
 const { connectionsCount, uploadTotal, downloadTotal } = storeToRefs(connectionsStore)
@@ -671,10 +674,20 @@ const observeTheme = () => {
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 }
 
+// 监听代理组变化，同步更新节点信息
+watch(
+  () => proxyGroups.value,
+  () => {
+    overviewStore.syncCurrentNodeFromProxyStore()
+  },
+  { deep: true, immediate: true }  // immediate 确保挂载时立即同步
+)
+
 onMounted(() => {
   nextTick(() => {
     fetchSubscribeConfig()
     subscriptionStore.loadConfig()
+    proxyStore.fetchProxies()
     initCanvas()
     observeTheme()
     overviewStore.subscribeStatus()

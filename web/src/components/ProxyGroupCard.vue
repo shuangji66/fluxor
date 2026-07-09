@@ -212,6 +212,9 @@ const handleSelectProxy = async (proxyName: string) => {
   } catch (e: any) {
     props.group.now = originalNow
     globalStore.showToast(t('proxies.switch_failed') + ': ' + e.message, 'error')
+  }finally {
+    // 刷新代理数据，同步概览页
+    await proxyStore.fetchProxies(true)
   }
 }
 

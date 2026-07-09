@@ -141,26 +141,6 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  // 订阅：启动轮询
-  const subscribeCoreStatus = () => {
-    coreStatusSubscribers.value++
-    if (coreStatusSubscribers.value === 1) {
-      // 首次订阅立即获取
-      fetchCoreStatus()
-      // 启动定时器（5秒轮询）
-      coreStatusTimer = setInterval(fetchCoreStatus, 5000)
-    }
-  }
-
-  // 取消订阅：停止轮询
-  const unsubscribeCoreStatus = () => {
-    coreStatusSubscribers.value = Math.max(0, coreStatusSubscribers.value - 1)
-    if (coreStatusSubscribers.value === 0 && coreStatusTimer) {
-      clearInterval(coreStatusTimer)
-      coreStatusTimer = null
-    }
-  }
-
   // 手动刷新（供页面操作后调用，如启动/停止内核）
   const refreshCoreStatus = async () => {
     await fetchCoreStatus()
@@ -174,8 +154,6 @@ export const useConfigStore = defineStore('config', () => {
     tproxyStateLoaded,
     fetchTproxyState,
     coreStatus,
-    subscribeCoreStatus,
-    unsubscribeCoreStatus,
     refreshCoreStatus,
   }
 })
