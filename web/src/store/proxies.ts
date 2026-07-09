@@ -201,6 +201,7 @@ export const useProxyStore = defineStore('proxies', () => {
   const sortOrder = ref<'default' | 'name' | 'delay' | 'quality'>('default')
   const qualityScores = ref<Record<string, number>>({})
   const filterRegex = ref('(套餐|过期|流量|剩余|订阅|网站|教程)')
+  const autoCloseConnections = ref(true)
 
   // 加载本地设置
   const loadSettings = () => {
@@ -220,6 +221,9 @@ export const useProxyStore = defineStore('proxies', () => {
         if (parsed.filterRegex !== undefined) {
           filterRegex.value = parsed.filterRegex
         }
+        if (parsed.autoCloseConnections !== undefined) {
+          autoCloseConnections.value = parsed.autoCloseConnections
+        }
       } catch (e) {}
     }
   }
@@ -232,7 +236,14 @@ export const useProxyStore = defineStore('proxies', () => {
       historyCount: historyCount.value,
       sortOrder: sortOrder.value,
       filterRegex: filterRegex.value,
+      autoCloseConnections: autoCloseConnections.value,
     }))
+  }
+
+  // 新增：单独设置自动断开连接开关
+  function setAutoCloseConnections(value: boolean) {
+    autoCloseConnections.value = value
+    saveAllSettings()
   }
 
   // 设置过滤正则
@@ -295,5 +306,7 @@ export const useProxyStore = defineStore('proxies', () => {
     fetchQualityScores,
     filterRegex,
     setFilterRegex,
+    autoCloseConnections,
+    setAutoCloseConnections,
   }
 })

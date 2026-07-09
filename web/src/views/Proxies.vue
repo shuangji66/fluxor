@@ -29,6 +29,7 @@ const settingsForm = ref({
   thresholdMid: 500,
   historyCount: 5,
   filterRegex: '',
+  autoCloseConnections: true, 
 })
 
 // 打开弹窗时禁止 body 滚动
@@ -47,6 +48,7 @@ const openSettingsDialog = () => {
     thresholdMid: delayThresholds.value.mid,
     historyCount: historyCount.value,
     filterRegex: filterRegex.value,
+    autoCloseConnections: proxyStore.autoCloseConnections, 
   }
   showSettingsDialog.value = true
 }
@@ -58,6 +60,7 @@ const saveSettings = async () => {
     settingsForm.value.historyCount
   )
   setFilterRegex(settingsForm.value.filterRegex)
+  proxyStore.setAutoCloseConnections(settingsForm.value.autoCloseConnections) 
   showSettingsDialog.value = false
   globalStore.showToast(t('proxies.settings_saved'), 'success')
 }
@@ -379,6 +382,19 @@ onUnmounted(() => {
       >
         <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] max-h-[90vh] overflow-y-auto">
           <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
+
+          <!-- 新增：自动断开连接开关 -->
+          <div class="flex items-center justify-between py-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 select-none cursor-pointer">
+              {{ t('proxies.auto_close_connections') }}
+            </label>
+            <div class="relative inline-flex items-center cursor-pointer" @click="settingsForm.autoCloseConnections = !settingsForm.autoCloseConnections">
+              <div class="w-9 h-5 rounded-full transition-colors duration-200 ease-in-out"
+                   :class="settingsForm.autoCloseConnections ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-600'"></div>
+              <div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out"
+                   :class="settingsForm.autoCloseConnections ? 'translate-x-4' : 'translate-x-0'"></div>
+            </div>
+          </div>
 
           <!-- 排序 -->
           <div class="flex flex-col gap-1.5">

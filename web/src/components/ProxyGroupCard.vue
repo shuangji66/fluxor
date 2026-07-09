@@ -6,6 +6,7 @@ import { apiFetch } from '../utils/api'
 import { ChevronForwardOutline, SyncOutline } from '@vicons/ionicons5'
 import { useProxyStore, type ProxyGroup } from '../store/proxies'
 import { useGlobalStore } from '../store/global'
+import { useConnectionsStore } from '../store/connections'
 
 const props = defineProps<{
   group: ProxyGroup
@@ -14,7 +15,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const proxyStore = useProxyStore()
 const globalStore = useGlobalStore()
-const { delays, allProxiesRaw, expandedState, sortOrder, delayThresholds, qualityScores, filterRegex } = storeToRefs(proxyStore)
+const { delays, allProxiesRaw, expandedState, sortOrder, delayThresholds, qualityScores, filterRegex, autoCloseConnections } = storeToRefs(proxyStore)
 
 const isTesting = ref(false)
 
@@ -212,9 +213,33 @@ const handleSelectProxy = async (proxyName: string) => {
   } catch (e: any) {
     props.group.now = originalNow
     globalStore.showToast(t('proxies.switch_failed') + ': ' + e.message, 'error')
-  }finally {
+  } finally {
     // 刷新代理数据，同步概览页
     await proxyStore.fetchProxies(true)
+
+    // 仅在开关打开时执行
+    if (autoCloseConnections.value) {
+      const connectionsStore = useConnectionsStore()
+      const connsToClose = connectionsStore.activeConnections.filter(conn => {
+        if (!conn.chains || !Array.isArray(conn.chains)) return false
+        // 忽略大小写匹配，便于比较
+        const chainsUpper = conn.chains.map(c => c.toUpperCase())
+        // 如果链路中包含新节点，则不关闭
+        if (chainsUpper.includes(proxyName.toUpperCase())) return false
+        // 如果链路中包含 DIRECT，则不关闭（符合“除了包含 DIRECT 的链路”）
+        if (chainsUpper.includes('DIRECT')) return false
+        // 否则关闭
+        return true
+      })
+      if (connsToClose.length > 0) {
+        // 异步并发关闭，不阻塞主流程
+        Promise.all(
+          connsToClose.map(conn =>
+            apiFetch(`/connections/${conn.id}`, { method: 'DELETE' }).catch(() => {})
+          )
+        )
+      }
+    }
   }
 }
 
