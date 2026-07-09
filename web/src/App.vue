@@ -239,15 +239,13 @@ onMounted(() => {
   document.addEventListener('selectstart', handleSelectStart)
   document.addEventListener('copy', handleCopy as EventListener)
 
-  // 订阅内核状态（启动轮询）
-  configStore.subscribeCoreStatus()
+  // 订阅内核状态
+  overviewStore.fetchVersionAndStatus()   // 立即获取一次初始状态
+  overviewStore.subscribeStatus() 
   
   // 预加载配置与订阅状态
   configStore.fetchConfigs()
   subscriptionStore.loadConfig()  // 改用 subscriptionStore（如果 App.vue 中已导入）
-  
-  // 统一获取版本号（应用启动时立即执行）
-  overviewStore.fetchVersionAndStatus()
 
   // 获取当前用户信息并显示欢迎
   apiFetch('/whoami')
@@ -310,7 +308,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('selectstart', handleSelectStart)
   document.removeEventListener('copy', handleCopy as EventListener)
-  configStore.unsubscribeCoreStatus()
+  overviewStore.unsubscribeStatus() 
 })
 </script>
 
