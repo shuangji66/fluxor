@@ -175,6 +175,48 @@ const handleSelfUpdate = async () => {
   }
 }
 
+const isCheckingUpdate = ref(false)
+
+const handleCheckUpdate = async () => {
+  if (isCheckingUpdate.value) return
+  isCheckingUpdate.value = true
+
+  const checkingToastId = globalStore.showToast(t('update.checking'), 'info')
+
+  try {
+    const resp = await apiFetch(`/check-update?current=${appVersion}`)
+
+    setTimeout(() => {
+      globalStore.removeToast(checkingToastId)
+    }, 200)
+
+    if (resp.ok) {
+      const data = await resp.json()
+      globalStore.updateInfo = data
+      if (data.hasUpdate) {
+        globalStore.showToast(t('update.available_toast', { latest: data.latest }), 'info')
+      } else {
+        globalStore.showToast(t('update.already_latest'), 'info')
+      }
+    } else {
+      globalStore.showToast(t('common.network_error'), 'error')
+    }
+  } catch (e) {
+    globalStore.removeToast(checkingToastId)
+    globalStore.showToast(t('common.network_error'), 'error')
+  } finally {
+    isCheckingUpdate.value = false
+  }
+}
+
+const handleButtonClick = () => {
+  if (globalStore.updateInfo?.hasUpdate) {
+    handleSelfUpdate()
+  } else {
+    handleCheckUpdate()
+  }
+}
+
 onMounted(() => {
   initTheme()
   updateTitle(globalStore.activeTab)
@@ -536,14 +578,16 @@ onUnmounted(() => {
             <div class="flex items-center justify-between text-xs">
               <span class="font-bold text-slate-500 dark:text-slate-400">{{ t('about.version') }}</span>
               <div class="flex items-center gap-2">
-                <!-- 更新按钮（有更新时显示） -->
+                <!-- 常驻按钮：检查更新 / 更新版本 -->
                 <button
-                  v-if="globalStore.updateInfo?.hasUpdate"
-                  @click="handleSelfUpdate"
-                  :disabled="isUpdatingSelf"
+                  @click="handleButtonClick"
+                  :disabled="isUpdatingSelf || isCheckingUpdate"
                   class="px-2 py-0.5 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {{ isUpdatingSelf ? t('update.updating') : t('update.update_button', { latest: globalStore.updateInfo.latest }) }}
+                  <span v-if="isUpdatingSelf">{{ t('update.updating') }}</span>
+                  <span v-else-if="isCheckingUpdate">{{ t('common.loading') }}</span>
+                  <span v-else-if="globalStore.updateInfo?.hasUpdate">{{ t('update.update_button', { latest: globalStore.updateInfo.latest }) }}</span>
+                  <span v-else>{{ t('update.check_update') }}</span>
                 </button>
                 <!-- 版本号 -->
                 <span class="font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">v{{ appVersion }}</span>

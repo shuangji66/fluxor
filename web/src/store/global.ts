@@ -80,6 +80,7 @@ export const useGlobalStore = defineStore('global', () => {
         toasts.value = toasts.value.filter(t => t.id !== id)
       }, 3000)
     }
+    return id
   }
 
   const removeToast = (id: number) => {
