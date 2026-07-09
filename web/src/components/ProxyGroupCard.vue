@@ -37,13 +37,45 @@ const shouldUseBar = computed(() => {
   return props.group.all.length > 10
 })
 
+// ----- 工具函数：获取节点的有效延迟（递归解析策略组） -----
+const getEffectiveDelay = (name: string): number | undefined => {
+  let current = name
+  let node = allProxiesRaw.value[current]
+  let depth = 0
+  while (node && (node.type === 'Selector' || node.type === 'URLTest') && node.now && depth < 10) {
+    const next = node.now
+    if (next === current) break
+    current = next
+    node = allProxiesRaw.value[current]
+    if (!node) break
+    depth++
+  }
+  return delays.value[current]
+}
+
+// ----- 工具函数：获取节点的有效节点对象（递归解析策略组） -----
+const getEffectiveNode = (name: string): any => {
+  let current = name
+  let node = allProxiesRaw.value[current]
+  let depth = 0
+  while (node && (node.type === 'Selector' || node.type === 'URLTest') && node.now && depth < 10) {
+    const next = node.now
+    if (next === current) break
+    current = next
+    node = allProxiesRaw.value[current]
+    if (!node) break
+    depth++
+  }
+  return node
+}
+
 const getGroupBarSegments = computed(() => {
   const nodes = props.group.all || []
   if (nodes.length === 0) return []
   const { low, mid } = delayThresholds.value
   let green = 0, yellow = 0, red = 0, loading = 0, none = 0
   nodes.forEach(name => {
-    const delay = delays.value[name]
+    const delay = getEffectiveDelay(name)
     if (delay === undefined || delay === null) none++
     else if (delay === 0) loading++
     else if (delay === -1) red++
@@ -65,7 +97,7 @@ const getGroupDotSegments = computed(() => {
   const nodes = props.group.all || []
   const { low, mid } = delayThresholds.value
   return nodes.map(name => {
-    const delay = delays.value[name]
+    const delay = getEffectiveDelay(name)
     const isSelected = props.group.now === name
     let colorClass = 'bg-slate-200 dark:bg-slate-800'
     if (delay === 0) colorClass = 'bg-slate-300 dark:bg-slate-700 animate-pulse'
@@ -79,20 +111,19 @@ const getGroupDotSegments = computed(() => {
 
 // ===== 排序计算属性（增强版） =====
 const sortedNodes = computed(() => {
-    let nodes = props.group.all
- 
-    // 应用正则过滤（如果存在）
-    const regexStr = filterRegex.value
-    if (regexStr) {
-      try {
-       const regex = new RegExp(regexStr)
-        nodes = nodes.filter(name => !regex.test(name))
-      } catch (e) {
-        // 无效正则，忽略过滤
-        console.warn('Invalid filter regex:', regexStr)
-      }
+  let nodes = props.group.all
+
+  // 应用正则过滤（如果存在）
+  const regexStr = filterRegex.value
+  if (regexStr) {
+    try {
+      const regex = new RegExp(regexStr)
+      nodes = nodes.filter(name => !regex.test(name))
+    } catch (e) {
+      console.warn('Invalid filter regex:', regexStr)
     }
-    
+  }
+
   const order = sortOrder.value
 
   // 提取纯文本排序键（去除 Emoji、特殊符号，保留字母数字汉字空格连字符点）
@@ -109,8 +140,8 @@ const sortedNodes = computed(() => {
 
   if (order === 'delay') {
     return [...nodes].sort((a, b) => {
-      const da = delays.value[a]
-      const db = delays.value[b]
+      const da = getEffectiveDelay(a)
+      const db = getEffectiveDelay(b)
       const getVal = (d: number | undefined) => {
         if (d === undefined || d === null || d <= 0) return Infinity
         return d
@@ -143,10 +174,8 @@ watch(
     if (isExpanded && props.group.all.length > 10) {
       nextTick(() => {
         if (!gridRef.value) return
-        // 查找当前选中的节点（拥有 border-accent 类的元素）
         const selectedEl = gridRef.value.querySelector('.border-accent')
         if (selectedEl) {
-          // 检查是否在视口内，若不在则滚动到视口中央
           const rect = selectedEl.getBoundingClientRect()
           const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight
           if (!isVisible) {
@@ -156,7 +185,7 @@ watch(
       })
     }
   },
-  { immediate: true }  // 组件挂载时若已展开也立即执行
+  { immediate: true }
 )
 
 const handleSelectProxy = async (proxyName: string) => {
@@ -225,7 +254,7 @@ const getDelayText = (delay?: number) => {
 
 <template>
   <div ref="cardRef" class="bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-200/40 dark:border-slate-800/40 transition-all relative">
-    <!-- 头部：展开时粘性，使用当前主题的卡片背景色 var(--bg-card) 进行完美适配 -->
+    <!-- 头部：展开时粘性 -->
     <div
       class="px-4 sm:px-5 pt-4 sm:pt-5 pb-2 rounded-t-xl cursor-pointer select-none transition-shadow duration-200"
       :class="[
@@ -236,7 +265,6 @@ const getDelayText = (delay?: number) => {
       @click="expandedState[group.name] = !expandedState[group.name]"
     >
       <div class="flex flex-col gap-2">
-        <!-- 原有头部布局 -->
         <div class="flex items-center justify-between gap-4">
           <div class="flex items-center gap-2.5 min-w-0">
             <ChevronForwardOutline class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200" :class="{ 'rotate-90': expandedState[group.name] }" />
@@ -252,7 +280,6 @@ const getDelayText = (delay?: number) => {
           </div>
 
           <div class="flex items-center gap-1.5">
-            <!-- 质量评分按钮（仅质量排序时可见） -->
             <button
               v-if="sortOrder === 'quality'"
               @click.stop="proxyStore.fetchQualityScores()"
@@ -311,33 +338,36 @@ const getDelayText = (delay?: number) => {
             {{ name }}
           </span>
         </div>
-        <div v-if="allProxiesRaw[name]" class="flex justify-between items-center gap-1.5 mt-2.5 w-full select-none">
+
+        <!-- 使用 getEffectiveNode 获取实际节点数据 -->
+        <div v-if="getEffectiveNode(name)" class="flex justify-between items-center gap-1.5 mt-2.5 w-full select-none">
           <div class="flex items-center gap-1 min-w-0">
             <span class="bg-slate-200/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono uppercase text-[9px] font-bold leading-none truncate">
-              {{ allProxiesRaw[name].type || 'DIRECT' }}
+              {{ getEffectiveNode(name).type || 'DIRECT' }}
             </span>
-            <span v-if="allProxiesRaw[name].xudp" class="bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="XUDP">X</span>
-            <span v-else-if="allProxiesRaw[name].udp" class="bg-blue-500/10 text-blue-500 dark:text-blue-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="UDP">U</span>
+            <span v-if="getEffectiveNode(name).xudp" class="bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="XUDP">X</span>
+            <span v-else-if="getEffectiveNode(name).udp" class="bg-blue-500/10 text-blue-500 dark:text-blue-400 px-1 py-0.5 rounded font-mono font-extrabold text-[9px] leading-none shrink-0" title="UDP">U</span>
           </div>
           <div class="flex items-center gap-1 shrink-0">
-            <!-- 质量分数：与测速按钮相同样式 -->
             <span v-if="sortOrder === 'quality' && qualityScores[name] !== undefined" 
                   class="text-[10px] font-mono shrink-0 select-none px-1.5 py-0.5 rounded-md leading-none text-center bg-accent/10 text-accent border border-accent/20">
               {{ qualityScores[name] }}
             </span>
             <span
               class="text-[10px] font-mono shrink-0 select-none px-1.5 py-0.5 rounded-md leading-none text-center min-w-[32px] transition-all hover:scale-105 active:scale-95 border cursor-pointer"
-              :class="getDelayClass(delays[name])"
+              :class="getDelayClass(getEffectiveDelay(name))"
               @click.stop="handleTestSingle(name)"
             >
-              {{ getDelayText(delays[name]) }}
+              {{ getDelayText(getEffectiveDelay(name)) }}
             </span>
           </div>
         </div>
-        <div v-if="allProxiesRaw[name]" class="flex gap-[2px] w-full mt-2 h-1 overflow-hidden">
-          <template v-if="allProxiesRaw[name].recentColors && allProxiesRaw[name].recentColors.length > 0">
+
+        <!-- 色条：使用 getEffectiveNode(name).recentColors -->
+        <div v-if="getEffectiveNode(name)" class="flex gap-[2px] w-full mt-2 h-1 overflow-hidden">
+          <template v-if="getEffectiveNode(name).recentColors && getEffectiveNode(name).recentColors.length > 0">
             <span
-              v-for="(hist, hIdx) in allProxiesRaw[name].recentColors"
+              v-for="(hist, hIdx) in getEffectiveNode(name).recentColors"
               :key="hIdx"
               :class="[hist.colorClass, 'flex-1 h-full rounded-sm']"
               :title="hist.title"

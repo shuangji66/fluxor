@@ -302,6 +302,8 @@ func main() {
 	mux.HandleFunc(baseURL+"/subscribe/update/", handleSubscribeUpdate)
 	mux.HandleFunc(baseURL+"/subscribe/update-info/", handleUpdateSubscriptionInfo)
 
+    // 获取所有订阅的代理信息（融合模式使用）
+    mux.HandleFunc(baseURL+"/providers/proxies", handleProvidersProxiesAll)
 	mux.HandleFunc(baseURL+"/providers/proxies/", handleProviderProxies)
 
 	// WebSocket 代理

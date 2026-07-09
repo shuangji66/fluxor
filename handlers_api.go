@@ -361,9 +361,26 @@ func handleRulesDisable(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 }
 
+// handleProvidersProxiesAll 获取所有订阅的代理信息（含节点历史、代理组）
+// 对应内核 GET /providers/proxies
+func handleProvidersProxiesAll(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	resp, err := coreRequest("GET", "/providers/proxies", nil)
+	if err != nil {
+		writeJSONError(w, http.StatusBadGateway, "获取订阅代理信息失败: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+	io.Copy(w, resp.Body)
+}
+
 // handleProviderProxies 获取指定订阅的代理信息（含流量/有效期）
-// GET /providers/proxies/{encodedName}
-// handleProviderProxies 处理订阅信息获取（GET）和更新（PUT）
+// GET /providers/proxies/{encodedName} 和 /providers/proxies/{provider}/{proxy}/healthcheck
+// PUT /providers/proxies/{encodedName} 更新订阅
 func handleProviderProxies(w http.ResponseWriter, r *http.Request) {
 	// 提取路径 /providers/proxies/{name}
 	path := r.URL.EscapedPath()
@@ -373,6 +390,11 @@ func handleProviderProxies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	targetPath := "/providers/proxies/" + trimmed
+
+	// 拼接查询参数（用于 healthcheck）
+	if r.URL.RawQuery != "" {
+		targetPath += "?" + r.URL.RawQuery
+	}
 
 	var resp *http.Response
 	var err error

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiFetch } from '../utils/api'
+import { useSubscriptionStore } from './subscription'
 
 export interface ProxyGroup {
   name: string
@@ -21,70 +22,113 @@ export const useProxyStore = defineStore('proxies', () => {
   const fetchProxies = async (silent = false) => {
     if (!silent) isLoading.value = true
     try {
-      const resp = await apiFetch('/proxies')
-      if (resp.ok) {
-        const data = await resp.json()
-        allProxiesRaw.value = data.proxies || {}
-        const groups = Object.values(data.proxies || {}).filter((p: any) => 
-          p.type === 'Selector' || p.type === 'URLTest' || p.type === 'Fallback' || p.type === 'LoadBalance'
-        ) as ProxyGroup[]
+      // 动态获取当前模式
+      const subscriptionStore = useSubscriptionStore()
+      const mode = subscriptionStore.currentConfig.mode
 
-        // 排序逻辑
-        groups.sort((a, b) => {
-          const getPriority = (name: string) => {
-            if (name.includes('节点选择')) return 0
-            if (name.includes('手动选择')) return 1
-            if (name.includes('自动选择')) return 2
-            if (name.includes('香港')) return 3
-            if (name.includes('新加坡')) return 4
-            if (name.includes('日本')) return 5
-            if (name.includes('美国')) return 6
-            if (name.includes('台湾')) return 7
-            return 8
-          }
-          const aPriority = getPriority(a.name)
-          const bPriority = getPriority(b.name)
-          if (aPriority !== bPriority) return aPriority - bPriority
-          return a.name.localeCompare(b.name)
-        })
+      let allProxies: Record<string, any> = {}
+      let groups: ProxyGroup[] = []   // 改用不同名，避免遮蔽响应式 proxyGroups
 
-        proxyGroups.value = groups
+      if (mode === 'merge') {
+        // 融合模式：从 /providers/proxies 获取数据
+        const resp = await apiFetch('/providers/proxies')
+        if (resp.ok) {
+          const data = await resp.json()
+          const providers = data.providers || {}
 
-        // 解析代理节点最新延迟与近5次历史色块，避免在模板中高频调用 sort 导致性能开销
-        Object.keys(data.proxies || {}).forEach(name => {
-          const node = data.proxies[name]
-          if (node) {
-            let latest: number | null = null
-            let sortedHist: any[] = []
-            if (node.history && node.history.length > 0) {
-              sortedHist = [...node.history].sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime())
-              const last = sortedHist[sortedHist.length - 1]
-              latest = last.delay > 0 ? last.delay : -1
-            }
-            node.latestDelay = latest
-            
-            const { low, mid } = delayThresholds.value
-            const histCount = historyCount.value
-            node.recentColors = sortedHist.slice(-histCount).map((h: any) => {
-              const d = h.delay
-              let colorClass = 'bg-slate-200 dark:bg-slate-800'
-              if (d === -1) colorClass = 'bg-red-500'
-              else if (d === 0) colorClass = 'bg-slate-300 dark:bg-slate-700 animate-pulse' // 测速中
-              else if (d > 0 && d <= low) colorClass = 'bg-success'
-              else if (d > low && d <= mid) colorClass = 'bg-amber-500'
-              else if (d > mid) colorClass = 'bg-red-400'
-              return {
-                colorClass,
-                title: `${h.time}: ${d > 0 ? d + 'ms' : d === 0 ? 'Testing...' : 'Timeout'}`
+          // 1. 收集所有节点（含历史）—— 遍历所有订阅的 proxies
+          for (const provider of Object.values(providers) as any[]) {
+            if (provider.proxies) {
+              for (const node of provider.proxies) {
+                allProxies[node.name] = node
               }
-            })
-
-            if (latest !== null) {
-              delays.value[name] = latest
             }
           }
-        })
+
+          // 2. 从 default 中提取代理组（Selector / URLTest / Fallback / LoadBalance）
+          const defaultProvider = providers['default']
+          if (defaultProvider && defaultProvider.proxies) {
+            for (const item of defaultProvider.proxies) {
+              if (['Selector', 'URLTest', 'Fallback', 'LoadBalance'].includes(item.type)) {
+                if (item.hidden === undefined) item.hidden = false
+                groups.push(item)
+              }
+            }
+          }
+        }
+      } else {
+        // 切换模式：保持使用 /proxies
+        const resp = await apiFetch('/proxies')
+        if (resp.ok) {
+          const data = await resp.json()
+          allProxies = data.proxies || {}
+          for (const name of Object.keys(allProxies)) {
+            const item = allProxies[name]
+            if (['Selector', 'URLTest', 'Fallback', 'LoadBalance'].includes(item.type)) {
+              if (item.hidden === undefined) item.hidden = false
+              groups.push(item)
+            }
+          }
+        }
       }
+
+      // 代理组排序（原有逻辑）
+      groups.sort((a, b) => {
+        const getPriority = (name: string) => {
+          if (name.includes('节点选择')) return 0
+          if (name.includes('手动选择')) return 1
+          if (name.includes('自动选择')) return 2
+          if (name.includes('香港')) return 3
+          if (name.includes('新加坡')) return 4
+          if (name.includes('日本')) return 5
+          if (name.includes('美国')) return 6
+          if (name.includes('台湾')) return 7
+          return 8
+        }
+        const aPriority = getPriority(a.name)
+        const bPriority = getPriority(b.name)
+        if (aPriority !== bPriority) return aPriority - bPriority
+        return a.name.localeCompare(b.name)
+      })
+
+      // 更新响应式状态
+      proxyGroups.value = groups
+      allProxiesRaw.value = allProxies
+
+      // 解析延迟和颜色（原有逻辑，遍历 allProxies）
+      Object.keys(allProxies).forEach(name => {
+        const node = allProxies[name]
+        if (node) {
+          let latest: number | null = null
+          let sortedHist: any[] = []
+          if (node.history && node.history.length > 0) {
+            sortedHist = [...node.history].sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime())
+            const last = sortedHist[sortedHist.length - 1]
+            latest = last.delay > 0 ? last.delay : -1
+          }
+          node.latestDelay = latest
+
+          const { low, mid } = delayThresholds.value
+          const histCount = historyCount.value
+          node.recentColors = sortedHist.slice(-histCount).map((h: any) => {
+            const d = h.delay
+            let colorClass = 'bg-slate-200 dark:bg-slate-800'
+            if (d === -1) colorClass = 'bg-red-500'
+            else if (d === 0) colorClass = 'bg-slate-300 dark:bg-slate-700 animate-pulse'
+            else if (d > 0 && d <= low) colorClass = 'bg-success'
+            else if (d > low && d <= mid) colorClass = 'bg-amber-500'
+            else if (d > mid) colorClass = 'bg-red-400'
+            return {
+              colorClass,
+              title: `${h.time}: ${d > 0 ? d + 'ms' : d === 0 ? 'Testing...' : 'Timeout'}`
+            }
+          })
+
+          if (latest !== null) {
+            delays.value[name] = latest
+          }
+        }
+      })
     } catch (e) {
       console.error('获取代理失败', e)
       proxyGroups.value = []
@@ -94,21 +138,57 @@ export const useProxyStore = defineStore('proxies', () => {
     }
   }
 
-  // 测速单个节点
+  // 测速单个节点（自动解析策略组）
   const testDelay = async (proxyName: string) => {
-    delays.value[proxyName] = 0 // 测速中标记
+    // 动态获取当前模式
+    const subscriptionStore = useSubscriptionStore()
+    const mode = subscriptionStore.currentConfig.mode
+    // 递归解析实际节点
+    let realName = proxyName
+    let node = allProxiesRaw.value[realName]
+    let depth = 0
+    while (node && (node.type === 'Selector' || node.type === 'URLTest') && node.now && depth < 10) {
+      const next = node.now
+      if (next === realName) break
+      realName = next
+      node = allProxiesRaw.value[realName]
+      if (!node) break
+      depth++
+    }
+  
+    // 如果实际节点正在测速，跳过重复请求
+    if (delays.value[realName] === 0) return
+  
+    // 标记实际节点为测速中
+    delays.value[realName] = 0
+  
     try {
-      const encoded = encodeURIComponent(proxyName)
+      const encoded = encodeURIComponent(realName)
       const url = 'http://www.gstatic.com/generate_204'
-      const resp = await apiFetch(`/proxies/${encoded}/delay?timeout=5000&url=${encodeURIComponent(url)}`)
+      let endpoint: string
+  
+      if (mode === 'merge') {
+        const nodeData = allProxiesRaw.value[realName]
+        const providerName = nodeData?.['provider-name'] || ''
+        if (!providerName) {
+          endpoint = `/proxies/${encoded}/delay?timeout=5000&url=${encodeURIComponent(url)}`
+        } else {
+          const encodedProvider = encodeURIComponent(providerName)
+          endpoint = `/providers/proxies/${encodedProvider}/${encoded}/healthcheck?url=${encodeURIComponent(url)}&timeout=5000`
+        }
+      } else {
+        endpoint = `/proxies/${encoded}/delay?timeout=5000&url=${encodeURIComponent(url)}`
+      }
+  
+      const resp = await apiFetch(endpoint)
       if (resp.ok) {
         const data = await resp.json()
-        delays.value[proxyName] = data.delay
+        delays.value[realName] = data.delay ?? data.Delay ?? -1
       } else {
-        delays.value[proxyName] = -1
+        delays.value[realName] = -1
       }
     } catch (e) {
-      delays.value[proxyName] = -1
+      delays.value[realName] = -1
     }
   }
 

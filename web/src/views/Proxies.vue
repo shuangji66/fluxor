@@ -118,8 +118,8 @@ const leftColumn = computed(() => filteredGroups.value.filter((_, i) => i % 2 ==
 const rightColumn = computed(() => filteredGroups.value.filter((_, i) => i % 2 === 1))
 
 const isTestingAll = ref(false)
-let refreshTimer: number | null = null
-let statusTimer: any = null
+
+//let statusTimer: any = null
 
 const changeMode = async (mode: string) => {
   if (!coreStatus.value.running) {
@@ -166,23 +166,6 @@ const handleTestAll = async () => {
   }
 }
 
-const startRefreshTimer = () => {
-  if (refreshTimer) clearInterval(refreshTimer)
-  refreshTimer = window.setInterval(() => {
-    proxyStore.fetchProxies(true)
-  }, 10000)
-}
-
-const stopRefreshTimer = () => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
-  }
-  if (modeSwitchTimer) {
-    clearTimeout(modeSwitchTimer)
-    modeSwitchTimer = null
-  }
-}
 
 onMounted(async () => {
   window.addEventListener('resize', onResize)
@@ -192,16 +175,13 @@ onMounted(async () => {
 
 onActivated(async () => {
   await proxyStore.fetchProxies(true)
-  startRefreshTimer()
 })
 
 onDeactivated(() => {
-  stopRefreshTimer()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
-  stopRefreshTimer()
 })
 </script>
 
