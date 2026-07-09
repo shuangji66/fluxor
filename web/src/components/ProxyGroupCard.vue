@@ -225,9 +225,31 @@ const handleTestGroup = async () => {
   if (isTesting.value) return
   isTesting.value = true
   try {
-    await proxyStore.testProxiesWithConcurrency(props.group.all)
-    proxyStore.fetchProxies(true)
-    globalStore.showToast(t('proxies.test_complete'), 'success')
+    const groupName = props.group.name
+    const testURL = 'http://www.gstatic.com/generate_204'
+    const timeout = 5000
+    const endpoint = `/group/${encodeURIComponent(groupName)}/delay?url=${encodeURIComponent(testURL)}&timeout=${timeout}`
+    const resp = await apiFetch(endpoint)
+    if (resp.ok) {
+      const data = await resp.json()
+      // data 格式: { "节点A": 120, "节点B": 350, ... }
+      for (const [name, delay] of Object.entries(data)) {
+        // delay 为数字（毫秒），也可能为 0 或负值？统一处理
+        if (typeof delay === 'number' && delay > 0) {
+          delays.value[name] = delay
+        } else if (delay === 0) {
+          // 0 表示测速中？通常不会返回 0，但以防万一
+          delays.value[name] = 0
+        } else {
+          delays.value[name] = -1 // 超时或失败
+        }
+      }
+      // 刷新全部数据（色条、历史等也会更新）
+      proxyStore.fetchProxies(true)
+      globalStore.showToast(t('proxies.test_complete'), 'success')
+    } else {
+      globalStore.showToast(t('common.operation_failed'), 'error')
+    }
   } catch (e) {
     globalStore.showToast(t('common.operation_failed'), 'error')
   } finally {

@@ -306,6 +306,9 @@ func main() {
     mux.HandleFunc(baseURL+"/providers/proxies", handleProvidersProxiesAll)
 	mux.HandleFunc(baseURL+"/providers/proxies/", handleProviderProxies)
 
+	// 策略组测速（组内所有节点/子策略组）
+    mux.HandleFunc(baseURL+"/group/", handleGroupDelay)
+
 	// WebSocket 代理
 	mux.HandleFunc(baseURL+"/traffic", wsProxyHandler("/traffic"))
 	mux.HandleFunc(baseURL+"/memory", wsProxyHandler("/memory"))

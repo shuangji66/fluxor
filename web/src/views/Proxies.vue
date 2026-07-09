@@ -152,12 +152,31 @@ const handleTestAll = async () => {
   isTestingAll.value = true
   globalStore.showToast(t('proxies.testing_all'), 'info')
   try {
-    const allProxies = new Set<string>()
-    proxyGroups.value.forEach(g => {
-      g.all.forEach(name => allProxies.add(name))
-    })
-    await proxyStore.testProxiesWithConcurrency(Array.from(allProxies))
-    proxyStore.fetchProxies(true)
+    const groups = proxyGroups.value // 所有组
+    for (const group of groups) {
+      const groupName = group.name
+      const testURL = 'http://www.gstatic.com/generate_204'
+      const timeout = 5000
+      const endpoint = `/group/${encodeURIComponent(groupName)}/delay?url=${encodeURIComponent(testURL)}&timeout=${timeout}`
+      const resp = await apiFetch(endpoint)
+      if (resp.ok) {
+        const data = await resp.json()
+        // 更新延迟
+        for (const [name, delay] of Object.entries(data)) {
+          if (typeof delay === 'number' && delay > 0) {
+            delays.value[name] = delay
+          } else if (delay === 0) {
+            delays.value[name] = 0
+          } else {
+            delays.value[name] = -1
+          }
+        }
+        // 每完成一组刷新一次（立即更新UI）
+        proxyStore.fetchProxies(true)
+      } else {
+        console.warn(`组 ${groupName} 测速失败`)
+      }
+    }
     globalStore.showToast(t('proxies.test_complete'), 'success')
   } catch (e) {
     globalStore.showToast(t('common.operation_failed'), 'error')
@@ -165,7 +184,6 @@ const handleTestAll = async () => {
     isTestingAll.value = false
   }
 }
-
 
 onMounted(async () => {
   window.addEventListener('resize', onResize)

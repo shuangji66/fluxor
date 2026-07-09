@@ -192,20 +192,6 @@ export const useProxyStore = defineStore('proxies', () => {
     }
   }
 
-  // 限制并发的批量节点测速
-  const testProxiesWithConcurrency = async (proxyNames: string[], concurrency = 10) => {
-    const queue = [...proxyNames]
-    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
-      while (queue.length > 0) {
-        const next = queue.shift()
-        if (next) {
-          await testDelay(next)
-        }
-      }
-    })
-    await Promise.all(workers)
-  }
-
   // ===== 持久化设置 =====
   const delayThresholds = ref({
     low: 200,
@@ -300,7 +286,6 @@ export const useProxyStore = defineStore('proxies', () => {
     expandedState,
     fetchProxies,
     testDelay,
-    testProxiesWithConcurrency,
     sortOrder,
     setSortOrder,
     delayThresholds,

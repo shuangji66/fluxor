@@ -672,59 +672,106 @@ func handleQualityScores(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 从内核获取所有代理数据
-	resp, err := coreRequest("GET", "/proxies", nil)
-	if err != nil {
-		writeJSONError(w, http.StatusBadGateway, "获取代理数据失败: "+err.Error())
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		writeJSONError(w, resp.StatusCode, "内核返回错误")
-		return
-	}
+	// 获取当前订阅模式
+	subscribeMu.RLock()
+	mode := subscribeConfig.Mode
+	subscribeMu.RUnlock()
 
-	var proxiesData struct {
-		Proxies map[string]struct {
-			History []struct {
-				Time  string `json:"time"`
-				Delay int    `json:"delay"`
-			} `json:"history"`
-		} `json:"proxies"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&proxiesData); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "解析内核数据失败: "+err.Error())
-		return
+	// 统一数据结构：nodeName -> history
+	nodeHistories := make(map[string][]struct {
+		Time  string `json:"time"`
+		Delay int    `json:"delay"`
+	})
+
+	if mode == "merge" {
+		// 融合模式：从 /providers/proxies 获取
+		resp, err := coreRequest("GET", "/providers/proxies", nil)
+		if err != nil {
+			writeJSONError(w, http.StatusBadGateway, "获取订阅代理数据失败: "+err.Error())
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			writeJSONError(w, resp.StatusCode, "内核返回错误")
+			return
+		}
+
+		var providersData struct {
+			Providers map[string]struct {
+				Proxies []struct {
+					Name    string `json:"name"`
+					History []struct {
+						Time  string `json:"time"`
+						Delay int    `json:"delay"`
+					} `json:"history"`
+				} `json:"proxies"`
+			} `json:"providers"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&providersData); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "解析内核数据失败: "+err.Error())
+			return
+		}
+
+		for _, provider := range providersData.Providers {
+			for _, node := range provider.Proxies {
+				if node.Name == "" || len(node.History) == 0 {
+					continue
+				}
+				nodeHistories[node.Name] = node.History
+			}
+		}
+	} else {
+		// 切换模式：从 /proxies 获取
+		resp, err := coreRequest("GET", "/proxies", nil)
+		if err != nil {
+			writeJSONError(w, http.StatusBadGateway, "获取代理数据失败: "+err.Error())
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			writeJSONError(w, resp.StatusCode, "内核返回错误")
+			return
+		}
+
+		var proxiesData struct {
+			Proxies map[string]struct {
+				History []struct {
+					Time  string `json:"time"`
+					Delay int    `json:"delay"`
+				} `json:"history"`
+			} `json:"proxies"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&proxiesData); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "解析内核数据失败: "+err.Error())
+			return
+		}
+		for name, proxy := range proxiesData.Proxies {
+			if len(proxy.History) > 0 {
+				nodeHistories[name] = proxy.History
+			}
+		}
 	}
 
 	// 计算每个节点的质量分数
 	scores := make(map[string]NodeQualityScore)
-	for name, proxy := range proxiesData.Proxies {
-		// 提取历史延迟列表
-		latencies := make([]int, 0, len(proxy.History))
-		histories := make([]NodeHistoryEntry, 0, len(proxy.History))
-		for _, h := range proxy.History {
+	for name, history := range nodeHistories {
+		latencies := make([]int, 0, len(history))
+		histEntries := make([]NodeHistoryEntry, 0, len(history))
+		for _, h := range history {
 			latencies = append(latencies, h.Delay)
-			histories = append(histories, NodeHistoryEntry{Latency: h.Delay})
+			histEntries = append(histEntries, NodeHistoryEntry{Latency: h.Delay})
 		}
 		if len(latencies) == 0 {
 			scores[name] = NodeQualityScore{Score: 0, LatencyScore: 0, Stability: 0, SuccessRate: 0}
 			continue
 		}
-
 		latScore := calcLatencyScore(latencies)
 		stabScore := calcStabilityScore(latencies)
-		succScore := calcSuccessRateScore(histories)
-
+		succScore := calcSuccessRateScore(histEntries)
 		totalWeight := weightLatency + weightStability + weightSuccessRate
-		if totalWeight == 0 {
-			scores[name] = NodeQualityScore{Score: 0, LatencyScore: latScore, Stability: stabScore, SuccessRate: succScore}
-			continue
-		}
 		score := float64(latScore)*float64(weightLatency)/float64(totalWeight) +
 			float64(stabScore)*float64(weightStability)/float64(totalWeight) +
 			float64(succScore)*float64(weightSuccessRate)/float64(totalWeight)
-
 		scores[name] = NodeQualityScore{
 			Score:        int(math.Round(score)),
 			LatencyScore: latScore,
@@ -792,112 +839,62 @@ func stopHealthCheckTimer() {
 
 // performHealthChecks 执行健康检查（仅在 switch 模式下，对当前激活订阅测速）
 func performHealthChecks() {
-	subscribeMu.RLock()
-	cfg := subscribeConfig
-	subscribeMu.RUnlock()
+    subscribeMu.RLock()
+    cfg := subscribeConfig
+    subscribeMu.RUnlock()
 
-	if cfg.Mode != "switch" || len(cfg.Subscriptions) == 0 || cfg.ActiveSubscription == "" {
-		return
-	}
+    if cfg.Mode != "switch" || len(cfg.Subscriptions) == 0 || cfg.ActiveSubscription == "" {
+        return
+    }
 
-	// 获取当前激活的订阅
-	var activeSub *Subscription
-	for i := range cfg.Subscriptions {
-		if cfg.Subscriptions[i].Name == cfg.ActiveSubscription {
-			activeSub = &cfg.Subscriptions[i]
-			break
-		}
-	}
-	if activeSub == nil {
-		return
-	}
+    var activeSub *Subscription
+    for i := range cfg.Subscriptions {
+        if cfg.Subscriptions[i].Name == cfg.ActiveSubscription {
+            activeSub = &cfg.Subscriptions[i]
+            break
+        }
+    }
+    if activeSub == nil {
+        return
+    }
 
-	interval := activeSub.HealthInterval
-	if interval <= 0 {
-		interval = 600
-	}
+    interval := activeSub.HealthInterval
+    if interval <= 0 {
+        interval = 600
+    }
 
-	now := time.Now()
-	healthCheckMu.RLock()
-	last, ok := lastHealthCheck[activeSub.Name]
-	healthCheckMu.RUnlock()
-	if ok && now.Sub(last) < time.Duration(interval)*time.Second {
-		return
-	}
+    now := time.Now()
+    healthCheckMu.RLock()
+    last, ok := lastHealthCheck[activeSub.Name]
+    healthCheckMu.RUnlock()
+    if ok && now.Sub(last) < time.Duration(interval)*time.Second {
+        return
+    }
 
-	// 从内核获取所有节点名称（包括组和叶子节点）
-	nodes, err := getAllProxyNames()
-	if err != nil {
-		log.Printf("[HealthCheck] 获取节点列表失败: %v", err)
-		return
-	}
-	if len(nodes) == 0 {
-		return
-	}
+    groups, err := getAllProxyGroups()
+    if err != nil {
+        log.Printf("[HealthCheck] 获取策略组失败: %v", err)
+        return
+    }
+    if len(groups) == 0 {
+        return
+    }
 
-	// 并发测速（限制并发数10）
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 10)
-	for _, name := range nodes {
-		wg.Add(1)
-		go func(p string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			// 使用默认测试URL和超时
-			testDelayForProxy(p, "http://www.gstatic.com/generate_204", 5000)
-		}(name)
-	}
-	wg.Wait()
+    // 并发测速（限制并发数5）
+    var wg sync.WaitGroup
+    sem := make(chan struct{}, 5)
+    for _, g := range groups {
+        wg.Add(1)
+        go func(name string) {
+            defer wg.Done()
+            sem <- struct{}{}
+            defer func() { <-sem }()
+            testGroupDelay(name)
+        }(g)
+    }
+    wg.Wait()
 
-	healthCheckMu.Lock()
-	lastHealthCheck[activeSub.Name] = time.Now()
-	healthCheckMu.Unlock()
-}
-
-// getAllProxyNames 从内核获取所有叶子节点名称（去重）
-func getAllProxyNames() ([]string, error) {
-	resp, err := coreRequest("GET", "/proxies", nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("内核返回状态码 %d", resp.StatusCode)
-	}
-	var data struct {
-		Proxies map[string]struct {
-			All []string `json:"all"`
-		} `json:"proxies"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-	// 收集所有叶子节点（All 中的成员），使用 map 去重
-	nameSet := make(map[string]bool)
-	for _, proxy := range data.Proxies {
-		for _, member := range proxy.All {
-			nameSet[member] = true
-		}
-	}
-	result := make([]string, 0, len(nameSet))
-	for n := range nameSet {
-		result = append(result, n)
-	}
-	return result, nil
-}
-
-// testDelayForProxy 测速单个节点（不关心返回值，只触发内核更新历史）
-func testDelayForProxy(name, testURL string, timeoutMs int) {
-	target := fmt.Sprintf("/proxies/%s/delay?url=%s&timeout=%d",
-		url.PathEscape(name),
-		url.QueryEscape(testURL),
-		timeoutMs)
-	// 忽略错误，仅触发测速
-	resp, err := coreRequest("GET", target, nil)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-	// 不需要读取响应体
+    healthCheckMu.Lock()
+    lastHealthCheck[activeSub.Name] = time.Now()
+    healthCheckMu.Unlock()
 }
