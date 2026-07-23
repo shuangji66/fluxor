@@ -687,7 +687,6 @@ onMounted(() => {
   nextTick(() => {
     fetchSubscribeConfig()
     subscriptionStore.loadConfig()
-    proxyStore.fetchProxies()
     initCanvas()
     observeTheme()
     overviewStore.subscribeStatus()

@@ -190,15 +190,6 @@ const handleTestAll = async () => {
 
 onMounted(async () => {
   window.addEventListener('resize', onResize)
-  const hasData = proxyGroups.value.length > 0
-  await proxyStore.fetchProxies(hasData)
-})
-
-onActivated(async () => {
-  await proxyStore.fetchProxies(true)
-})
-
-onDeactivated(() => {
 })
 
 onUnmounted(() => {

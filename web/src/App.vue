@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useGlobalStore } from './store/global'
 import { useConfigStore } from './store/config'
 import { useOverviewStore } from './store/overview'
+import { useProxyStore } from './store/proxies'
 import { useSubscriptionStore } from './store/subscription'
 import { apiFetch } from './utils/api'
 import {
@@ -49,6 +50,7 @@ const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 const overviewStore = useOverviewStore()
 const subscriptionStore = useSubscriptionStore()
+const proxyStore = useProxyStore() 
 
 const { initTheme, switchThemeCycle } = useTheme()
 const { locale, currentLangDisplay, toggleLanguage, updateTitle } = useLanguage()
@@ -226,7 +228,7 @@ const handleButtonClick = () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   initTheme()
   updateTitle(globalStore.activeTab)
   
@@ -246,6 +248,10 @@ onMounted(() => {
   // 预加载配置与订阅状态
   configStore.fetchConfigs()
   subscriptionStore.loadConfig()  // 改用 subscriptionStore（如果 App.vue 中已导入）
+
+  // 统一加载代理信息
+  await subscriptionStore.loadConfig()  // 先加载订阅配置，确定当前 mode
+  await proxyStore.fetchProxies()   // 根据 mode 自动请求 /proxies 或 /providers/proxies
 
   // 获取当前用户信息并显示欢迎
   apiFetch('/whoami')
