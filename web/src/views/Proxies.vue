@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, onActivated, onDeactivated, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { GlobeOutline, SyncOutline, SettingsOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'

@@ -245,9 +245,13 @@ onMounted(async () => {
   overviewStore.fetchVersionAndStatus()   // 立即获取一次初始状态
   overviewStore.subscribeStatus() 
   
-  // 预加载配置与订阅状态
-  configStore.fetchConfigs()
-  await subscriptionStore.loadConfig()  // 先加载订阅配置，确定当前 mode
+  // 并行加载订阅配置、内核配置、TProxy 状态
+  await Promise.all([
+    subscriptionStore.loadConfig(),
+    configStore.fetchConfigs(),
+    configStore.fetchTproxyState(),
+  ])
+
   await proxyStore.fetchProxies()   // 根据 mode 自动请求 /proxies 或 /providers/proxies
 
   // 获取当前用户信息并显示欢迎

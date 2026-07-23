@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, onActivated } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
 import { CloudDownloadOutline, OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SearchOutline, SyncOutline, ColorPaletteOutline, SettingsOutline, InformationCircleOutline, DocumentTextOutline } from '@vicons/ionicons5'
@@ -111,6 +111,7 @@ const saveTproxyExceptions = async () => {
       })
       globalStore.showToast(t('config.tproxy_exceptions_saved'), 'success')
       showTproxyExceptionsDialog.value = false
+      await configStore.refreshTproxyState()
     } else {
       globalStore.showToast(t('common.operation_failed'), 'error')
     }
@@ -231,7 +232,8 @@ const toggleTProxy = async (enable: boolean) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enable })
   })
-  // 开关状态已由 v-model 双向绑定自动更新，无需额外赋值
+  // 刷新状态
+  await configStore.refreshTproxyState()
 }
 
 // 内核进程管理
@@ -549,28 +551,12 @@ const changeLang = () => {
   localStorage.setItem('lang', locale.value)
 }
 
-// 添加加载状态
-const tproxyLoading = ref(true)
-
 onMounted(async () => {
-  fetchConfigs()
   fetchInterfaces()
-  
-  // 等待 TProxy 状态加载完成，并设置超时保护
-  await Promise.race([
-    configStore.fetchTproxyState(),
-    new Promise(r => setTimeout(r, 3000))
-  ])
-  tproxyLoading.value = false
 })
-
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-})
-
-onActivated(() => {
-  configStore.fetchTproxyState()
 })
 
 </script>
@@ -778,7 +764,7 @@ onActivated(() => {
                 <SettingsOutline class="w-4 h-4" />
               </button>
             </div>
-            <div v-if="tproxyLoading" class="w-7 h-4 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
+            <div v-if="!configStore.tproxyStateLoaded" class="w-7 h-4 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
             <FormSwitch v-model="configStore.tproxyEnabled" @update:model-value="toggleTProxy" />
           </div>
         </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, onActivated, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { apiFetch } from '../utils/api'
@@ -173,11 +173,6 @@ onMounted(() => {
   const hasData = rules.value.length > 0
   rulesStore.fetchRules(hasData)
   rulesStore.fetchProviders(hasData)
-})
-
-onActivated(() => {
-  rulesStore.fetchRules(true)
-  rulesStore.fetchProviders(true)
 })
 
 onUnmounted(() => {
