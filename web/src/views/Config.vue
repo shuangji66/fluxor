@@ -988,51 +988,57 @@ onActivated(() => {
   <!-- ====== 新增 TProxy 例外列表弹窗 ====== -->
   <Teleport to="body">
     <div v-if="showTproxyExceptionsDialog" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showTproxyExceptionsDialog = false">
-      <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
-        <h4 class="text-lg font-bold">{{ t('config.tproxy_exceptions_title') }}</h4>
+      <!-- 限制弹窗最大高度为视口 90%，flex 列布局 -->
+      <div class="glass-heavy w-full max-w-lg max-h-[90vh] rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
+        <!-- 标题，固定不滚动 -->
+        <h4 class="text-lg font-bold flex-shrink-0">{{ t('config.tproxy_exceptions_title') }}</h4>
 
-        <div class="space-y-4">
-          <!-- 目的例外 -->
-          <div>
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-              {{ t('config.tproxy_dst_exceptions_label') }}
-            </label>
-            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_dst_exceptions_hint') }}</p>
-            <textarea
-              v-model="tproxyDstExceptionsText"
-              rows="6"
-              class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
-              :placeholder="t('config.tproxy_dst_exceptions_placeholder')"
-            ></textarea>
-          </div>
+        <!-- 可滚动内容区域：占据剩余空间，超出时滚动 -->
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          <div class="space-y-4">
+            <!-- 目的例外 -->
+            <div>
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                {{ t('config.tproxy_dst_exceptions_label') }}
+              </label>
+              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_dst_exceptions_hint') }}</p>
+              <textarea
+                v-model="tproxyDstExceptionsText"
+                rows="6"
+                class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
+                :placeholder="t('config.tproxy_dst_exceptions_placeholder')"
+              ></textarea>
+            </div>
 
-          <!-- 源例外 -->
-          <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-              {{ t('config.tproxy_src_exceptions_label') }}
-            </label>
-            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_src_exceptions_hint') }}</p>
-            <textarea
-              v-model="tproxySrcExceptionsText"
-              rows="6"
-              class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
-              :placeholder="t('config.tproxy_src_exceptions_placeholder')"
-            ></textarea>
-          </div>
+            <!-- 源例外 -->
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                {{ t('config.tproxy_src_exceptions_label') }}
+              </label>
+              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_src_exceptions_hint') }}</p>
+              <textarea
+                v-model="tproxySrcExceptionsText"
+                rows="6"
+                class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
+                :placeholder="t('config.tproxy_src_exceptions_placeholder')"
+              ></textarea>
+            </div>
 
-          <!-- 本机代理开关 -->
-          <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/60">
-            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {{ t('config.tproxy_proxy_local_label') }}
-            </label>
+            <!-- 本机代理开关 -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {{ t('config.tproxy_proxy_local_label') }}
+              </label>
               <FormSwitch
                 :model-value="tproxyProxyLocal"
                 @update:model-value="handleProxyLocalToggle"
               />
+            </div>
           </div>
         </div>
 
-        <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+        <!-- 底部按钮，固定不滚动 -->
+        <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex-shrink-0">
           <button @click="showTproxyExceptionsDialog = false" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all">
             {{ t('common.cancel') }}
           </button>
