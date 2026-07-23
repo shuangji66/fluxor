@@ -432,7 +432,6 @@ const formatExpire = (expire: number) => {
 }
 
 onMounted(() => {
-  loadConfig()
 })
 
 onUnmounted(() => {

@@ -686,7 +686,6 @@ watch(
 onMounted(() => {
   nextTick(() => {
     fetchSubscribeConfig()
-    subscriptionStore.loadConfig()
     initCanvas()
     observeTheme()
     overviewStore.subscribeStatus()

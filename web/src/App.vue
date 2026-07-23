@@ -247,9 +247,6 @@ onMounted(async () => {
   
   // 预加载配置与订阅状态
   configStore.fetchConfigs()
-  subscriptionStore.loadConfig()  // 改用 subscriptionStore（如果 App.vue 中已导入）
-
-  // 统一加载代理信息
   await subscriptionStore.loadConfig()  // 先加载订阅配置，确定当前 mode
   await proxyStore.fetchProxies()   // 根据 mode 自动请求 /proxies 或 /providers/proxies
 

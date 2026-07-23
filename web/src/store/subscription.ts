@@ -54,43 +54,65 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   // 已保存应用的订阅名称白名单
   const savedSubNames = ref<Set<string>>(new Set())
 
-  // 获取订阅中心配置
-  const loadConfig = async () => {
-    try {
-      const resp = await apiFetch('/subscribe/config')
-      if (resp.ok) {
-        const cfg = await resp.json()
-        const subs = cfg.subscriptions || []
-        savedSubNames.value = new Set(subs.map((s: any) => s.name))
-        currentConfig.value = {
-          proxy_port: cfg.proxy_port || 7890,
-          panel_port: cfg.panel_port || 9090,
-          panel_secret: cfg.panel_secret || '',
-          rule_group: cfg.rule_group || 'base',
-          ui_panel: cfg.ui_panel || 'metacubexd',
-          meta_backend_url: cfg.meta_backend_url || '',
-          mode: cfg.mode || 'merge',
-          active_subscription: cfg.active_subscription || '',
-          tproxy_port: cfg.tproxy_port ?? 7898,
-          subscriptions: subs.map((s: any) => {
-            // 将后端存储的 subscription_info 映射为前端的 info 对象
-            const info = s.subscription_info ? {
-              upload: s.subscription_info.upload || 0,
-              download: s.subscription_info.download || 0,
-              total: s.subscription_info.total || 0,
-              expire: s.subscription_info.expire || 0,
-              updatedAt: s.updated_at || null,
-            } : null
-            return {
-              ...s,
-              info
-            }
-          })
-        }
-      }
-    } catch (e) {
-      console.error('加载订阅配置失败', e)
+  const isConfigLoaded = ref(false)  // 新增：标记是否已加载
+  let loadPromise: Promise<void> | null = null  // 新增：防止并发重复请求
+
+  // 获取订阅中心配置（带缓存）
+  const loadConfig = async (force = false) => {
+    // 如果已加载且非强制刷新，直接返回
+    if (isConfigLoaded.value && !force) {
+      return
     }
+    // 如果正在加载中，复用同一个 Promise
+    if (loadPromise) {
+      return loadPromise
+    }
+
+    loadPromise = (async () => {
+      try {
+        const resp = await apiFetch('/subscribe/config')
+        if (resp.ok) {
+          const cfg = await resp.json()
+          const subs = cfg.subscriptions || []
+          savedSubNames.value = new Set(subs.map((s: any) => s.name))
+          currentConfig.value = {
+            proxy_port: cfg.proxy_port || 7890,
+            panel_port: cfg.panel_port || 9090,
+            panel_secret: cfg.panel_secret || '',
+            rule_group: cfg.rule_group || 'base',
+            ui_panel: cfg.ui_panel || 'metacubexd',
+            meta_backend_url: cfg.meta_backend_url || '',
+            mode: cfg.mode || 'merge',
+            active_subscription: cfg.active_subscription || '',
+            tproxy_port: cfg.tproxy_port ?? 7898,
+            subscriptions: subs.map((s: any) => {
+              const info = s.subscription_info ? {
+                upload: s.subscription_info.upload || 0,
+                download: s.subscription_info.download || 0,
+                total: s.subscription_info.total || 0,
+                expire: s.subscription_info.expire || 0,
+                updatedAt: s.updated_at || null,
+              } : null
+              return { ...s, info }
+            })
+          }
+          isConfigLoaded.value = true
+        }
+      } catch (e) {
+        console.error('加载订阅配置失败', e)
+        throw e
+      } finally {
+        loadPromise = null
+      }
+    })()
+
+    return loadPromise
+  }
+
+  // 强制刷新配置（用于订阅更新、保存等操作后）
+  const refreshConfig = async () => {
+    isConfigLoaded.value = false
+    await loadConfig(true)
   }
 
   // 获取单个订阅详情
@@ -163,5 +185,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     loadConfig,
     fetchSubscriptionInfo,
     enrichSubscriptions,
+    isConfigLoaded,
+    refreshConfig,
   }
 })
