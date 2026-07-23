@@ -17,6 +17,7 @@ export const useProxyStore = defineStore('proxies', () => {
   const allProxiesRaw = ref<Record<string, any>>({})
   const isLoading = ref(false)
   const expandedState = ref<Record<string, boolean>>({})
+  const providerInfos = ref<Record<string, any>>({})
 
   // 获取所有代理组并解析历史测速延迟
   const fetchProxies = async (silent = false) => {
@@ -35,9 +36,14 @@ export const useProxyStore = defineStore('proxies', () => {
         if (resp.ok) {
           const data = await resp.json()
           const providers = data.providers || {}
+          providerInfos.value = {}
 
           // 1. 收集所有节点（含历史）—— 遍历所有订阅的 proxies
-          for (const provider of Object.values(providers) as any[]) {
+          for (const [providerName, provider] of Object.entries(providers) as any[]) {
+            // 提取 provider 的元数据（排除 proxies 字段）
+            const { proxies, ...meta } = provider
+            providerInfos.value[providerName] = meta
+
             if (provider.proxies) {
               for (const node of provider.proxies) {
                 allProxies[node.name] = node
@@ -57,6 +63,7 @@ export const useProxyStore = defineStore('proxies', () => {
           }
         }
       } else {
+        providerInfos.value = {}
         // 切换模式：保持使用 /proxies
         const resp = await apiFetch('/proxies')
         if (resp.ok) {
@@ -308,5 +315,6 @@ export const useProxyStore = defineStore('proxies', () => {
     setFilterRegex,
     autoCloseConnections,
     setAutoCloseConnections,
+    providerInfos,
   }
 })

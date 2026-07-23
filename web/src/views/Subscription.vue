@@ -13,6 +13,8 @@ import { useConfigStore } from '../store/config'
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 const { coreStatus } = storeToRefs(configStore)
+const proxyStore = useProxyStore()
+const { providerInfos } = storeToRefs(proxyStore)
 
 const { t } = useI18n()
 
@@ -50,8 +52,6 @@ const selectSubscription = (name: string) => {
 }
 
 const rulesStore = useRulesStore()
-const proxyStore = useProxyStore()
-
 const subscriptionStore = useSubscriptionStore()
 const { currentConfig, savedSubNames } = storeToRefs(subscriptionStore)
 
@@ -82,6 +82,34 @@ const clearPoll = (index: number) => {
     activePolls.delete(index)
   }
 }
+
+// 获取订阅显示信息（融合模式优先使用动态数据）
+const getSubscriptionDisplayInfo = (sub: SubscriptionItem) => {
+  if (currentConfig.value.mode === 'merge') {
+    const info = providerInfos.value[sub.name]
+    if (info && info.subscriptionInfo) {
+      return {
+        upload: info.subscriptionInfo.Upload || 0,
+        download: info.subscriptionInfo.Download || 0,
+        total: info.subscriptionInfo.Total || 0,
+        expire: info.subscriptionInfo.Expire || 0,
+        updatedAt: info.updatedAt || null,
+        // 如果还需要健康度，可以在这里从 info.proxies 计算
+      }
+    }
+    return null
+  }
+  // 切换模式仍使用持久化数据
+  return sub.info || null
+}
+
+// 预处理所有订阅的显示信息
+const subscriptionsWithDisplay = computed(() => {
+  return (currentConfig.value.subscriptions || []).map((sub) => ({
+    ...sub,
+    displayInfo: getSubscriptionDisplayInfo(sub),
+  }))
+})
 
 // 手动更新单个订阅
 const handleUpdateSub = async (index: number) => {
@@ -528,12 +556,12 @@ onUnmounted(() => {
         <!-- 卡片循环（已修改：支持点击选中和高亮） -->
         <div 
           v-else 
-          v-for="(sub, idx) in currentConfig.subscriptions" 
-          :key="sub.name" 
-          @click="selectSubscription(sub.name)"
+          v-for="(item, idx) in subscriptionsWithDisplay" 
+          :key="item.name" 
+          @click="selectSubscription(item.name)"
           class="live-card p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-3 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 transition-all duration-300 relative overflow-hidden cursor-pointer"
           :class="{
-            'border-accent ring-2 ring-accent/30': currentConfig.mode === 'switch' && currentConfig.active_subscription === sub.name
+            'border-accent ring-2 ring-accent/30': currentConfig.mode === 'switch' && currentConfig.active_subscription === item.name
           }"
         >
           <!-- 正在更新/健康检查的卡片遮罩层 -->
@@ -545,17 +573,17 @@ onUnmounted(() => {
           </div>
           <div class="flex justify-between items-start gap-4">
             <div class="min-width-0 flex-1">
-              <span class="font-semibold text-slate-800 dark:text-slate-100 break-all">{{ sub.name }}</span>
+              <span class="font-semibold text-slate-800 dark:text-slate-100 break-all">{{ item.name }}</span>
               <div class="text-xs text-slate-400 dark:text-slate-500 mt-1 select-all break-all flex items-center gap-1.5">
                 <button @click.stop="showUrls[idx] = !showUrls[idx]" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none" :title="showUrls[idx] ? t('subscription.hide_url') : t('subscription.show_url')">
                   <EyeOffOutline v-if="showUrls[idx]" class="w-3.5 h-3.5" />
                   <EyeOutline v-else class="w-3.5 h-3.5" />
                 </button>
-                <span>{{ showUrls[idx] ? sub.url : '••••••••' }}</span>
+                <span>{{ showUrls[idx] ? item.url : '••••••••' }}</span>
               </div>
             </div>
             <div class="flex gap-1.5" @click.stop>
-              <button v-if="savedSubNames.has(sub.name)" @click="handleUpdateSub(idx)" :disabled="isUpdating[idx] || isCheckingHealth[idx]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('rules.update')">
+              <button v-if="savedSubNames.has(item.name)" @click="handleUpdateSub(idx)" :disabled="isUpdating[idx] || isCheckingHealth[idx]" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('rules.update')">
                 <SyncOutline class="w-4 h-4 inline-block" :class="{ 'animate-spin': isUpdating[idx] }" />
               </button>
               <button @click="openSubModal(idx)" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all" :title="t('common.edit')">
@@ -568,23 +596,24 @@ onUnmounted(() => {
           </div>
 
           <!-- 信息展示 -->
-          <div v-if="sub.info" class="space-y-2">
+          <div v-if="item.displayInfo" class="space-y-2">
             <div class="flex items-center gap-3">
               <div class="flex-1 bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                <div class="bg-accent h-full rounded-full transition-all" :style="{ width: Math.min(((sub.info.upload + sub.info.download) / (sub.info.total || 1)) * 100, 100) + '%' }"></div>
+                <div class="bg-accent h-full rounded-full transition-all" :style="{ width: Math.min(((item.displayInfo.upload + item.displayInfo.download) / (item.displayInfo.total || 1)) * 100, 100) + '%' }">
+                </div>
               </div>
-              <span class="text-xs font-semibold text-accent">{{ ((sub.info.upload + sub.info.download) / (sub.info.total || 1) * 100).toFixed(1) }}%</span>
+              <span class="text-xs font-semibold text-accent">{{ ((item.displayInfo.upload + item.displayInfo.download) / (item.displayInfo.total || 1) * 100).toFixed(1) }}%</span>
             </div>
             <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>{{ formatGB(sub.info.upload + sub.info.download) }} / {{ formatGB(sub.info.total) }}</span>
-              <span>{{ t('subscription.valid_until_label') }}{{ formatExpire(sub.info.expire) }}</span>
+              <span>{{ formatGB(item.displayInfo.upload + item.displayInfo.download) }} / {{ formatGB(item.displayInfo.total) }}</span>
+              <span>{{ t('subscription.valid_until_label') }}{{ formatExpire(item.displayInfo.expire) }}</span>
             </div>
             <div class="flex justify-between text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              <span>{{ t('subscription.updated_at_label') }}{{ formatUpdateTime(sub.info.updatedAt) || t('common.unknown') }}</span>
+              <span>{{ t('subscription.updated_at_label') }}{{ formatUpdateTime(item.displayInfo.updatedAt) || t('common.unknown') }}</span>
             </div>
           </div>
           <div v-else class="text-xs text-slate-400 dark:text-slate-500">
-            <template v-if="!savedSubNames.has(sub.name)">
+            <template v-if="!savedSubNames.has(item.name)">
               {{ t('subscription.save_to_show_info') }}
             </template>
             <template v-else>
