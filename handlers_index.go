@@ -76,6 +76,10 @@ var (
 	latestReleaseCache     *githubRelease
 	latestReleaseCacheTime time.Time
 	releaseCacheMutex      sync.RWMutex
+	latestAlphaHashCache     string
+    latestAlphaHashCacheTime time.Time
+    alphaCacheMutex          sync.RWMutex
+    alphaCacheTTL            = 10 * time.Minute
 )
 
 type githubRelease struct {
@@ -138,6 +142,52 @@ func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 		"current":      current,
 		"releaseNotes": rel.Body,
 	})
+}
+
+// getLatestAlphaCoreHash 获取 Alpha 版本对应的 commit 短哈希（前7位）
+func getLatestAlphaCoreHash() (string, error) {
+    alphaCacheMutex.RLock()
+    if latestAlphaHashCache != "" && time.Since(latestAlphaHashCacheTime) < alphaCacheTTL {
+        defer alphaCacheMutex.RUnlock()
+        return latestAlphaHashCache, nil
+    }
+    alphaCacheMutex.RUnlock()
+
+    // 获取 Prerelease-Alpha tag 的 commit SHA
+    url := "https://api.github.com/repos/MetaCubeX/mihomo/git/refs/tags/Prerelease-Alpha"
+    resp, err := http.Get(url)
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode != http.StatusOK {
+        return "", fmt.Errorf("GitHub API returned %d", resp.StatusCode)
+    }
+
+    var data struct {
+        Object struct {
+            Sha string `json:"sha"`
+        } `json:"object"`
+    }
+    if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+        return "", err
+    }
+    if data.Object.Sha == "" {
+        return "", fmt.Errorf("no sha found")
+    }
+
+    // 取前7位作为短哈希
+    hash := data.Object.Sha
+    if len(hash) >= 7 {
+        hash = hash[:7]
+    }
+
+    alphaCacheMutex.Lock()
+    latestAlphaHashCache = hash
+    latestAlphaHashCacheTime = time.Now()
+    alphaCacheMutex.Unlock()
+
+    return hash, nil
 }
 
 // getLatestVersion 从 GitHub API 获取最新 release 版本号（带缓存）
@@ -532,7 +582,7 @@ func getLocalCoreVersion() (string, error) {
     return strings.TrimPrefix(data.Version, "v"), nil
 }
 
-// handleCoreCheckUpdate 检查内核更新（仅对稳定版生效）
+// handleCoreCheckUpdate 检查内核更新
 func handleCoreCheckUpdate(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodGet {
         http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -546,26 +596,40 @@ func handleCoreCheckUpdate(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // 2. 若本地版本包含 "alpha"（忽略大小写），则跳过检查
+    // 2. 判断是否为 Alpha 版本
     if strings.Contains(strings.ToLower(localVer), "alpha") {
+        // 解析本地哈希（格式：alpha-978d25a）
+        localHash := ""
+        parts := strings.SplitN(localVer, "-", 2)
+        if len(parts) == 2 {
+            localHash = parts[1]
+        }
+
+        // 获取远程 Alpha 哈希
+        remoteHash, err := getLatestAlphaCoreHash()
+        if err != nil {
+            // 获取失败时返回错误，但保持用户体验，可返回无更新
+            writeJSONError(w, http.StatusServiceUnavailable, "获取 Alpha 版本信息失败: "+err.Error())
+            return
+        }
+
+        hasUpdate := localHash != remoteHash
         w.Header().Set("Content-Type", "application/json")
         json.NewEncoder(w).Encode(map[string]interface{}{
-            "hasUpdate": false,
-            "latest":    "",
+            "hasUpdate": hasUpdate,
+            "latest":    "alpha-" + remoteHash,
             "local":     localVer,
-            "message":   "当前为 alpha 版本，不检查稳定更新",
         })
         return
     }
 
-    // 3. 获取远程最新版本
+    // 3. 稳定版逻辑（原有）
+    // 若本地版本包含 "alpha"，已经返回，以下为稳定版处理
     remoteVer, err := getLatestCoreVersion()
     if err != nil {
         writeJSONError(w, http.StatusServiceUnavailable, "获取远程版本失败: "+err.Error())
         return
     }
-
-    // 4. 比较版本号
     hasUpdate := compareVersions(remoteVer, localVer) > 0
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(map[string]interface{}{
