@@ -129,7 +129,7 @@ backend/
     │   ├── rules_lite.go         #   base 规则集的规则
     │   ├── groups_full.go        #   full 规则集的代理组（地区组用 include-all-providers 引用全部订阅 provider，模板内不含订阅名）
     │   ├── providers_full.go     #   full 规则集的 rule-providers
-    │   ├── rules_full.go         #   full 规则集的规则
+    │   ├── rules_full.go         #   full 规则集的规则（开头 6 条 DOMAIN 把概览页「代理出口 IP / 归属地」的查询域名指向 🚀 节点选择，避免被 networktest 规则集分流到直连）
     │   ├── customrules.go        #   自定义规则：校验 + 幂等注入 rules 序列（before/after 双锚点）
     │   ├── mergerules.go         #   规则上下文：融合档位（MergeRuleSetContext）与自定义模式（CustomModeRuleContext，目标额外含手工节点）
     │   ├── tunnels.go            #   流量隧道：校验（监听地址 host:port、目标支持域名、proxy 必须存在）
