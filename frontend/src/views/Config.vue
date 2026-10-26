@@ -1147,7 +1147,7 @@ onActivated(async () => {
                 <select
                   v-model="selectedChannel"
                   :disabled="isUpgrading || !coreStatus.running"
-                  class="w-full min-w-0 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-2 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-accent outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="w-full min-w-0 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-2 text-xs font-semibold text-slate-700 dark:text-slate-200 text-center focus:ring-2 focus:ring-accent outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="release">{{ t('config.upgrade_stable') }}</option>
                   <option value="alpha">{{ t('config.upgrade_alpha') }}</option>
