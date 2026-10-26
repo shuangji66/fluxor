@@ -2,7 +2,7 @@
 import { ref, onMounted, onActivated, onDeactivated, computed, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
-import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, CloseOutline, InformationCircleOutline, OptionsOutline, AddOutline, SaveOutline } from '@vicons/ionicons5'
+import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, CloseOutline, HelpCircleOutline, OptionsOutline, AddOutline, SaveOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import {
@@ -169,15 +169,34 @@ const nameHint = computed(() =>
 // 显隐只作用于渲染：meta_backend_url 始终留在 currentConfig 中，
 // 「保存并应用」照常提交原内容，来回切换面板不会把已填地址弄丢。
 const isMetaCubeXd = computed(() => currentConfig.value.ui_panel === 'metacubexd')
-// IPv6 两项与规则集共用的行布局：
-//   merge + IPv6 开：桌面三项一行、窄窗口两项一行（规则集整行）
-//   merge + IPv6 关：DNS 项隐藏，因此各减一列
-const ipv6RowClass = computed(() => {
-  const merge = currentConfig.value.mode === 'merge'
-  const v6 = currentConfig.value.ipv6
-  if (!merge) return v6 ? 'grid-cols-2' : 'grid-cols-1'
-  return v6 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'
+// 六列栅格里的跨度规则：
+//   · 融合模式三项同排 → 桌面各 2 列；关闭 IPv6 时只剩两项，各 3 列。
+//   · 切换模式只有两项 IPv6 → 桌面各 3 列；关闭时仅剩一项 3 列，下一项（面板密钥）
+//     自动补到同一行，不会留下整行空白。
+//   · 窄窗口成对排（3 列）；IPv6 关闭时该项占满整行，规则集与外置面板继续成对。
+const ipv6SpanClass = computed(() => {
+  if (!currentConfig.value.ipv6) return 'col-span-6 md:col-span-3'
+  return currentConfig.value.mode === 'merge' ? 'col-span-3 md:col-span-2' : 'col-span-3 md:col-span-3'
 })
+
+const dnsSpanClass = computed(() =>
+  currentConfig.value.mode === 'merge' ? 'col-span-3 md:col-span-2' : 'col-span-3 md:col-span-3'
+)
+
+const ruleSpanClass = computed(() =>
+  currentConfig.value.ipv6 ? 'col-span-3 md:col-span-2' : 'col-span-3 md:col-span-3'
+)
+
+// 外置面板在融合模式下与规则集成对（各 3 列）；切换模式没有规则集，整行显示。
+const uiSpanClass = computed(() =>
+  currentConfig.value.mode === 'merge' ? 'col-span-3 md:col-span-3' : 'col-span-6 md:col-span-3'
+)
+
+// 窄窗口的先后：融合模式要与规则集同排，因此排在面板密钥之前；
+// 切换模式没有规则集，回到「面板密钥 → 外置面板」的原有次序（桌面端两者都保持此序）。
+const uiOrderClass = computed(() =>
+  currentConfig.value.mode === 'merge' ? 'order-4 md:order-6' : 'order-6 md:order-6'
+)
 
 
 // 点击卡片选中
@@ -205,6 +224,13 @@ watch(
 
 // 是否处于自定义模式：自定义模式用「节点列表」替代「订阅列表」
 const isCustomMode = computed(() => currentConfig.value.mode === 'custom')
+
+// 模式分段控件（顶栏）：移动端单独一行，桌面端居中，两处共用同一份选项
+const modeOptions = [
+  { value: 'merge', label: 'subscription.mode_merge' },
+  { value: 'switch', label: 'subscription.mode_switch' },
+  { value: 'custom', label: 'subscription.mode_custom' },
+] as const
 const customNodes = computed<CustomNode[]>(() => currentConfig.value.custom_nodes || [])
 
 // 节点卡片数据：协议展示名在此解析，卡片组件保持纯展示
@@ -701,28 +727,79 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
-    <!-- 顶部操作栏 -->
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <h3 class="text-base font-semibold flex items-center gap-2">
-        <MailOutline class="w-5 h-5 text-accent" />
-        {{ t('subscription.title') }}
-         <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
-           <InformationCircleOutline class="w-4 h-4" />
-         </button>
-      </h3>
-      <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
-        <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
-        <SaveOutline v-else class="w-3.5 h-3.5" />
-        {{ isApplying ? t('subscription.applying_short') : t('subscription.save_and_apply') }}
-      </button>
+    <!-- 顶部操作栏：移动端两行（标题+保存 / 模式切换），桌面端一行且模式切换居中
+         ——与代理页顶栏同一套布局。 -->
+    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all shrink-0 md:h-[56px]">
+      <!-- 移动端：两行 -->
+      <div class="flex md:hidden flex-col w-full gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-base font-semibold flex items-center gap-2 min-w-0">
+            <MailOutline class="w-5 h-5 text-accent" />
+            {{ t('subscription.title') }}
+            <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
+              <HelpCircleOutline class="w-4 h-4" />
+            </button>
+          </h3>
+          <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+            <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
+            <SaveOutline v-else class="w-3.5 h-3.5" />
+            {{ isApplying ? t('subscription.applying_short') : t('subscription.save_and_apply') }}
+          </button>
+        </div>
+        <div class="flex justify-center">
+          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
+            <button
+              v-for="m in modeOptions"
+              :key="m.value"
+              @click="currentConfig.mode = m.value"
+              class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+              :class="currentConfig.mode === m.value ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            >
+              {{ t(m.label) }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 桌面端：一行，模式切换占据标题与保存之间的剩余空间并居中 -->
+      <div class="hidden md:flex items-center justify-between w-full gap-4">
+        <h3 class="text-base font-semibold flex items-center gap-2 shrink-0">
+          <MailOutline class="w-5 h-5 text-accent" />
+          {{ t('subscription.title') }}
+          <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
+            <HelpCircleOutline class="w-4 h-4" />
+          </button>
+        </h3>
+        <div class="flex-1 flex justify-center">
+          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all">
+            <button
+              v-for="m in modeOptions"
+              :key="m.value"
+              @click="currentConfig.mode = m.value"
+              class="px-6 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+              :class="currentConfig.mode === m.value ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+            >
+              {{ t(m.label) }}
+            </button>
+          </div>
+        </div>
+        <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+          <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
+          <SaveOutline v-else class="w-3.5 h-3.5" />
+          {{ isApplying ? t('subscription.applying_short') : t('subscription.save_and_apply') }}
+        </button>
+      </div>
     </div>
 
     <!-- 内容区域内滚动容器 -->
     <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none p-6 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- 端口三件套：桌面与窄窗口都排在同一行（整行占满，不再拆进两列网格）。
+      <!-- 六列栅格：桌面三项同排（各占 2 列）、窄窗口成对排（各占 3 列）。
+           刻意不用嵌套包裹层——关闭某项（如 IPv6 支持）时后续字段会自动补位，
+           不会留一整行空白；行的归属完全由各项的 col-span 决定。 -->
+      <div class="grid grid-cols-6 gap-x-2 gap-y-4 md:gap-x-4">
+        <!-- 端口三件套：桌面与窄窗口都排在同一行（整行占满）。
              窄窗口列宽有限，输入框左右内边距在 sm 以下收紧，避免 5 位端口号被数字调节箭头挤掉。 -->
-        <div class="grid grid-cols-3 gap-2 md:col-span-2 md:order-1">
+        <div class="col-span-6 grid grid-cols-3 gap-2 md:order-1">
           <div class="flex flex-col gap-2">
             <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.proxy_port') }}</label>
             <input type="number" v-model="currentConfig.proxy_port" min="0" max="65535" step="1" class="px-2.5 sm:px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
@@ -744,38 +821,46 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- IPv6 两项 + 规则集（端口之后、面板密钥之前）：
-             桌面一行三项（merge 模式）；窄窗口 IPv6 两项一行、规则集整行。
-             关闭「IPv6 支持」时隐藏 DNS 返回项并把已选值归一为关闭（后端同样强制）。
-             两项都随「保存并应用」重载生效，不是运行时 PATCH。 -->
-        <div class="grid gap-2 md:col-span-2 md:order-2" :class="ipv6RowClass">
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ipv6_label') }}</label>
-            <select v-model="currentConfig.ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-              <option :value="true">{{ t('common.on') }}</option>
-              <option :value="false">{{ t('common.off') }}</option>
-            </select>
-          </div>
-          <div v-if="currentConfig.ipv6" class="flex flex-col gap-2">
-            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.dns_ipv6_label') }}</label>
-            <select v-model="currentConfig.dns_ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-              <option :value="true">{{ t('common.on') }}</option>
-              <option :value="false">{{ t('common.off') }}</option>
-            </select>
-          </div>
-          <!-- 规则集档位：仅融合模式参与生成（切换模式用订阅自带规则）。
-               窄窗口整行、桌面与两个 IPv6 下拉同排。 -->
-          <div v-if="currentConfig.mode === 'merge'" class="col-span-full md:col-span-1 flex flex-col gap-2">
-            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
-            <select v-model="currentConfig.rule_group" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-              <option value="base">{{ t('subscription.rule_group_base') }}</option>
-              <option value="full">{{ t('subscription.rule_group_full') }}</option>
-            </select>
-          </div>
+        <!-- IPv6 支持：总开关。关闭时 DNS 返回项隐藏、值归一为关闭（后端同样强制），
+             该行剩下的空位由后面的规则集/面板密钥自动补上。 -->
+        <div class="flex flex-col gap-2 order-1 md:order-2" :class="ipv6SpanClass">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ipv6_label') }}</label>
+          <select v-model="currentConfig.ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+            <option :value="true">{{ t('common.on') }}</option>
+            <option :value="false">{{ t('common.off') }}</option>
+          </select>
         </div>
 
-        <!-- 面板密钥：IPv6 设置之后、规则集/外置面板之前 -->
-        <div class="flex flex-col gap-2 md:order-3">
+        <!-- DNS 返回 IPv6：仅总开关开启时出现。 -->
+        <div v-if="currentConfig.ipv6" class="flex flex-col gap-2 order-2 md:order-3" :class="dnsSpanClass">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.dns_ipv6_label') }}</label>
+          <select v-model="currentConfig.dns_ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+            <option :value="true">{{ t('common.on') }}</option>
+            <option :value="false">{{ t('common.off') }}</option>
+          </select>
+        </div>
+
+        <!-- 规则集档位：仅融合模式参与生成（切换模式用订阅自带规则）。 -->
+        <div v-if="currentConfig.mode === 'merge'" class="flex flex-col gap-2 order-3 md:order-4" :class="ruleSpanClass">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
+          <select v-model="currentConfig.rule_group" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+            <option value="base">{{ t('subscription.rule_group_base') }}</option>
+            <option value="full">{{ t('subscription.rule_group_full') }}</option>
+          </select>
+        </div>
+
+        <!-- 外置面板：DOM 顺序排在面板密钥之前，窄窗口才能与规则集同排；
+             桌面靠 md:order-6 回到「面板密钥 → 外置面板」的原有次序。 -->
+        <div class="flex flex-col gap-2" :class="[uiSpanClass, uiOrderClass]">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ui_panel') }}</label>
+          <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+            <option value="metacubexd">MetaCubeXD</option>
+            <option value="zashboard">Zashboard</option>
+          </select>
+        </div>
+
+        <!-- 面板密钥 -->
+        <div class="col-span-6 md:col-span-3 flex flex-col gap-2 order-5 md:order-5">
           <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.panel_secret') }}</label>
           <div class="relative flex items-center">
             <input :type="showSecret ? 'text' : 'password'" v-model="currentConfig.panel_secret" class="w-full pl-4 pr-10 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
@@ -786,19 +871,10 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 外置面板（规则集已移到上面一行） -->
-        <div class="flex flex-col gap-2 md:order-4">
-          <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ui_panel') }}</label>
-          <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-            <option value="metacubexd">MetaCubeXD</option>
-            <option value="zashboard">Zashboard</option>
-          </select>
-        </div>
-
         <!-- MetaCubeXD 后端地址：只有 MetaCubeXD 需要，选 Zashboard 时整块不渲染。
              隐藏的只是输入框本身，meta_backend_url 仍留在 currentConfig 里，「保存并应用」
              照常把原内容提交给后端——切来切去不会把已填的地址弄丢。 -->
-        <div v-if="isMetaCubeXd" class="flex flex-col gap-2 md:order-6">
+        <div v-if="isMetaCubeXd" class="col-span-6 md:col-span-3 flex flex-col gap-2 order-7 md:order-7">
           <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.meta_backend_url') }}</label>
           <div class="relative flex items-center">
             <input
@@ -818,44 +894,10 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="relative flex flex-wrap gap-y-3 gap-x-4 items-center justify-between mt-8 mb-4">
-        <h4 class="font-semibold text-base shrink-0 order-1">{{ isCustomMode ? t('subscription.node_list') : t('subscription.subscription_list') }}</h4>
-        <!-- 分段控件居中：
-             · 窄窗口（<lg）：order-3 + w-full 折行独占第二行，按钮组留在第一行右对齐；
-             · 桌面端（lg+）：脱离文档流绝对定位在整行水平/垂直中点（left-1/2 + 双向 -translate-1/2），
-               这样居中的基准是「整行」而不是「标题与按钮之间的剩余空间」，不会因标题或
-               按钮组宽度不同而偏左偏右。
-             居中定位从 lg 起才生效：绝对定位的滑块不占布局空间，行内剩余宽度必须同时容得下
-             滑块与按钮组。滑块加宽后，1024px 以下（尤其侧边栏展开时）两者会互相压字，
-             故该档位退回折行布局——滑块独占一行，任何宽度下都不会重叠。
-             三档模式下内边距从 lg:px-10 收到 lg:px-6：窄屏仍靠折行布局避免重叠。 -->
-        <div class="w-full flex justify-center order-3 lg:order-2 lg:w-auto lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all w-full lg:w-auto">
-            <button
-              @click="currentConfig.mode = 'merge'"
-              class="flex-1 lg:flex-none px-4 lg:px-6 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-              :class="currentConfig.mode === 'merge' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t('subscription.mode_merge') }}
-            </button>
-            <button
-              @click="currentConfig.mode = 'switch'"
-              class="flex-1 lg:flex-none px-4 lg:px-6 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-              :class="currentConfig.mode === 'switch' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t('subscription.mode_switch') }}
-            </button>
-            <button
-              @click="currentConfig.mode = 'custom'"
-              class="flex-1 lg:flex-none px-4 lg:px-6 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-              :class="currentConfig.mode === 'custom' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t('subscription.mode_custom') }}
-            </button>
-          </div>
-        </div>
-        <!-- 操作按钮组：ml-auto 让它在第一行贴右，紧邻标题（窄窗口下滑块折到第二行后仍如此） -->
-        <div class="flex items-center gap-2 ml-auto shrink-0 order-2 lg:order-3">
+      <div class="flex flex-wrap gap-y-3 gap-x-4 items-center justify-between mt-8 mb-4">
+        <h4 class="font-semibold text-base shrink-0">{{ isCustomMode ? t('subscription.node_list') : t('subscription.subscription_list') }}</h4>
+        <!-- 操作按钮组：贴右显示 -->
+        <div class="flex items-center gap-2 ml-auto shrink-0">
           <!-- 自定义规则：融合模式与自定义模式共用同一按钮与同一弹窗（自定义模式固定标准档位） -->
           <button
             v-if="currentConfig.mode === 'merge' || isCustomMode"
