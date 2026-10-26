@@ -21,7 +21,7 @@ graph TD
     B -->|WebSocket: 流量/内存/日志/连接| F
     B -.->|SSE: 内核状态| F
     F -->|Unix Socket（内核默认信任，免密钥）| C[mi鸿蒙 内核]
-    F -->|读写| J[fluxor.json 持久化配置]
+    F -->|读写| J[本地 JSON 配置（settings/rules/tunnels/tproxy/tun…）]
     F -->|生成| Y[config.yaml]
     Y -->|热重载| C
     C -->|nftables / 策略路由| N[系统网络栈]
@@ -54,6 +54,7 @@ fluxor/
 │       ├── configcheck/       # YAML 校验与结构化改写
 │       ├── core/              # 内核进程生命周期 + SSE 状态推送
 │       ├── tproxy/            # TProxy 防火墙与策略路由
+│       ├── tun/               # TUN 运行参数（tun.json）与启停、TUN/TProxy 互斥校验
 │       ├── subscription/      # 订阅拉取、合并、定时器
 │       ├── dashapi/           # 内核 HTTP API 反向代理
 │       ├── wsproxy/           # WebSocket 双向桥接
@@ -112,11 +113,13 @@ sequenceDiagram
 
 ## 配置文件的并发写入
 
-`fluxor.json` 同时承载**订阅配置**与 **TProxy 旁路字段**，由两个不同的包分别写入。为此约定：
+持久化状态按**写入者**拆成 6 个文件（`settings.json` / `rules.json` / `tunnels.json` / `subscription-meta.json` / `tproxy.json` / `tun.json`），每个文件只有一个写入者：
 
-* 所有读写都经**同一把文件锁**；
-* 写入一律走「**读—改—写**」，只合并自己负责的键，绝不整文件覆写；
-* 否则「保存一次订阅配置」会把 TProxy 的绕过列表静默清空。
+* 每个文件一把独立锁，互不阻塞；写入走「读—改—写」，整份原子落盘（临时文件 + `fsync` + `rename` + 目录同步）；
+* 「一个文件一个写入者」从根上消除了「保存订阅配置时把 TProxy 绕过列表清空」这类跨域覆盖；
+* 内容损坏时备份为 `<文件名>.corrupt-<时间戳>` 并**拒绝后续写入**，避免用默认值覆盖现场；
+* `tun.json` 只存 TUN 参数（稀疏、不含 `enable`），TUN 开关本身不落盘；
+* 旧版的单文件 `fluxor.json` 只作为一次性迁移输入，启动时拆分后归档。
 
 ---
 

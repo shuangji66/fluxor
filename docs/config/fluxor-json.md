@@ -16,7 +16,8 @@ Fluxor 的设计核心之一是不引入复杂的数据库系统：所有状态�
 | `rules.json` | 三作用域自定义规则：`merge.<base\|full>`（融合档位）、`custom_mode`（自定义模式）、`subscriptions.<订阅名>`（切换模式） | 自定义规则弹窗的增 / 改 / 排序 / 删 | 需重新添加规则 |
 | `tunnels.json` | 三作用域流量隧道，结构与 `rules.json` 完全对应 | 自定义规则弹窗里的隧道列表 | 需重新添加隧道 |
 | `subscription-meta.json` | 每个订阅的 `updated_at` 与机场元数据（流量 / 到期 / 节点数） | 手动更新、定时更新、启动时的订阅检查 | **可自动重抓** |
-| `tproxy.json` | TProxy 开关与两条绕过列表 | 透明代理卡片里的开关与绕过列表 | 开关回默认、列表回预填模板 |
+| `tproxy.json` | TProxy 三个开关（Enabled / ProxyLocal / IPv6）+ 两条绕过列表 | 透明代理卡片里的开关与高级设置 | 开关回默认、列表回预填模板 |
+| `tun.json` | TUN 运行参数（协议栈 / 设备名 / DNS 处理方式 / IPv6 接管），**稀疏**且**不含 enable** | TUN 高级设置弹窗 | 参数回默认（不影响开关，TUN 开关本就不落盘） |
 
 共同约定：
 
@@ -28,13 +29,13 @@ Fluxor 的设计核心之一是不引入复杂的数据库系统：所有状态�
 | 内容损坏 | 面板会把损坏内容备份为 `<文件名>.corrupt-<时间戳>`，以默认值启动并**停止写入该文件**（避免覆盖现场），修好或删除后重启即可恢复 |
 | 建议 | **面板运行期间不要手工编辑这些文件**，避免覆盖掉正在写入的内容 |
 
-> 旧版本使用单个 `fluxor.json` 保存全部内容。升级后首次启动会自动把它拆分成上述 5 个文件，并把原文件改名为 `fluxor.json.migrated-<时间戳>` 保留（确认无误后可自行删除）。想回滚：停掉面板，把归档文件改回 `fluxor.json` 并删除新生成的 5 个文件即可。
+> 旧版本使用单个 `fluxor.json` 保存全部内容。升级后首次启动会自动把它拆分成上述 6 个文件中的前 5 份（`tun.json` 是后加的参数文件，没有历史数据、不参与迁移），并把原文件改名为 `fluxor.json.migrated-<时间戳>` 保留（确认无误后可自行删除）。想回滚：停掉面板，把归档文件改回 `fluxor.json` 并删除新生成的文件即可。
 
 ---
 
 ## 配置字段格式参考
 
-以下是**全部字段的结构示例**。为便于对照，它们写在同一个 JSON 块里；实际落盘时按上表分散在 5 个文件中（`settings.json` / `rules.json` / `tunnels.json` / `subscription-meta.json` / `tproxy.json`）：
+以下是**全部字段的结构示例**。为便于对照，它们写在同一个 JSON 块里；实际落盘时按上表分散在 6 个文件中（`settings.json` / `rules.json` / `tunnels.json` / `subscription-meta.json` / `tproxy.json` / `tun.json`）：
 
 ```json
 {
@@ -47,6 +48,8 @@ Fluxor 的设计核心之一是不引入复杂的数据库系统：所有状态�
   "meta_backend_url": "",
   "mode": "merge",
   "active_subscription": "",
+  "ipv6": true,
+  "dns_ipv6": true,
   "merge_custom_rules": {
     "base": [
       {
@@ -85,6 +88,10 @@ Fluxor 的设计核心之一是不引入复杂的数据库系统：所有状态�
   "tproxy_dst_exceptions": [],
   "tproxy_src_exceptions": [],
   "tproxy_proxy_local": false,
+  "tun": {
+    "stack": "system",
+    "ipv6": "auto"
+  },
   "subscriptions": [
     {
       "name": "my_airport",
@@ -145,6 +152,8 @@ Fluxor 的设计核心之一是不引入复杂的数据库系统：所有状态�
 * **`meta_backend_url`**：外部面板回连面板后端所用的地址，留空表示使用默认推导值。
 * **`mode`**：订阅加载方式，取值为 `merge`（融合模式）或 `switch`（切换模式）。详见 [订阅工作模式](./subscription-modes)。
 * **`active_subscription`**：当处于切换模式（`switch`）时，当前正在生效并激活的订阅名。
+* **`ipv6`**：**生成期**的 IPv6 总开关，写入 `config.yaml` 顶层 `ipv6`，决定内核自身解析与出站是否使用 IPv6。默认 `true`；改动需点「保存并应用」重载生效。
+* **`dns_ipv6`**：**生成期**设置，写入 `config.yaml` 的 `dns.ipv6`，决定内核 DNS 是否向客户端返回 AAAA。默认 `true`；`ipv6` 为 `false` 时它必然为 `false`（后端强制归一化，避免「内核不用 IPv6、却把 AAAA 交给客户端」）。
 * **`merge_custom_rules`**：**融合模式**的自定义规则，**按规则集档位分开存放**（`base` 标准 / `full` 详细）。两个档位的代理组与规则集完全不同，因此各存一份、各自生效——只有当前 `rule_group` 那一份会写进 `config.yaml`，另一份保持惰性。字段结构与订阅级 `custom_rules` 完全一致（见下方「订阅数组」），由「订阅配置」页的自定义规则弹窗按档位页面维护。
 
 * **`merge_tunnels`**：**融合模式**的流量隧道，**按规则集档位分开存放**（`base` 标准 / `full` 详细），理由与 `merge_custom_rules` 相同——两档的代理组不同，隧道引用的 `proxy` 也各不相同。字段结构见下方「订阅数组」的 `tunnels`；只有当前 `rule_group` 那一份会写进 `config.yaml` 的 `tunnels` 块。
@@ -162,10 +171,25 @@ Fluxor 的设计核心之一是不引入复杂的数据库系统：所有状态�
 | `dst_exceptions` / `src_exceptions` | 对应 `tproxy_dst_exceptions` / `tproxy_src_exceptions`；**与预填模板一致时不会写进文件** |
 
 * **`tproxy_enabled`**：透明富强开关的持久化值。**注意**：nftables 规则不跨重启存活，因此面板每次启动都会把该值**归零**并清理残留规则，确保「面板显示的状态」与「系统实际生效的规则」一致。
+* **默认值**：`enabled` / `proxy_local` / `ipv6` 三个开关**默认全关**；只有用户显式开启才会落盘为 `true`。
+* **`ipv6`**：是否随 TProxy 一起下发 IPv6 家族规则。它还受订阅中心「IPv6 支持」总开关约束：总开关关闭时只跳过规则、不改这里的偏好。
 * **`tproxy_dst_exceptions`** / **`tproxy_src_exceptions`**：目的 / 源绕过列表（字段名沿用历史命名，界面统一叫「绕过」）。
 * **`tproxy_proxy_local`**：是否接管面板主机自身的出站流量（界面上的「接管本机流量」开关）。
 
 > 旧版本曾使用 `tproxy_exceptions` 单一字段，现在会自动迁移到分离的源/目的两个字段。
+
+### TUN 运行参数（`tun.json`）
+
+TUN 的**参数**与**开关**分开存放：参数在这里，开关只活在运行时（不落盘、不回放）。
+
+| 文件中的键 | 默认值 | 说明 |
+|-----------|--------|------|
+| `stack` | `mixed` | TUN 协议栈：`gvisor` / `system` / `mixed` / `mips` |
+| `device` | 空（自动命名） | TUN 设备名，最多 15 个字符 |
+| `dns_mode` | `hijack` | DNS 处理方式：`hijack` / `native` / `disabled` |
+| `ipv6` | `off` | 是否给 TUN 下发 IPv6 地址：`off` / `auto`（按宿主能力，宿主允许给新接口挂 IPv6 才下发） |
+
+**稀疏存储**：只写与默认值不同的键，改回默认即删键；文件里没有 `enable`。`config.yaml` 里的 `tun.enable` 恒为 `false`，TUN 只能由用户在「配置」页手动开启，内核启动/重启或配置重载后会自动关闭。示例中上方 `tun` 块只展示两个非默认键，实际文件里也只有这类键。
 
 ### 订阅数组（`settings.json` 的 `subscriptions` + `subscription-meta.json`）
 
@@ -215,5 +239,7 @@ Fluxor 的设计核心之一是不引入复杂的数据库系统：所有状态�
 |------|--------------|
 | 主题、语言、默认启动页 | 浏览器 `localStorage`（每台设备各自独立） |
 | 代理页的排序方式、延迟阈值、节点过滤正则、自动断开开关 | 浏览器 `localStorage` |
-| 内核的运行参数（端口以外的 allow-lan / ipv6 / mode / TUN 等） | 内核自身的 `config.yaml`，由面板通过内核 API 修改 |
+| 内核的运行时参数（端口以外的 allow-lan / mode 等） | 内核自身的 `config.yaml`，由面板通过内核 API 修改 |
+| TUN 运行参数（协议栈 / 设备名 / DNS 处理 / IPv6 接管） | `tun.json`（见上）；TUN 开关本身**不落盘** |
+| 生成期的 IPv6 设置（IPv6 支持 / DNS 返回 AAAA） | `settings.json`，随「保存并应用」写入 `config.yaml` |
 | 自定义延迟测试 URL | 浏览器 `localStorage` |

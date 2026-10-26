@@ -314,7 +314,7 @@ interface TunSettings {
   ipv6: string
 }
 
-const tunSettings = ref<TunSettings>({ stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'auto' })
+const tunSettings = ref<TunSettings>({ stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'off' })
 const tunHostIPv6 = ref(true)
 
 const fetchTunSettings = async () => {

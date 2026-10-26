@@ -63,7 +63,7 @@ func TestSaveSparse(t *testing.T) {
 		Stack:   "system",
 		Device:  "",
 		DNSMode: "native",
-		IPv6:    "off",
+		IPv6:    "auto", // off 是默认值，只有偏离默认的取值才会落盘
 	}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestSaveSparse(t *testing.T) {
 	if err := json.Unmarshal(raw, &stored); err != nil {
 		t.Fatalf("tun.json 不是合法 JSON: %v", err)
 	}
-	if stored["stack"] != "system" || stored["dns_mode"] != "native" || stored["ipv6"] != "off" {
+	if stored["stack"] != "system" || stored["dns_mode"] != "native" || stored["ipv6"] != "auto" {
 		t.Fatalf("落盘内容 = %v", stored)
 	}
 	if _, ok := stored["device"]; ok {

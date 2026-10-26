@@ -21,7 +21,8 @@
 │   ├── rules.json            # 三作用域自定义规则（融合档位 / 自定义模式 / 各订阅）
 │   ├── tunnels.json          # 三作用域流量隧道（结构同 rules.json）
 │   ├── subscription-meta.json# 各订阅的更新时间与机场元数据（丢失可自动重抓）
-│   ├── tproxy.json           # TProxy 开关与绕过列表（仅用户改过才落盘，见下）
+│   ├── tproxy.json           # TProxy 三个开关与绕过列表（默认全关，仅用户改过才落盘）
+│   ├── tun.json              # TUN 运行参数（协议栈/设备名/DNS 处理/IPv6 接管；不含 enable）
 │   ├── core.pid              # 内核进程的 PID 运行记录文件
 │   ├── fluxor.pid            # 面板自身的 PID 运行记录文件
 │   └── fluxor.log            # 面板自身的运行日志（由后端独占写入，见下）
@@ -38,7 +39,7 @@
 
 > 飞牛 OS 下 `/var/apps/Fluxor/` 内的 `target`、`var`、`etc`、`shares/*` 均为指向 `/vol1/@app*` 的软链接，上表已标注真实落点；两套路径等价，访问哪个都可以。
 >
-> **面板自身的数据集中在运行数据目录**：`settings.json` / `rules.json` / `tunnels.json` / `subscription-meta.json` / `tproxy.json`（配置，见「[配置文件布局](/config/fluxor-json)」）、`fluxor.log`（运行日志），以及默认情况下的 `fluxor.pid`、`core.pid`，都生成在 `FLUXOR_DATA_DIR` 下（飞牛 OS 即上表的 `var` 目录，由应用框架注入的 `TRIM_PKGVAR` 指定）。这四个文件不再支持逐个指定路径，排查问题只需先确认这一个目录。
+> **面板自身的数据集中在运行数据目录**：`settings.json` / `rules.json` / `tunnels.json` / `subscription-meta.json` / `tproxy.json` / `tun.json`（配置，见「[配置文件布局](/config/fluxor-json)」）、`fluxor.log`（运行日志），以及默认情况下的 `fluxor.pid`、`core.pid`，都生成在 `FLUXOR_DATA_DIR` 下（飞牛 OS 即上表的 `var` 目录，由应用框架注入的 `TRIM_PKGVAR` 指定）。这些文件不再支持逐个指定路径，排查问题只需先确认这一个目录。
 >
 > 例外：**OpenWrt 模式下 `fluxor.pid` 与 `core.pid` 固定在 `/var/run/`**（tmpfs），配置文件与 `fluxor.log` 位于 `/etc/fluxor/`。PID 属于纯运行时状态，不该写到 flash 上，因此这两个文件不随 `FLUXOR_DATA_DIR` 变化。
 >
@@ -74,7 +75,7 @@ export CORE_BIN="/var/apps/Fluxor/target/bin/mihomo"
 # 设置fluxor二进制程序的路径
 export FLUXOR_BIN_DIR="/var/apps/Fluxor/target/bin/"
 
-# 设置统一的运行数据目录：配置文件（settings/rules/tunnels/subscription-meta/tproxy）
+# 设置统一的运行数据目录：配置文件（settings/rules/tunnels/subscription-meta/tproxy/tun）
 # 与 fluxor.log 都生成在此
 # 飞牛 OS 下默认取应用框架注入的 TRIM_PKGVAR（即 /var/apps/Fluxor/var）
 export FLUXOR_DATA_DIR="/var/apps/Fluxor/var"
@@ -119,7 +120,7 @@ export CORE_BIN="/etc/fluxor/mihomo"
 # 设置fluxor二进制程序的路径
 export FLUXOR_BIN_DIR="/etc/fluxor/"
 
-# 设置统一的运行数据目录：配置文件（settings/rules/tunnels/subscription-meta/tproxy）
+# 设置统一的运行数据目录：配置文件（settings/rules/tunnels/subscription-meta/tproxy/tun）
 # 与 fluxor.log 都生成在此
 # 注意：OpenWrt 下 fluxor.pid 与 core.pid 固定在 /var/run/，不随本目录变化
 export FLUXOR_DATA_DIR="/etc/fluxor"
@@ -146,7 +147,7 @@ export CONFIG_TARGET="/etc/fluxor/config.yaml"
 
 * **优先级**：环境变量 > 运行模式（`-f` / `-w`）的预设默认值。启动参数 `-a` 指定的监听地址优先级最高。
 * **路径不必全部手动设置**：只要选择了运行模式，未设置的路径会自动套用该模式的默认值。上表之所以逐个列出，是为了便于您按需覆盖。
-* **`FLUXOR_DATA_DIR`（运行数据目录）**：配置文件（`settings.json` 等 5 份，见[配置文件布局](/config/fluxor-json)）与 `fluxor.log` 生成在该目录下；`fluxor.pid` 与 `core.pid` 默认也在该目录下，**但 OpenWrt 模式固定在 `/var/run/`**（PID 属运行时状态，不该写到 flash 上），不受本变量影响。默认值：飞牛 OS 取应用框架注入的 `TRIM_PKGVAR`（未注入时回退 `/var/apps/Fluxor/var`），OpenWrt 为 `/etc/fluxor/`。单独指定这四个文件路径的环境变量（`FLUXOR_PID_FILE`、`CORE_PID_FILE`、`FLUXOR_CONFIG_FILE`、`INFO_LOG_FILE`）已移除。
+* **`FLUXOR_DATA_DIR`（运行数据目录）**：配置文件（`settings.json` 等 6 份，见[配置文件布局](/config/fluxor-json)）与 `fluxor.log` 生成在该目录下；`fluxor.pid` 与 `core.pid` 默认也在该目录下，**但 OpenWrt 模式固定在 `/var/run/`**（PID 属运行时状态，不该写到 flash 上），不受本变量影响。默认值：飞牛 OS 取应用框架注入的 `TRIM_PKGVAR`（未注入时回退 `/var/apps/Fluxor/var`），OpenWrt 为 `/etc/fluxor/`。原用于单独指定这些路径的环境变量（`FLUXOR_PID_FILE`、`CORE_PID_FILE`、`FLUXOR_CONFIG_FILE`、`INFO_LOG_FILE`）已移除。
 * **监听入口至少需要一个**：面板可以通过 Unix Socket（`SOCKET_PATH`）或 TCP 端口（`FLUXOR_ADDR`）对外提供服务，两者至少有一个非空，否则面板无法访问。
   * 飞牛 OS 默认模式：仅监听 Unix Socket，由系统反向代理暴露到 `/app/Fluxor`。
   * OpenWrt 默认模式：监听 `0.0.0.0:18080`，直接以端口访问。

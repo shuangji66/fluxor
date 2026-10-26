@@ -49,9 +49,12 @@ var TunDNSHijack = []string{"any:53", "tcp://any:53"}
 // 刻意只在这两个地方出现：TunBlock 是产物，这里是代码可比较的常量；两者一致性由
 // tun_test.go 的断言保证，避免以后改了一边忘了另一边。
 const (
-	TunDefaultStack    = "mixed"
-	TunDefaultDNSMode  = "hijack"
-	TunDefaultIPv6Mode = TunIPv6Auto
+	TunDefaultStack   = "mixed"
+	TunDefaultDNSMode = "hijack"
+	// 默认不承运 IPv6：与 TunBlock 的 inet6-address: [] 一致。多数订阅节点没有
+	// IPv6 出口，接管后原本可直连的 IPv6 目标会改走代理并可能失败；需要时应由用户
+	// 显式选 auto（跟随宿主能力）。
+	TunDefaultIPv6Mode = TunIPv6Off
 )
 
 // TUN 是否承运 IPv6 的两种取值（tun.json 的 ipv6 字段）。
@@ -62,7 +65,7 @@ const (
 const (
 	// TunIPv6Auto 跟随宿主能力：新建接口允许 IPv6 才下发地址（修复 disable_ipv6 宿主）。
 	TunIPv6Auto = "auto"
-	// TunIPv6Off 不下发地址（IPv6 不走 TUN，可能直连）。
+	// TunIPv6Off 不下发地址（IPv6 不走 TUN，可能直连）。**默认值**。
 	TunIPv6Off = "off"
 )
 

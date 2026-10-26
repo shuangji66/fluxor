@@ -9,7 +9,9 @@
 - **内核管理**：Mihomo 进程的启动、停止、状态查询与配置热重载（不中断长连接）。
 - **订阅中心**：订阅链接的 CRUD 管理；支持**融合模式**（多订阅合并为一份配置）与**切换模式**（按订阅切换，含定时更新与健康检查）；自动生成内核可用的 `config.yaml` 并热重载应用。
 - **实时监控**：基于 WebSocket 中转上传/下载速率、内存占用、内核日志流与连接历史。
-- **透明代理 (TProxy)**：集成 nftables 透明代理与策略路由，支持源/目的例外 IP、端口过滤及本机出站代理开关，退出时自动清退规则。
+- **透明代理 (TProxy)**：集成 nftables 透明代理与策略路由，支持源/目的例外 IP、端口过滤及本机出站代理开关；IPv6 接管在高级设置中单独控制（默认关闭，受订阅中心「IPv6 支持」总开关约束），退出时自动清退规则。
+- **TUN 模式**：虚拟网卡接管系统流量，协议栈 / 设备名 / DNS 处理方式 / IPv6 接管可配（参数存 `tun.json`，开关不落盘、不回放）；与 TProxy 双向互斥，后端兜底校验。
+- **IPv6 生成期设置**：订阅中心统一控制内核自身是否使用 IPv6 与 DNS 是否向客户端返回 AAAA，前者关闭时后者强制关闭。
 - **节点质量评分**：依据内核记录的历史延迟数据，按「延迟 / 稳定性 / 成功率」三项加权给出 0–100 评分。
 - **外部面板集成**：内置 MetaCubeXD 与 Zashboard 静态资源托管，可一键切换。
 
@@ -119,7 +121,7 @@ make V=1.2.3
 
 `SOCKET_PATH`、`BASE_URL`、`FLUXOR_ADDR`、`FLUXOR_DATA_DIR`、`FLUXOR_BIN_DIR`、`CORE_BIN`、`CORE_SOCKET`、`META_DIR`、`ZASH_DIR`、`CONFIG_TARGET`、`CORE_WORK_DIR`
 
-`FLUXOR_DATA_DIR` 是运行数据目录：配置文件（`settings.json` / `rules.json` / `tunnels.json` / `subscription-meta.json` / `tproxy.json`）与 `fluxor.log`（后端全部运行日志）都生成在该目录下；`fluxor.pid` 与 `core.pid` 默认同址，但 openwrt 模式固定在 `/var/run/`（PID 属运行时状态，不写 flash），不受该变量影响。默认值：fnos 取环境变量 `TRIM_PKGVAR`（未注入时回退 `/var/apps/Fluxor/var`），openwrt 为 `/etc/fluxor/`。这四个文件的路径不再支持单独指定。日志等级由 `FLUXOR_LOG_LEVEL` 控制（`debug` / `info` / `warn` / `error`，缺省 `info`）；日志由后端独占写入 `fluxor.log`，启动脚本不应再重定向面板的 stdout/stderr。
+`FLUXOR_DATA_DIR` 是运行数据目录：配置文件（`settings.json` / `rules.json` / `tunnels.json` / `subscription-meta.json` / `tproxy.json` / `tun.json`）与 `fluxor.log`（后端全部运行日志）都生成在该目录下；`fluxor.pid` 与 `core.pid` 默认同址，但 openwrt 模式固定在 `/var/run/`（PID 属运行时状态，不写 flash），不受该变量影响。默认值：fnos 取环境变量 `TRIM_PKGVAR`（未注入时回退 `/var/apps/Fluxor/var`），openwrt 为 `/etc/fluxor/`。以上文件不再支持逐个指定路径（原 `FLUXOR_PID_FILE` / `CORE_PID_FILE` / `FLUXOR_CONFIG_FILE` / `INFO_LOG_FILE` 已移除）。日志等级由 `FLUXOR_LOG_LEVEL` 控制（`debug` / `info` / `warn` / `error`，缺省 `info`）；日志由后端独占写入 `fluxor.log`，启动脚本不应再重定向面板的 stdout/stderr。
 
 ### 默认端口
 
@@ -129,7 +131,7 @@ make V=1.2.3
 | `tproxy_port` | 7898 | TProxy 透明代理端口 |
 | `panel_port` | 9090 | 外部控制面板端口（external-controller） |
 
-配置按类别分为 5 个文件（fnos 模式下位于 `/var/apps/Fluxor/var/`），布局与字段说明见 [docs/config/fluxor-json.md](docs/config/fluxor-json.md)。
+配置按类别分为 6 个文件（fnos 模式下位于 `/var/apps/Fluxor/var/`），布局与字段说明见 [docs/config/fluxor-json.md](docs/config/fluxor-json.md)。
 
 ---
 
@@ -140,7 +142,7 @@ fluxor/
 ├── Makefile          # 统一构建入口
 ├── backend/          # Go 后端（独立 module）
 │   ├── main.go       #   入口：参数解析、路由注册、监听、优雅退出、go:embed
-│   └── internal/     #   按功能域拆分的实现（config/core/tproxy/subscription/…）
+│   └── internal/     #   按功能域拆分的实现（config/configgen/core/tproxy/tun/subscription/…）
 ├── frontend/         # Vue 3 + Vite 前端源码，构建产物内嵌进后端
 └── docs/             # VitePress 文档站
 ```

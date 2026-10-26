@@ -39,7 +39,7 @@ graph LR
 ```
 
 每次您在网页上添加订阅并点击「保存并应用」时：
-1. Fluxor 会将修改存入本地持久化文件 `fluxor.json`。
+1. Fluxor 会将修改按类别存入运行数据目录下的配置文件（`settings.json` / `rules.json` / `tunnels.json` / `tproxy.json` / `tun.json` 等）。
 2. 结合您选择的规则模板与各机场订阅节点，在本地合并生成最终的运行配置文件 `config.yaml`。
 3. 自动向内核发送配置热重载指令，无感更新节点，无需重启内核。
 

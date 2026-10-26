@@ -352,7 +352,7 @@ let activeMockConns = [
 let mockTproxyEnabled = false
 let mockTproxyProxyLocal = false
 let mockTproxyIPv6 = false
-let mockTunSettings = { stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'auto' }
+let mockTunSettings = { stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'off' }
 let mockTproxyDstExceptions = ['# 公共 DNS 服务器', '223.5.5.5', '1.12.12.12']
 let mockTproxySrcExceptions = ['# Docker 默认网段', '172.17.0.0/16']
 
@@ -727,7 +727,7 @@ export function handleMockFetch(path: string, options: RequestInit = {}): Respon
     }
     return reply({
       effective: mockTunSettings,
-      defaults: { stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'auto' },
+      defaults: { stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'off' },
       host_ipv6: true,
       global_ipv6: (mockSubConfig as any).ipv6 !== false,
     })
