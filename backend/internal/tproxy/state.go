@@ -1,6 +1,7 @@
 package tproxy
 
 import (
+	"fluxor/internal/config"
 	"slices"
 	"sync"
 )
@@ -22,6 +23,17 @@ func proxyLocalEnabled() bool {
 	exceptionsMu.RLock()
 	defer exceptionsMu.RUnlock()
 	return tproxyProxyLocal
+}
+
+// globalIPv6Enabled 读取订阅中心的「IPv6 支持」总开关（生成期设置）。
+//
+// 语义分工：`ipv6Enabled()` 是用户「想不想接管」（偏好，持久化在 tproxy.json），
+// 本函数是「能不能接管」（订阅中心的生成期开关）。两者都为真才下发 IPv6 家族规则；
+// 总开关关闭时**只跳过、不改偏好**——总开关恢复后下一次重建规则自动带上 v6。
+func globalIPv6Enabled() bool {
+	config.Mu.RLock()
+	defer config.Mu.RUnlock()
+	return config.Current.IPv6
 }
 
 // ipv6Enabled 读取「接管 IPv6 流量」开关（并发安全）。

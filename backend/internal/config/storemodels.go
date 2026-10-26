@@ -1,6 +1,6 @@
 package config
 
-// 本文件定义「分文件持久化」后的四个磁盘结构体。
+// 本文件定义「分文件持久化」后的磁盘结构体（settings / rules / tunnels / meta / tproxy / tun）。
 //
 // 设计原则：**一个文件只有一个写入者**（见 store.go 的类型注释），因此磁盘结构体按
 // 「谁来写」切分，而不是按字段类型切分：
@@ -10,6 +10,7 @@ package config
 //	tunnels.json           ← 流量隧道接口（三作用域）
 //	subscription-meta.json ← 订阅更新与元数据流程（手动更新 / 定时更新 / 启动 ensure）
 //	tproxy.json            ← TProxy 开关与绕过列表
+//	tun.json               ← TUN 运行参数（tun 包自持；不含 enable，见 TunFile）
 //
 // SubscribeConfig 仍是**对外视图**（HTTP 请求体与响应体、配置生成链路的输入）：
 // 它由各 store 组装而来，规则/隧道/元数据字段都是派生数据，任何写接口都不再信它。
@@ -19,17 +20,36 @@ package config
 // 这里刻意只保留「订阅的身份与拉取参数」，不带规则/隧道/元数据：那三类数据的写入者
 // 完全不同（规则接口、隧道接口、更新流程），放在一起就会重新出现「改一处要写全部」。
 type Settings struct {
-	ProxyPort          int               `json:"proxy_port"`
-	TproxyPort         int               `json:"tproxy_port"`
-	PanelPort          int               `json:"panel_port"`
-	PanelSecret        string            `json:"panel_secret"`
-	RuleGroup          string            `json:"rule_group"`
-	UIPanel            string            `json:"ui_panel"`
-	MetaBackendURL     string            `json:"meta_backend_url"`
-	Mode               string            `json:"mode"`
-	ActiveSubscription string            `json:"active_subscription"`
-	Subscriptions      []SubscriptionRef `json:"subscriptions"`
-	CustomNodes        []CustomNode      `json:"custom_nodes,omitempty"`
+	ProxyPort          int    `json:"proxy_port"`
+	TproxyPort         int    `json:"tproxy_port"`
+	PanelPort          int    `json:"panel_port"`
+	PanelSecret        string `json:"panel_secret"`
+	RuleGroup          string `json:"rule_group"`
+	UIPanel            string `json:"ui_panel"`
+	MetaBackendURL     string `json:"meta_backend_url"`
+	Mode               string `json:"mode"`
+	ActiveSubscription string `json:"active_subscription"`
+	// IPv6 与 DNSIPv6 是生成期字段（写入 config.yaml 的 ipv6 / dns.ipv6）。
+	// 默认值 true 由 newSettingsStore 的 Init 填充（bool 零值为 false，不能靠零值）。
+	IPv6          bool              `json:"ipv6"`
+	DNSIPv6       bool              `json:"dns_ipv6"`
+	Subscriptions []SubscriptionRef `json:"subscriptions"`
+	CustomNodes   []CustomNode      `json:"custom_nodes,omitempty"`
+}
+
+// TunFile 是 tun.json 的内容：TUN 的运行参数（**不含 enable**）。
+//
+// 两条刻意的设计：
+//  1. **稀疏**：只保存与模板默认值（configgen.TunBlock）不同的键，nil 表示「用默认值」。
+//     用户把某项改回默认时该键被删除，从此跟随模板升级；默认值不落盘。
+//  2. **没有 enable**：config.yaml 里的 tun.enable 恒为 false，任何启动都不得自动接管
+//     宿主网络（NAS 上一旦配错就会失联）。开启只通过 /config/tun/state 的运行时 PATCH
+//     完成，内核/面板重启即归零，且**不做回放**。
+type TunFile struct {
+	Stack   *string `json:"stack,omitempty"`
+	Device  *string `json:"device,omitempty"`
+	DNSMode *string `json:"dns_mode,omitempty"`
+	IPv6    *string `json:"ipv6,omitempty"`
 }
 
 // SubscriptionRef 是订阅注册表里的一项：身份（名字）与拉取参数。

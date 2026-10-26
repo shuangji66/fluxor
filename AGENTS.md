@@ -106,7 +106,7 @@ backend/
     │   ├── state.go              #   Current（当前配置快照）+ Mu（读写锁）
     │   ├── paths.go              #   全部运行路径（FluxorDataDir 统一运行数据目录 / Socket / 内核 / 面板等）
     │   ├── modes.go              #   fnos / openwrt 两套默认路径；SetDataDir 由 FluxorDataDir 派生
-    │   │                         #     fluxor.log 与 5 个配置文件（旧 fluxor.json 仅供迁移读取；
+    │   │                         #     fluxor.log 与 6 个配置文件（旧 fluxor.json 仅供迁移读取；
     │   │                         #     PID 文件默认同址，openwrt 经 pidDirPinned 固定到 /var/run）；
     │   │                         #     fnos 默认取 TRIM_PKGVAR，未注入回退 /var/apps/Fluxor/var
     │   ├── name.go               #   订阅名校验与节点文件名清洗（防路径穿越）
@@ -116,7 +116,7 @@ backend/
     │   ├── store.go              #   泛型 Store[T]：一个 JSON 文件 = 一把独立锁 + 一份内存态 + 一个写入者
     │   │                         #     （原子写盘 writeFileAtomic、损坏则备份并拒写）
     │   ├── storemodels.go        #   各文件的磁盘结构：Settings / SubscriptionRef / RulesFile /
-    │   │                         #     TunnelsFile / MetaFile / SubscriptionMeta / TproxyFile
+    │   │                         #     TunnelsFile / MetaFile / SubscriptionMeta / TproxyFile / TunFile
     │   ├── stores.go             #   各文件唯一的读写入口（SaveSettings / UpdateSubscriptionRules /
     │   │                         #     UpdateTemplateRules / SaveSubscriptionMeta …）、视图组装
     │   │                         #     assembleCurrent、孤儿回收 GCResources、改名搬迁 renameResources
@@ -167,6 +167,11 @@ backend/
     │   ├── rules.go              #   规则解析 + nftables 应用/清理（IPv4/IPv6 同构：tproxyFamily）
     │   ├── rules_test.go         #   绕过规则解析/策略路由探测/家族定义的纯函数单测
     │   └── handlers.go           #   /config/tproxy* HTTP 接口
+    ├── tun/                      # TUN 运行参数与启停（见 3.15）
+    │   ├── settings.go           #   tun.json 稀疏持久化（只存与模板默认值不同的键；**不含 enable**）
+    │   │                         #     + 取值归一化与白名单校验（stack / dns-mode / ipv6 / device）
+    │   ├── host.go               #   HostIPv6Available：读 sysctl 判断新建 tun 接口能否挂 IPv6 地址
+    │   └── handlers.go           #   /config/tun（参数）与 /config/tun/state（启停）
     ├── subscription/             # 订阅中心
     │   ├── doc.go                #   包说明
     │   ├── active.go             #   校验 active_subscription 是否为列表真实成员
@@ -357,6 +362,8 @@ func (c *cancelableReadCloser) Close() error {
 | `/config/tproxy/exceptions` | GET/POST | `tproxy.HandleTproxyExceptions` | 获取或配置 TProxy 源/目的绕过列表（GET 一并返回 `defaults` 预填模板，供前端「恢复默认」） |
 | `/config/tproxy/proxy-local` | GET/POST | `tproxy.HandleTproxyProxyLocal` | 获取或切换本机流量接管开关（界面文案「接管本机流量」） |
 | `/config/tproxy/proxy-ipv6` | GET/POST | `tproxy.HandleTproxyProxyIPv6` | 获取或切换「接管 IPv6 流量」开关（默认关闭；启用 TProxy 期间前端置灰） |
+| `/config/tun` | GET/POST | `tun.HandleTunSettings` | TUN 运行参数（stack / device / dns-mode / ipv6）：GET 返回生效值 + 模板默认值 + 宿主 IPv6 能力；POST 为部分更新，稀疏落盘 `tun.json`，**不碰内核、不碰 config.yaml**，下次开启 TUN 时生效 |
+| `/config/tun/state` | POST | `tun.HandleTunState` | 开启/关闭 TUN（唯一入口）：后端组装完整 tun 对象 PATCH 内核；开关状态不落盘、**不回放** |
 | `/ipinfo/local/v4` | GET | `netinfo.HandleLocalIPv4` | 查询本地出站 IPv4 归属信息 |
 | `/ipinfo/local/v6` | GET | `netinfo.HandleLocalIPv6` | 查询本地出站 IPv6 归属信息 |
 | `/ipinfo/proxy/v4` | GET | `netinfo.HandleProxyIPv4` | 查询代理出站 IPv4 归属信息 |
@@ -383,13 +390,14 @@ func (c *cancelableReadCloser) Close() error {
 4. **清理：各项独立探测、存在才删**：`DisableTProxyRules` 不得把策略路由的清理绑在「nft 表存在」的判定之后。`EnableTProxyRules` 先写策略路由（`ip rule` / `ip route`）再建 nft 表，若建表失败就会留下「有策略路由、无 nft 表」的状态；此时若因表不存在而提前返回，策略路由将永远清不掉，把流量导入空路由表 → 持续断网。正确做法是对 nft 表、`fwmark` 规则、`local` 路由**各自探测**（`hasNftTable` / `hasFwmarkRule` / `hasLocalRoute`），**有残留才执行对应删除**——既不漏删，也不对不存在的对象执行 del 而徒增错误。
 5. **状态读写的单一入口**：读取 TProxy 开关状态一律走 `GetTproxyState()`，写入走 `SetTproxyEnabled()`（内存 + 持久化）。禁止直接访问 `tproxyEnableState`——无锁读会构成数据竞争。同理，「接管 IPv6 流量」与「接管本机流量」两个开关的读取分别走 `ipv6Enabled()` / `proxyLocalEnabled()`，禁止在 `rules.go` 里直接读变量。
 6. **失败必须回滚且如实上报**：`EnableTProxyRules` 对每个已启用家族校验三件关键产物是否真实存在——nft 表、`fwmark` 策略路由、策略路由表里的 `local` 路由（缺策略路由会把被标记流量导入黑洞，因此不能只看 nft 表），任一缺失即返回 error；Handler 在失败时回滚开关状态并返回错误，绝不回报 `enabled: true`。同理，改 `tproxy-port` 时只有在开关处于启用态才能重建规则，否则会在开关为「关闭」时被静默装上系统级透明代理规则。
-7. **IPv4 / IPv6 是同构的两套规则，必须同生共死**：两套规则由 `tproxyFamily` 参数化（家族/表名/地址关键字/集合类型/`ip` 家族参数/默认路由/绕过网段），启用时按 `ipv6Enabled()` 裁剪，**清理时必须两个家族都探测**（不按开关裁剪，否则关掉开关后再也清不掉上一次遗留的 ip6 规则）。IPv6 绕过网段必须含 `ff00::/8`——DHCPv6 的 UDP 547 目的地址是 `ff02::1:2`，漏掉会把它劫持。绕过条目按家族分流下发（网段绕过进对应家族，端口绕过两个家族都下发），未开启 IPv6 时 IPv6 绕过条目必须逐条记日志说明「未下发」，不得静默丢弃。`ip6` 家族 nat 链（NAT66）在老内核/老 nft 上可能不可用，此时只跳过该家族的 DNS 重定向并记日志，不让整次启用失败。
+7. **IPv6 家族还要过「IPv6 支持」总开关**：是否下发 ip6 规则由 `effectiveIPv6Takeover(ipv6Enabled(), globalIPv6Enabled())` 决定——用户偏好（`tproxy.json`）与订阅中心的生成期开关必须同时为真。总开关关闭时**只跳过、不改偏好**，恢复后下一次重建规则自动带上 v6；开关开着但总开关关闭时记一条 WARN，避免「界面显示已接管、实际没下发」。
+8. **IPv4 / IPv6 是同构的两套规则，必须同生共死**：两套规则由 `tproxyFamily` 参数化（家族/表名/地址关键字/集合类型/`ip` 家族参数/默认路由/绕过网段），启用时按 `ipv6Enabled()` 裁剪，**清理时必须两个家族都探测**（不按开关裁剪，否则关掉开关后再也清不掉上一次遗留的 ip6 规则）。IPv6 绕过网段必须含 `ff00::/8`——DHCPv6 的 UDP 547 目的地址是 `ff02::1:2`，漏掉会把它劫持。绕过条目按家族分流下发（网段绕过进对应家族，端口绕过两个家族都下发），未开启 IPv6 时 IPv6 绕过条目必须逐条记日志说明「未下发」，不得静默丢弃。`ip6` 家族 nat 链（NAT66）在老内核/老 nft 上可能不可用，此时只跳过该家族的 DNS 重定向并记日志，不让整次启用失败。
 
 ### 3.5 配置文件布局与写入规约（多文件，取代旧的单文件 `fluxor.json`）
 
 历史上全部持久化状态挤在一个 `fluxor.json` 里，由 `config` 与 `tproxy` 两个包各自「读整文件—改—写整文件」，共用一把全局锁。由此产生四个问题：**写放大**（改一条规则要重写整份，含所有订阅的机场元数据与预填模板）、**全量阻塞**（一把锁串行化两个功能域）、**损坏半径 100%**（解析失败时以空 map 为基底继续写，会把别人的字段一并清空）、**非原子写盘**（裸 `os.WriteFile` 会留下半截文件）。
 
-现在按**写入者**拆成 5 个文件（都在 `FLUXOR_DATA_DIR` 下，路径由 `config.SetDataDir` 派生）：
+现在按**写入者**拆成 6 个文件（都在 `FLUXOR_DATA_DIR` 下，路径由 `config.SetDataDir` 派生；`tun.json` 由 `tun` 包自持）：
 
 | 文件 | 内容 | 唯一写入者 | 写入 API |
 |------|------|-----------|----------|
@@ -398,8 +406,9 @@ func (c *cancelableReadCloser) Close() error {
 | `tunnels.json` | 三作用域流量隧道（结构同 rules.json） | 流量隧道接口 | `config.UpdateSubscriptionTunnels` / `config.UpdateTemplateTunnels` |
 | `subscription-meta.json` | 每订阅 `updated_at` + `subscription_info`（机场元数据） | 更新与元数据流程（手动/定时更新、启动 ensure） | `config.SaveSubscriptionMeta` |
 | `tproxy.json` | TProxy 三个开关 + 两条绕过列表 | `tproxy` 包（用自己的 `config.Store`） | `tproxy.SaveTproxy*` |
+| `tun.json` | TUN 运行参数（stack / device / dns-mode / ipv6），**稀疏**（只存与 `configgen.TunBlock` 不同的键）；**不含 enable** | `tun` 包（用自己的 `config.Store`） | `tun.Save` |
 
-旧的 `fluxor.json` 只作为**一次性迁移的输入**：启动时 `config.MigrateLegacyFiles()` 把它拆成上述 5 个文件并改名为 `fluxor.json.migrated-<时间戳>`。幂等判据不是「settings.json 是否存在」（它是五份里第一个被写的，从第二个起失败就会让整段迁移被永久跳过、未迁移的类别再也读不到），而是一个显式的 `fluxor.json.migrating` 标记：写文件前落标记，五份全部写成才归档旧文件并删标记；中途失败则下次启动读到标记后**只补写缺失的那几份**（已写成的保持原样，不覆盖用户其后的改动）。新布局已存在且无标记时旧文件被忽略（不会出现两套真相）。
+旧的 `fluxor.json` 只作为**一次性迁移的输入**：启动时 `config.MigrateLegacyFiles()` 把它拆成上述五个由旧文件派生的文件（`tun.json` 没有历史数据，不参与迁移）并改名为 `fluxor.json.migrated-<时间戳>`。幂等判据不是「settings.json 是否存在」（它是五份里第一个被写的，从第二个起失败就会让整段迁移被永久跳过、未迁移的类别再也读不到），而是一个显式的 `fluxor.json.migrating` 标记：写文件前落标记，五份全部写成才归档旧文件并删标记；中途失败则下次启动读到标记后**只补写缺失的那几份**（已写成的保持原样，不覆盖用户其后的改动）。新布局已存在且无标记时旧文件被忽略（不会出现两套真相）。
 
 实现载体是 `config.Store[T]`（`internal/config/store.go`）。写代码时必须遵守：
 
@@ -577,7 +586,7 @@ logx.Error(logx.ModuleCore, "failed to start mihomo %s: %v", config.CoreBin, err
 2. **禁止外部重定向**：启动脚本不应再把面板的 stdout/stderr 重定向到日志文件，否则日志被拆成两份（后端一份、重定向一份），而两份的位置与内容都不保证一致。脚本自身的 `log_msg`（如 Starting process…）应另择落点或指向同一个 `fluxor.log` 由后端独占写入——两者不可同时写。
 3. **记录格式**：`2006-01-02 15:04:05.000 LEVEL [MODULE] message`——本地时间戳（毫秒）、等级（`DEBUG`/`INFO`/`WARN`/`ERROR`）、大功能模块标记、正文。等级由 `FLUXOR_LOG_LEVEL` 控制（debug/info/warn/error，缺省 info）。
 4. **正文一律英文**，变量内联（`%q` 名字、`%d` 数量、`%v` 错误，优先 `key=value`），单行输出（format 里**不要**带 `\n`）；注释仍保持中文。新增文案不要写成两行——需要多行时拆成多条记录。
-5. **模块标记只用 `logx.Module*` 常量**，粒度对齐后端功能域，不按文件细分：`MAIN`（进程/监听/信号）、`CONFIG`（fluxor.json 持久化）、`CORE`（内核生命周期与状态推送）、`SUB`（订阅下载/更新/元数据/定时器）、`GEN`（config.yaml 生成）、`RULE`（自定义规则注入）、`TUNNEL`（流量隧道注入）、`API`（内核 HTTP 反向代理）、`WS`（WebSocket 桥接）、`TPROXY`（防火墙与策略路由）、`NET`、`DELAY`、`QUALITY`、`UPDATE`、`WEB`。新增功能域先在本包登记常量，禁止手写字符串（否则 `grep '\[CORE\]'` 会漏）。
+5. **模块标记只用 `logx.Module*` 常量**，粒度对齐后端功能域，不按文件细分：`MAIN`（进程/监听/信号）、`CONFIG`（fluxor.json 持久化）、`CORE`（内核生命周期与状态推送）、`SUB`（订阅下载/更新/元数据/定时器）、`GEN`（config.yaml 生成）、`RULE`（自定义规则注入）、`TUNNEL`（流量隧道注入）、`API`（内核 HTTP 反向代理）、`WS`（WebSocket 桥接）、`TPROXY`（防火墙与策略路由）、`TUN`（TUN 参数与启停）、`NET`、`DELAY`、`QUALITY`、`UPDATE`、`WEB`。新增功能域先在本包登记常量，禁止手写字符串（否则 `grep '\[CORE\]'` 会漏）。
 6. **等级语义**（改日志时按此判级，不要一律 Info）：
    - `DEBUG` 内部步骤与正常路径细节：缓存命中、跳过未启用项、定时器启停、条目按家族分流；
    - `INFO` 有意义的状态变化：内核启动/停止、配置生成与热重载、订阅更新完成、规则与隧道落库生效、面板启停；
@@ -600,6 +609,24 @@ logx.Error(logx.ModuleCore, "failed to start mihomo %s: %v", config.CoreBin, err
 > `Origin` 缺失（脚本 / curl 这类非浏览器客户端）一律放行：它们不受跨站请求伪造影响，拦下只会妨碍调试。`Origin: null`（沙箱 iframe / file://）解析出的主机名为空，会被拒绝。
 >
 > 排查提示：升级失败会记一条 ERROR 并带 `origin=` 与 `host=`（`wsproxy/handler.go`），内核侧拨号失败记 DEBUG（`FLUXOR_LOG_LEVEL=debug` 可见）。这两条日志把「前端没连上 / 来源被拒 / 内核侧连不上」三种情况区分开——此前该路径完全静默，是「WS 没内容」难查的主因。
+
+### 3.15 TUN 运行参数与安全规约（`configgen.TunBlock` + `tun` 包）
+
+在 NAS / 软路由上，TUN 是**会改宿主网络**的高风险功能：一旦开机自动接管且配置有误，面板与机器都可能失联。因此 TUN 的设计围绕「永不自启动、参数与开关分离」展开：
+
+1. **config.yaml 里的 tun 块是静态安全基线**（`configgen.TunBlock`，三条链路共用：模板 / 切换模式的订阅文件副本 / 无订阅兜底 `GenerateBaseConfig`）。它恒为 `enable: false`、`inet6-address: []`，不承载任何用户偏好。
+   - 必须保留这份基线而不是省略：mihomo 的 `DefaultRawConfig` 会给 tun 填上 `stack: gvisor`、`dns-hijack: 0.0.0.0:53`、**`inet6-address: fdfe:dcba:9876::1/126`**（`config/config.go`），任何「只发 `{enable:true}`」的 PATCH 都会继承它们；宿主 `net.ipv6.conf.default.disable_ipv6=1` 时下发 IPv6 地址会以 EACCES 失败，整只 TUN 起不来（报成 `configure tun interface: permission denied`）。
+   - 切换模式下机场自带的 `tun` 块必须**整块替换**（订阅里的 device / auto-route / enable 与宿主无关）。
+2. **用户偏好存 `tun.json`，稀疏**：只写与 `TunBlock` 不同的键（`tun.Save` 用 `sparseString` 对比默认值，相同即删键），**不含 `enable`**。默认值不落盘，因此以后改模板默认值能自动惠及没改过的用户。
+3. **开关状态只活在运行时，且不回放**：`/config/tun/state` 是唯一入口。内核启动、配置重载（`PUT /configs` 重新解析 config.yaml）、面板重启之后 TUN 必然关闭——用户需要重新开启；前端必须常驻提示「重载/重启后自动关闭」，这不是错误。
+   - 反过来，**任何配置重载（含订阅定时更新）都会拆掉正在运行的 TUN**，这是策略而非缺陷，不要为了"体验"加回放。
+4. **开启时必须 PATCH 完整 tun 对象**：`tun.runtimeConfig` 会带上 stack / dns-mode / inet6-address / dns-hijack / auto-route / auto-redirect / auto-detect-interface（以及非空时的 device）。理由同第 1 条——mihomo 的 `patchConfigs` 以 `listener.LastTunConf`（基线）为基底，只发 `enable` 会让用户设置全部静默失效。
+5. **改参数不碰 config.yaml、不重载**：`POST /config/tun` 只落 `tun.json`，参数在**下次开启 TUN** 时生效；界面改参数时若 TUN 正在运行，要提示「重新开启后生效」。
+6. **IPv6 接管三档**（`tun.json` 的 `ipv6`）：`auto`（默认，按宿主能力：`/proc/sys/net/ipv6/conf/{default,all}/disable_ipv6` 与 `/sys/module/ipv6/parameters/disable` 全为 0 才下发地址）/ `on`（强制；宿主不支持时接口层直接 400 并给 sysctl 提示）/ `off`。全局 `ipv6`（订阅中心的生成期开关）关闭时，开启 TUN 一律不下发 IPv6 地址。
+7. **`dns-mode` 三档**（透传内核）：`hijack`（默认）/ `native` / `disabled`。两个平台事实：Linux 的 hijack 依赖 `auto-redirect` 的 nft 链（基线里恒为 true）；`native` 只调用 `resolvectl`，无 systemd-resolved 的平台（OpenWrt 等）上等于空操作。该键需要 mihomo ≥ v1.19.33，老内核会忽略它（行为回落到隐式 hijack）。
+8. **与 TProxy 互斥**：开启 TUN 时后端校验 `tproxy.GetTproxyState()`，前端只负责先关 TProxy；两者同时生效会互相破坏对方的流量路径。
+9. **IPv6 接管受总开关约束（单向门）**：订阅中心的「IPv6 支持」关闭时，TUN 不下载 v6 地址、TProxy 不下发 ip6 规则，但两处的**偏好值原样保留**（`tun.json` / `tproxy.json` 一个字节都不改），总开关恢复后自动重新生效。UI 只做置灰与说明，不替用户改写偏好；`/config/tun` 与 `/config/tproxy/proxy-ipv6` 的 GET 都返回 `global_ipv6` 供前端判断。
+10. **两套 IPv6 概念不要混淆**：订阅中心的「IPv6 支持」（`ipv6`）与「DNS 返回 AAAA」（`dns.ipv6`）是**生成期**字段（前者关闭时后者强制关闭，见 `config.NormalizeIPv6Flags`）；TUN 的「IPv6 接管」只决定 `tun.inet6-address`。配置页不再有 IPv6 开关（它原先只 PATCH 内核运行时、重启即失效）。
 
 为了保障页面切换时的流畅交互体验，并避免在后台静置运行时产生资源泄漏：
 

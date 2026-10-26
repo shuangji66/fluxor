@@ -6,8 +6,6 @@ import (
 	"fluxor/internal/configgen"
 	"fmt"
 	"os"
-
-	"gopkg.in/yaml.v3"
 )
 
 // patchSubscriptionFile 修改订阅节点文件，注入 Fluxor 必需的端口/密钥/DNS 字段。
@@ -46,7 +44,7 @@ func patchSubscriptionFile(filePath string, cfg config.SubscribeConfig) error {
 		{"external-controller-unix", config.CoreSocket},
 		{"secret", cfg.PanelSecret},
 		{"allow-lan", true},
-		{"ipv6", true},
+		{"ipv6", cfg.IPv6},
 		{"unified-delay", true},
 		{"geodata-mode", false},
 		{"routing-mark", 255},
@@ -65,12 +63,23 @@ func patchSubscriptionFile(filePath string, cfg config.SubscribeConfig) error {
 		}
 	}
 
-	// 替换 DNS 块为 Fluxor 的统一配置
-	dnsNode, err := parseDNSBlock()
+	// 替换 DNS 块为 Fluxor 的统一配置（dns.ipv6 按设置覆盖：订阅自带的取值不作数）
+	dnsNode, err := configgen.ParseDNSBlock(cfg.DNSIPv6)
 	if err != nil {
 		return err
 	}
 	doc.SetNode("dns", dnsNode)
+
+	// TUN 块整块替换成 Fluxor 的静态安全基线。
+	//
+	// 不能只在缺失时补：机场自带的 tun 块与宿主无关（device、auto-route、甚至
+	// enable: true 都可能出现），那会把 NAS 拖进一个由订阅决定的网络状态。
+	// 用户偏好存在 tun.json，只在开启 TUN 时 PATCH，不进生成产物。
+	tunNode, err := configgen.ParseTunBlock()
+	if err != nil {
+		return err
+	}
+	doc.SetNode("tun", tunNode)
 
 	// 顶层键序归一（标量键在前、块按固定顺序排）：上面注入的键若订阅里原本没有，Set
 	// 只会追加到文件末尾——也就是排在 rules 之后；机场文件自身的块序也各不相同。
@@ -94,17 +103,3 @@ func uiPath(uiPanel string) string {
 }
 
 const zashboardUIRL = "https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"
-
-// parseDNSBlock 把 configgen 的 DNS 块解析为 YAML 节点。
-func parseDNSBlock() (*yaml.Node, error) {
-	var wrapper struct {
-		DNS yaml.Node `yaml:"dns"`
-	}
-	if err := yaml.Unmarshal([]byte(configgen.DnsBlock), &wrapper); err != nil {
-		return nil, fmt.Errorf("解析 DNS 块失败: %w", err)
-	}
-	if wrapper.DNS.Kind == 0 {
-		return nil, fmt.Errorf("解析 DNS 块失败: 未得到 dns 节点")
-	}
-	return &wrapper.DNS, nil
-}

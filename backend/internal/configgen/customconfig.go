@@ -48,7 +48,7 @@ func GenerateCustomConfig(cfg config.SubscribeConfig) error {
 		return err
 	}
 
-	if err := applyDNSBlock(doc); err != nil {
+	if err := applyDNSBlock(doc, cfg.DNSIPv6); err != nil {
 		return err
 	}
 

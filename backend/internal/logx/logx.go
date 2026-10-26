@@ -34,6 +34,7 @@ const (
 	ModuleAPI     = "API"     // 内核 HTTP API 反向代理
 	ModuleWS      = "WS"      // WebSocket 桥接
 	ModuleTproxy  = "TPROXY"  // 防火墙与策略路由
+	ModuleTun     = "TUN"     // TUN 运行参数与启停
 	ModuleNet     = "NET"     // 网络信息查询
 	ModuleDelay   = "DELAY"   // 连通延迟测试
 	ModuleQuality = "QUALITY" // 节点质量评分

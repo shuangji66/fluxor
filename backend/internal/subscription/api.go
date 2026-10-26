@@ -31,13 +31,16 @@ func HandleSubscribeConfigAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case http.MethodPost:
-		var newConfig config.SubscribeConfig
+		// 先预置默认值再解码：IPv6 两个开关是 bool，无法区分「没传」与「显式 false」，
+		// 不预置的话漏传就会被当成「关闭 IPv6」。
+		newConfig := config.DefaultSubscribeConfig()
 		if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
 			httpx.WriteJSONError(w, http.StatusBadRequest, "无效的请求格式: "+err.Error())
 			return
 		}
 		// 模式与档位先归一化再落库：落一个不存在的取值进 settings.json 之后，
 		// 生成链路、定时器启停会各自走进「既不是 A 也不是 B」的分支，行为无从预期。
+		config.NormalizeIPv6Flags(&newConfig)
 		mode, err := config.NormalizeMode(newConfig.Mode)
 		if err != nil {
 			httpx.WriteJSONError(w, http.StatusBadRequest, err.Error())

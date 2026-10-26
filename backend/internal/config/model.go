@@ -4,16 +4,26 @@ import "strings"
 
 // SubscribeConfig 订阅配置结构体
 type SubscribeConfig struct {
-	ProxyPort          int            `json:"proxy_port"`
-	TproxyPort         int            `json:"tproxy_port"`
-	PanelPort          int            `json:"panel_port"`
-	PanelSecret        string         `json:"panel_secret"`
-	RuleGroup          string         `json:"rule_group"`
-	UIPanel            string         `json:"ui_panel"`
-	MetaBackendURL     string         `json:"meta_backend_url"`
-	Mode               string         `json:"mode"`
-	ActiveSubscription string         `json:"active_subscription"`
-	Subscriptions      []Subscription `json:"subscriptions"`
+	ProxyPort          int    `json:"proxy_port"`
+	TproxyPort         int    `json:"tproxy_port"`
+	PanelPort          int    `json:"panel_port"`
+	PanelSecret        string `json:"panel_secret"`
+	RuleGroup          string `json:"rule_group"`
+	UIPanel            string `json:"ui_panel"`
+	MetaBackendURL     string `json:"meta_backend_url"`
+	Mode               string `json:"mode"`
+	ActiveSubscription string `json:"active_subscription"`
+	// IPv6 顶层开关：写入 config.yaml 的 ipv6，决定内核自身解析/出站是否使用 IPv6。
+	//
+	// 这是**生成期字段**（改它必须重新生成并重载），与配置页里那个只 PATCH 内核的
+	// 「IPv6 出站」开关不是同一件事——后者已移除，统一在订阅中心设置。
+	IPv6 bool `json:"ipv6"`
+	// DNSIPv6 DNS 是否向客户端返回 AAAA（写入 dns.ipv6）。
+	//
+	// 受 IPv6 约束：IPv6 关闭时本项必然为 false（服务端归一化），否则会出现
+	// 「内核不用 IPv6、却把 AAAA 交给客户端」的分裂状态。
+	DNSIPv6       bool           `json:"dns_ipv6"`
+	Subscriptions []Subscription `json:"subscriptions"`
 	// CustomNodes 自定义模式下手工添加的节点。
 	//
 	// 只在 Mode == ModeCustom 时参与配置生成：节点被拼成 config.yaml 的 proxies 块，
@@ -41,6 +51,25 @@ type SubscribeConfig struct {
 	// 分开的理由与 CustomModeRules 相同：该模式可选的 proxy 里额外包含手工节点名。
 	CustomModeTunnels []Tunnel `json:"custom_mode_tunnels,omitempty"`
 	DeletePhysical    []string `json:"delete_physical,omitempty"`
+}
+
+// DefaultSubscribeConfig 返回设置视图的默认值，供 HTTP 层在 JSON 解码**之前**预置。
+//
+// 两个 IPv6 开关都是 bool，无法区分「请求体里没这个键」与「显式传 false」：
+// 不预置的话，旧客户端/手工 curl 漏传就会被当成「关闭 IPv6」。其余布尔型设置
+// 日后新增时也应加到这里。
+func DefaultSubscribeConfig() SubscribeConfig {
+	return SubscribeConfig{IPv6: true, DNSIPv6: true}
+}
+
+// NormalizeIPv6Flags 归一化「IPv6 总开关 × DNS AAAA」这一对取值。
+//
+// 不允许出现「IPv6 关闭、却仍向客户端返回 AAAA」的分裂状态：那会让客户端拿到
+// 内核自己都不使用的地址，只能走直连。IPv6 关闭时 DNS 一律不返回 AAAA。
+func NormalizeIPv6Flags(c *SubscribeConfig) {
+	if !c.IPv6 {
+		c.DNSIPv6 = false
+	}
 }
 
 // 订阅中心支持的三种模式（SubscribeConfig.Mode 的取值）。

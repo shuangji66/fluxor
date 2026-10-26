@@ -15,6 +15,7 @@ import (
 	"fluxor/internal/quality"
 	"fluxor/internal/subscription"
 	"fluxor/internal/tproxy"
+	"fluxor/internal/tun"
 	"fluxor/internal/web"
 	"fluxor/internal/wsproxy"
 	"fmt"
@@ -206,6 +207,9 @@ func main() {
 	config.LoadAll()
 	subscription.StartAllTimers()
 	tproxy.LoadTproxyState()
+	// TUN 运行参数（tun.json）。注意这里**只载入用户偏好**，不会开启 TUN：
+	// config.yaml 里 tun.enable 恒为 false，TUN 只能由用户手动开启且不做回放。
+	tun.Load()
 	// 冷启动收敛：把开关状态归零并清除可能残留的 nft/策略路由规则，
 	// 避免上次非优雅退出后出现「面板显示关闭、流量仍被劫持」的错配。
 	tproxy.ResetOnStartup()
@@ -411,6 +415,9 @@ func main() {
 	mux.HandleFunc(config.BaseURL+"/config/tproxy/exceptions", tproxy.HandleTproxyExceptions)
 	mux.HandleFunc(config.BaseURL+"/config/tproxy/proxy-local", tproxy.HandleTproxyProxyLocal)
 	mux.HandleFunc(config.BaseURL+"/config/tproxy/proxy-ipv6", tproxy.HandleTproxyProxyIPv6)
+	// TUN 运行参数与启停：参数只落 tun.json（稀疏），开启时才组装完整对象 PATCH 内核。
+	mux.HandleFunc(config.BaseURL+"/config/tun", tun.HandleTunSettings)
+	mux.HandleFunc(config.BaseURL+"/config/tun/state", tun.HandleTunState)
 
 	mux.HandleFunc(config.BaseURL+"/ipinfo/local/v4", netinfo.HandleLocalIPv4)
 	mux.HandleFunc(config.BaseURL+"/ipinfo/local/v6", netinfo.HandleLocalIPv6)

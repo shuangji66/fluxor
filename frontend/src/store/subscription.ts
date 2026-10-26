@@ -160,6 +160,10 @@ export interface SubscriptionConfigData {
   meta_backend_url: string
   mode: string
   active_subscription: string
+  // IPv6 总开关与 DNS 返回 AAAA：生成期字段，写入 config.yaml 的 ipv6 / dns.ipv6。
+  // 后端会归一化「IPv6 关闭 ⇒ AAAA 关闭」，前端同时做联动以保持界面一致。
+  ipv6: boolean
+  dns_ipv6: boolean
   // 融合模式按规则集档位存放的自定义规则。
   //
   // 与订阅级规则一样由后端持有（rules.json），只用于展示；保存请求不再提交它
@@ -194,6 +198,8 @@ export interface SettingsPayload {
   meta_backend_url: string
   mode: string
   active_subscription: string
+  ipv6: boolean
+  dns_ipv6: boolean
   subscriptions: SettingsSubscription[]
   custom_nodes: CustomNode[]
   delete_physical?: string[]
@@ -224,6 +230,8 @@ export const buildSettingsPayload = (cfg: SubscriptionConfigData, deletePhysical
   meta_backend_url: cfg.meta_backend_url,
   mode: cfg.mode,
   active_subscription: cfg.active_subscription,
+  ipv6: cfg.ipv6,
+  dns_ipv6: cfg.dns_ipv6,
   custom_nodes: cfg.custom_nodes || [],
   subscriptions: (cfg.subscriptions || []).map(sub => ({
     name: sub.name,
@@ -245,6 +253,8 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     ui_panel: 'metacubexd',
     meta_backend_url: '',
     mode: 'merge',
+    ipv6: true,
+    dns_ipv6: true,
     active_subscription: '', 
     subscriptions: [],
     custom_nodes: [],
@@ -307,6 +317,9 @@ export const useSubscriptionStore = defineStore('subscription', () => {
             meta_backend_url: cfg.meta_backend_url || '',
             mode: cfg.mode || 'merge',
             active_subscription: cfg.active_subscription || '',
+            // 老版本后端没有这两个字段：缺省按「开启」处理，避免升级瞬间被当成关闭
+            ipv6: cfg.ipv6 !== false,
+            dns_ipv6: cfg.dns_ipv6 !== false,
             tproxy_port: cfg.tproxy_port ?? 7898,
             custom_nodes: cfg.custom_nodes || [],
             subscriptions: subs.map((s: any) => {

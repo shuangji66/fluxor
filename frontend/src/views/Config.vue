@@ -84,6 +84,9 @@ const tproxyProxyLocalLoaded = ref(false)
 // 二者都只在 TProxy 开关行下方展示，且启用 TProxy 期间均置灰不可改。
 const tproxyIPv6 = ref(false)
 const tproxyIPv6Loaded = ref(false)
+// 订阅中心的「IPv6 支持」总开关（生成期设置）。关闭时 TUN / TProxy 的 IPv6 接管
+// 偏好照旧保存，但**不会生效**；这里只用于把控件置灰并说明原因。
+const globalIPv6 = ref(true)
 
 // 打开 TUN 高级设置弹窗：弹窗内两项均为实时修改，无需预设值，
 // 仅确保网卡列表已加载
@@ -115,6 +118,7 @@ const fetchTproxyIPv6 = async () => {
     if (resp.ok) {
       const data = await resp.json()
       tproxyIPv6.value = data.enabled
+      if (typeof data.global_ipv6 === 'boolean') globalIPv6.value = data.global_ipv6
       tproxyIPv6Loaded.value = true
     }
   } catch (e) {
@@ -122,7 +126,7 @@ const fetchTproxyIPv6 = async () => {
   }
 }
 
-// 打开 TProxy 绕过列表弹窗：同时取回绕过列表本体与后端预填内容（供「恢复默认」用）
+// 打开 TProxy 高级设置弹窗（IPv6 接管 + 绕过列表）：同时取回绕过列表本体与后端预填内容（供「恢复默认」用）
 const openTproxyExceptionsDialog = async () => {
   if (configStore.tproxyEnabled) {
     globalStore.showToast(t('config.tproxy_exceptions_disabled_message'), 'warning')
@@ -225,10 +229,6 @@ const toggleAllowLan = () => {
   patchConfig({ 'allow-lan': configs.value['allow-lan'] })
 }
 
-const toggleIPv6 = () => {
-  patchConfig({ ipv6: configs.value.ipv6 })
-}
-
 const changeMode = () => {
   patchConfig({ mode: configs.value.mode })
 }
@@ -299,21 +299,83 @@ const savePorts = async (e?: Event) => {
   }
 }
 
-const saveTun = async (e?: Event) => {
-  if (e && e.type === 'keyup' && e.target instanceof HTMLElement) {
-    e.target.blur()
-    return
+// ---------- TUN 运行参数（tun.json）与启停 ----------
+//
+// TUN 的「参数」与「开关」是两套东西：
+//   - 参数（stack / device / dns-mode / ipv6）落 tun.json（稀疏存储），**只在下次开启时生效**；
+//   - 开关（enable）是纯运行时状态：不落盘、不回放。config.yaml 里的 tun.enable 恒为
+//     false（NAS 安全策略），任何重载/重启都会关闭 TUN，需要用户重新手动开启。
+// 所以这里拆成三个调用：saveTunSettings 只落参数、setTunEnabled 只动内核、
+// fetchTunSettings 读生效值与宿主 IPv6 能力。
+interface TunSettings {
+  stack: string
+  device: string
+  dns_mode: string
+  ipv6: string
+}
+
+const tunSettings = ref<TunSettings>({ stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'auto' })
+const tunHostIPv6 = ref(true)
+
+const fetchTunSettings = async () => {
+  try {
+    const resp = await apiFetch('/config/tun')
+    if (!resp.ok) return
+    const data = await resp.json()
+    tunSettings.value = data.effective
+    tunHostIPv6.value = !!data.host_ipv6
+    if (typeof data.global_ipv6 === 'boolean') globalIPv6.value = data.global_ipv6
+  } catch (e) {
+    console.error('获取 TUN 设置失败:', e)
   }
-  const isTunEnabled = configs.value.tun.enable
-  // 互斥：开启 TUN 时自动关闭 TProxy。
-  //
-  // 必须先关 TProxy 再开 TUN，且必须调用后端：后端仍会把 TProxy 判定为启用，
-  // 只改本地开关会让「TProxy 绕过列表弹窗禁用」「端口只读」等逻辑基于错误状态
-  // 工作（此前正是如此）。先关后开也避免两者同时生效的窗口。
-  if (isTunEnabled && configStore.tproxyEnabled) {
-    await disableTproxyOnBackend()
+}
+
+const saveTunSettings = async (patch: Partial<TunSettings>): Promise<boolean> => {
+  try {
+    const resp = await apiFetch('/config/tun', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch)
+    })
+    if (!resp.ok) {
+      globalStore.showToast(`${t('common.operation_failed')}: ${await readErrorMessage(resp)}`, 'error')
+      // 失败时回读服务端：下拉框已经用 v-model 改成本地值，不回读会留下一个
+      // 「看起来改过、实际没保存」的选项（例如宿主不支持 IPv6 时选了强制开启）。
+      await fetchTunSettings()
+      return false
+    }
+    const data = await resp.json()
+    tunSettings.value = data.effective
+    tunHostIPv6.value = !!data.host_ipv6
+    if (typeof data.global_ipv6 === 'boolean') globalIPv6.value = data.global_ipv6
+    // 参数只在开启 TUN 时下发；正在运行就先提示，避免用户以为已经生效
+    if (configs.value.tun.enable) {
+      globalStore.showToast(t('config.tun_setting_next_enable'), 'warning')
+    }
+    return true
+  } catch (e) {
+    globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
+    await fetchTunSettings()
+    return false
   }
-  await patchConfig({ tun: configs.value.tun })
+}
+
+const setTunEnabled = async (enable: boolean): Promise<boolean> => {
+  try {
+    const resp = await apiFetch('/config/tun/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enable })
+    })
+    if (!resp.ok) {
+      globalStore.showToast(`${t('common.operation_failed')}: ${await readErrorMessage(resp)}`, 'error')
+      return false
+    }
+    return true
+  } catch (e) {
+    globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
+    return false
+  }
 }
 
 // disableTproxyOnBackend 通知后端关闭 TProxy，并同步本地开关。
@@ -345,10 +407,10 @@ const toggleTProxy = async (enable: boolean) => {
       configStore.tproxyEnabled = false
       return
     }
-    // 互斥：如果 TUN 开启，关闭 TUN
+    // 互斥：如果 TUN 开启，关闭 TUN（走 /config/tun/state，不落盘、不回放）
     if (configs.value.tun.enable) {
-      configs.value.tun.enable = false
-      await patchConfig({ tun: configs.value.tun })
+      await setTunEnabled(false)
+      await fetchConfigs(false, true)
     }
   }
 
@@ -713,7 +775,11 @@ const handleTproxyIPv6Toggle = async (newVal: boolean) => {
 // TProxy 开启时该开关被锁定（切换会重建正被 TProxy 持有的 nft 规则）。
 // 此时点击不改变值，只说明原因——与「绕过设置齿轮」同一套交互。
 const onTproxyIPv6Blocked = () => {
-  globalStore.showToast(t('config.tproxy_ipv6_readonly_warning'), 'warning')
+  // 两种置灰原因：TProxy 正在接管（需先关开关）、订阅中心关闭了 IPv6 支持。
+  const message = configStore.tproxyEnabled
+    ? t('config.tproxy_ipv6_readonly_warning')
+    : t('config.tproxy_ipv6_global_disabled_hint')
+  globalStore.showToast(message, 'warning')
 }
 
 // persistTproxyIPv6 写入 IPv6 接管开关并同步本地状态
@@ -741,23 +807,28 @@ const persistTproxyIPv6 = async (enabled: boolean) => {
 }
 
 // 处理 TUN 开关切换（开启时弹窗确认）
+//
+// 开关由后端组装**完整**的 tun 对象再 PATCH 内核（stack/dns-mode/IPv6 都来自 tun.json），
+// 前端只发 {enable}。成功后静默回读内核状态——失败时后端的错误已弹过 toast，
+// 界面不能被本地乐观值留在「看起来开了」的状态。
 const handleTunToggle = async (newVal: boolean) => {
   if (newVal) {
-    // 尝试开启 -> 弹窗警告
     const confirmed = await globalStore.showConfirm({
       title: t('common.warning'),
       message: t('config.tun_enable_warning'),
       type: 'warning'
     })
-    if (confirmed) {
-      configs.value.tun.enable = true
-      saveTun() // 内部处理互斥并 patch 后端
+    if (!confirmed) return
+    // 互斥：开启 TUN 时先关 TProxy（后端也会校验，这里只是让顺序确定）
+    if (configStore.tproxyEnabled) {
+      await disableTproxyOnBackend()
     }
-    // 取消则保持原值（false）
-  } else {
-    // 关闭直接生效
-    configs.value.tun.enable = false
-    saveTun()
+  }
+
+  const ok = await setTunEnabled(newVal)
+  await fetchConfigs(false, true)
+  if (ok && newVal) {
+    globalStore.showToast(t('config.tun_enabled_toast'), 'success')
   }
 }
 
@@ -769,6 +840,7 @@ onMounted(async () => {
   fetchInterfaces()
   fetchTproxyProxyLocal()
   fetchTproxyIPv6()
+  fetchTunSettings()
 })
 
 // 本页的 configs 来自启动时的那一次 GET /configs（onMounted 只拉网卡与两个 TProxy 开关），
@@ -784,6 +856,9 @@ onActivated(async () => {
   await Promise.all([
     fetchConfigs(true, true),
     configStore.refreshTproxyState(),
+    // IPv6 总开关可能在订阅中心改过：TUN/TProxy 两个控件的置灰状态依赖它
+    fetchTproxyIPv6(),
+    fetchTunSettings(),
   ])
 })
 
@@ -848,11 +923,6 @@ onActivated(async () => {
           <div class="flex items-center justify-between">
             <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.allow_lan') }}</label>
             <FormSwitch v-model="configs['allow-lan']" @update:model-value="toggleAllowLan" />
-          </div>
-
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.ipv6_toggle') }}</label>
-            <FormSwitch v-model="configs.ipv6" @update:model-value="toggleIPv6" />
           </div>
 
           <div class="flex flex-col gap-1.5">
@@ -947,7 +1017,7 @@ onActivated(async () => {
           </h4>
 
           <!-- TUN 模式。齿轮按钮与「启用 TProxy」一致：点击打开高级设置弹窗，
-               弹窗内为 TUN 设备名与出口网卡（实时修改）。 -->
+               弹窗内为 TUN 设备名 / 出口网卡 / DNS 处理 / IPv6 接管。 -->
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.tun_enable') }}</label>
@@ -961,14 +1031,17 @@ onActivated(async () => {
             </div>
             <FormSwitch :model-value="configs.tun.enable" @update:model-value="handleTunToggle"/>
           </div>
+          <!-- TUN 是纯运行时状态：重载/重启后必然关闭，需用户重新开启。
+               这条提示是设计的一部分（NAS 上不允许自动接管宿主网络），不是错误。 -->
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">{{ t('config.tun_runtime_only_hint') }}</p>
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tun_stack') }}</label>
-            <select v-model="configs.tun.stack" @change="saveTun"
+            <select v-model="tunSettings.stack" @change="saveTunSettings({ stack: tunSettings.stack })"
               class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-              <option value="gVisor">gVisor</option>
-              <option value="System">System</option>
-              <option value="Mixed">Mixed</option>
-              <option value="Mips">Mips</option>
+              <option value="gvisor">gVisor</option>
+              <option value="system">System</option>
+              <option value="mixed">Mixed</option>
+              <option value="mips">Mips</option>
             </select>
           </div>
 
@@ -1016,29 +1089,6 @@ onActivated(async () => {
             />
           </div>
 
-          <!-- 接管 IPv6 流量（默认关闭）。
-               与「接管本机流量」同一套交互：开启先二次确认（见
-               handleTproxyIPv6Toggle），TProxy 启用期间置灰并在悬停/点击时说明原因。
-               该开关只决定 IPv6 家族（nft ip6 表 + `ip -6` 策略路由）是否随
-               TProxy 一起下发，不影响 IPv4 侧的任何行为。 -->
-          <div class="flex items-center justify-between">
-            <label
-              class="text-xs font-semibold cursor-help"
-              :class="configStore.tproxyEnabled ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-300'"
-              :title="t('config.tproxy_ipv6_hint')"
-            >
-              {{ t('config.tproxy_ipv6_label') }}
-            </label>
-            <div v-if="!tproxyIPv6Loaded" class="w-7 h-4 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
-            <FormSwitch
-              v-else
-              :model-value="tproxyIPv6"
-              :disabled="configStore.tproxyEnabled"
-              :disabled-hint="t('config.tproxy_ipv6_readonly_warning')"
-              @update:model-value="handleTproxyIPv6Toggle"
-              @blocked="onTproxyIPv6Blocked"
-            />
-          </div>
         </div>
 
         <!-- 4. 运维控制（始终显示） -->
@@ -1242,9 +1292,37 @@ onActivated(async () => {
           </button>
         </div>
 
-        <!-- 可滚动内容区域：占据剩余空间，超出时滚动 -->
-        <div class="flex-1 min-h-0 overflow-y-auto">
+        <!-- 可滚动内容区域：占据剩余空间，超出时滚动。
+             pr-2 给滚动条留位：滚动条是覆盖式绘制，不留白会压住输入框右边缘。 -->
+        <div class="flex-1 min-h-0 overflow-y-auto pr-2">
           <div class="space-y-4">
+            <!-- IPv6 接管（置于弹窗顶部：它决定 ip6 家族规则是否随 TProxy 下发）。
+                 开关即时生效（与下方文本的「保存」无关）；TProxy 启用期间或订阅中心
+                 关闭「IPv6 支持」时置灰，偏好保留不改写。 -->
+            <div class="pb-3 border-b border-slate-100 dark:border-slate-800/60">
+              <div class="flex items-center justify-between gap-3">
+                <label
+                  class="text-xs font-semibold cursor-help"
+                  :class="configStore.tproxyEnabled || !globalIPv6 ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-300'"
+                  :title="t('config.tproxy_ipv6_hint')"
+                >
+                  {{ t('config.tproxy_ipv6_label') }}
+                </label>
+                <div v-if="!tproxyIPv6Loaded" class="w-7 h-4 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
+                <FormSwitch
+                  v-else
+                  :model-value="tproxyIPv6"
+                  :disabled="configStore.tproxyEnabled || !globalIPv6"
+                  :disabled-hint="configStore.tproxyEnabled ? t('config.tproxy_ipv6_readonly_warning') : t('config.tproxy_ipv6_global_disabled_hint')"
+                  @update:model-value="handleTproxyIPv6Toggle"
+                  @blocked="onTproxyIPv6Blocked"
+                />
+              </div>
+              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                {{ globalIPv6 ? t('config.tproxy_ipv6_hint') : t('config.tproxy_ipv6_global_disabled_hint') }}
+              </p>
+            </div>
+
             <!-- 目的绕过 -->
             <div>
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
@@ -1297,24 +1375,25 @@ onActivated(async () => {
           <h4 class="text-lg font-bold">{{ t('config.tun_advanced_title') }}</h4>
         </div>
 
-        <div class="flex-1 min-h-0 overflow-y-auto">
+        <!-- pr-2 给滚动条留位：覆盖式滚动条会压住输入框右边缘。 -->
+        <div class="flex-1 min-h-0 overflow-y-auto pr-2">
           <div class="space-y-4">
-            <!-- TUN 设备名（失焦/回车即时写回） -->
+            <!-- TUN 设备名（失焦/回车写回 tun.json，下次开启 TUN 生效） -->
             <div class="flex flex-col gap-1">
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                 {{ t('config.tun_device') }}
               </label>
               <input
                 type="text"
-                v-model="configs.tun.device"
-                @blur="saveTun"
-                @keyup.enter="saveTun"
+                v-model="tunSettings.device"
+                @blur="saveTunSettings({ device: tunSettings.device })"
+                @keyup.enter="saveTunSettings({ device: tunSettings.device })"
                 :placeholder="t('config.interface_name_placeholder')"
                 class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
               />
             </div>
 
-            <!-- 出口网卡（选择即写回） -->
+            <!-- 出口网卡（选择即写回；这是内核顶层字段，与 TUN 参数不同，仍是运行时 PATCH） -->
             <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
               <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                 {{ t('config.interface_name') }}
@@ -1331,10 +1410,52 @@ onActivated(async () => {
                 {{ t('config.tun_advanced_interface_hint') }}
               </p>
             </div>
+
+            <!-- DNS 处理方式（tun.dns-mode） -->
+            <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                {{ t('config.tun_dns_mode') }}
+              </label>
+              <select
+                v-model="tunSettings.dns_mode"
+                @change="saveTunSettings({ dns_mode: tunSettings.dns_mode })"
+                class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
+              >
+                <option value="hijack">{{ t('config.tun_dns_mode_hijack') }}</option>
+                <option value="native">{{ t('config.tun_dns_mode_native') }}</option>
+                <option value="disabled">{{ t('config.tun_dns_mode_disabled') }}</option>
+              </select>
+              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                {{ t('config.tun_dns_mode_hint') }}
+              </p>
+            </div>
+
+            <!-- IPv6 接管（tun.inet6-address） -->
+            <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                {{ t('config.tun_ipv6_mode') }}
+              </label>
+              <select
+                v-model="tunSettings.ipv6"
+                @change="saveTunSettings({ ipv6: tunSettings.ipv6 })"
+                :disabled="!globalIPv6"
+                class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="auto">{{ t('config.tun_ipv6_auto') }}</option>
+                <option value="on">{{ t('config.tun_ipv6_on') }}</option>
+                <option value="off">{{ t('config.tun_ipv6_off') }}</option>
+              </select>
+              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                {{ !globalIPv6 ? t('config.tun_ipv6_global_disabled') : (tunHostIPv6 ? t('config.tun_ipv6_host_ok') : t('config.tun_ipv6_host_disabled')) }}
+              </p>
+              <p class="text-[11px] text-slate-400 dark:text-slate-500">
+                {{ t('config.tun_ipv6_hint') }}
+              </p>
+            </div>
           </div>
         </div>
 
-        <!-- 仅关闭按钮：修改实时生效，无需保存 -->
+        <!-- 仅关闭按钮：参数只在下次开启 TUN 时生效，无需"保存" -->
         <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800/60 flex-shrink-0">
           <button @click="showTunAdvancedDialog = false" class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
             {{ t('common.close') }}

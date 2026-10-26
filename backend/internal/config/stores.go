@@ -70,6 +70,10 @@ func newSettingsStore() *Store[Settings] {
 		v.Mode = ModeMerge
 		v.RuleGroup = RuleGroupBase
 		v.UIPanel = "metacubexd"
+		// IPv6 两个开关默认开启（与模板历史行为一致）。bool 的零值是 false，
+		// 不能靠 Normalize 区分「缺失」与「显式关闭」，只能在读盘前预置。
+		v.IPv6 = true
+		v.DNSIPv6 = true
 	})
 	s.Normalize = func(v *Settings) {
 		// 读盘后修容器与非必填字符串（JSON 里可能显式写成 null / ""）
@@ -87,6 +91,11 @@ func newSettingsStore() *Store[Settings] {
 		}
 		if v.UIPanel == "" {
 			v.UIPanel = "metacubexd"
+		}
+		// 分裂状态（IPv6 关闭却仍返回 AAAA）在写入口已归一化，读盘时再兜一次，
+		// 防止手改 settings.json 留下自相矛盾的组合。
+		if !v.IPv6 {
+			v.DNSIPv6 = false
 		}
 	}
 	return s
@@ -151,6 +160,8 @@ func assembleCurrent() {
 		cfg.MetaBackendURL = s.MetaBackendURL
 		cfg.Mode = s.Mode
 		cfg.ActiveSubscription = s.ActiveSubscription
+		cfg.IPv6 = s.IPv6
+		cfg.DNSIPv6 = s.DNSIPv6
 		cfg.CustomNodes = copyCustomNodes(s.CustomNodes)
 		cfg.Subscriptions = make([]Subscription, 0, len(s.Subscriptions))
 		for _, ref := range s.Subscriptions {
@@ -212,8 +223,14 @@ func SaveSettings(view SubscribeConfig) error {
 		MetaBackendURL:     view.MetaBackendURL,
 		Mode:               view.Mode,
 		ActiveSubscription: view.ActiveSubscription,
+		IPv6:               view.IPv6,
+		DNSIPv6:            view.DNSIPv6,
 		Subscriptions:      make([]SubscriptionRef, 0, len(view.Subscriptions)),
 		CustomNodes:        copyCustomNodes(view.CustomNodes),
+	}
+	// 写入口归一化：IPv6 关闭时不允许 DNS 继续返回 AAAA（见 NormalizeIPv6Flags）。
+	if !next.IPv6 {
+		next.DNSIPv6 = false
 	}
 	for _, sub := range view.Subscriptions {
 		next.Subscriptions = append(next.Subscriptions, SubscriptionRef{

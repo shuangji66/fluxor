@@ -21,6 +21,8 @@ const mockSubConfig = {
   panel_port: 9090,
   panel_secret: 'secret123',
   rule_group: 'base',
+  ipv6: true,
+  dns_ipv6: true,
   ui_panel: 'metacubexd',
   meta_backend_url: '',
   tproxy_port: 7893,
@@ -55,6 +57,7 @@ const mockSubConfig = {
 const MOCK_SETTINGS_KEYS = [
   'proxy_port', 'tproxy_port', 'panel_port', 'panel_secret', 'rule_group',
   'ui_panel', 'meta_backend_url', 'mode', 'active_subscription', 'custom_nodes',
+  'ipv6', 'dns_ipv6',
 ] as const
 
 // 订阅注册表项（settings.json 里的 subscriptions[]）：规则/隧道/元数据都不在其中
@@ -349,6 +352,7 @@ let activeMockConns = [
 let mockTproxyEnabled = false
 let mockTproxyProxyLocal = true
 let mockTproxyIPv6 = false
+let mockTunSettings = { stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'auto' }
 let mockTproxyDstExceptions = ['# 公共 DNS 服务器', '223.5.5.5', '1.12.12.12']
 let mockTproxySrcExceptions = ['# Docker 默认网段', '172.17.0.0/16']
 
@@ -694,7 +698,8 @@ export function handleMockFetch(path: string, options: RequestInit = {}): Respon
       const body = JSON.parse(options.body as string || '{}')
       mockTproxyIPv6 = !!body.enabled
     }
-    return reply({ enabled: mockTproxyIPv6 })
+    // global_ipv6：订阅中心的 IPv6 总开关，关闭时接管偏好仍保留但不生效
+    return reply({ enabled: mockTproxyIPv6, global_ipv6: (mockSubConfig as any).ipv6 !== false })
   }
   if (cleanPath.endsWith('/config/tproxy')) {
     if (method === 'POST') {
@@ -707,6 +712,25 @@ export function handleMockFetch(path: string, options: RequestInit = {}): Respon
       mockTproxyEnabled = enable
     }
     return reply({ enabled: mockTproxyEnabled })
+  }
+
+  // TUN 参数与启停（与后端语义一致：参数只落 tun.json，开关只 PATCH 内核）
+  if (cleanPath.endsWith('/config/tun/state')) {
+    const body = JSON.parse(options.body as string || '{}')
+    mockConfigs.tun.enable = !!body.enable
+    return reply({ status: 'ok', enable: !!body.enable })
+  }
+  if (cleanPath.endsWith('/config/tun')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}')
+      mockTunSettings = { ...mockTunSettings, ...body }
+    }
+    return reply({
+      effective: mockTunSettings,
+      defaults: { stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'auto' },
+      host_ipv6: true,
+      global_ipv6: (mockSubConfig as any).ipv6 !== false,
+    })
   }
 
   if (cleanPath.endsWith('/configs')) {

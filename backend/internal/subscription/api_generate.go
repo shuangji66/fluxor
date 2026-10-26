@@ -77,10 +77,12 @@ func HandleGenerateConfig(w http.ResponseWriter, r *http.Request) {
 // 校验全部前移到落库之前：非法取值一旦写进 settings.json，生成链路与定时器会各自走进
 // 「既不是 A 也不是 B」的分支，用户在界面上看到的仍是旧值，排查时无从下手。
 func decodeSettingsRequest(r *http.Request) (config.SubscribeConfig, error) {
-	var req config.SubscribeConfig
+	// 与 /subscribe/config 一致：先预置默认值，避免漏传的 bool 被当作 false。
+	req := config.DefaultSubscribeConfig()
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return req, fmt.Errorf("无效的请求格式: %w", err)
 	}
+	config.NormalizeIPv6Flags(&req)
 
 	mode, err := config.NormalizeMode(req.Mode)
 	if err != nil {

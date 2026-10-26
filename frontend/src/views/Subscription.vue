@@ -12,6 +12,7 @@ import {
   type SubscriptionInfo,
   type CustomNode,
 } from '../store/subscription'
+import FormSwitch from '../components/FormSwitch.vue'
 import CustomRulesDialog from '../components/CustomRulesDialog.vue'
 import CustomNodeDialog from '../components/CustomNodeDialog.vue'
 import CustomNodeCard from '../components/CustomNodeCard.vue'
@@ -169,6 +170,19 @@ const nameHint = computed(() =>
 // 显隐只作用于渲染：meta_backend_url 始终留在 currentConfig 中，
 // 「保存并应用」照常提交原内容，来回切换面板不会把已填地址弄丢。
 const isMetaCubeXd = computed(() => currentConfig.value.ui_panel === 'metacubexd')
+
+// IPv6 两个开关是**生成期字段**（写入 config.yaml 的 ipv6 / dns.ipv6），
+// 改动随「保存并应用」落盘并重载内核生效；不是运行时 PATCH。
+// 约束：IPv6 总开关关闭时 DNS 必然不返回 AAAA（后端也会归一化），前端同步联动，
+// 避免出现「界面显示 AAAA 开着、实际没有」。
+const onIPv6Toggle = (value: boolean) => {
+  currentConfig.value.ipv6 = value
+  if (!value) currentConfig.value.dns_ipv6 = false
+}
+
+const onDNSIPv6Toggle = (value: boolean) => {
+  currentConfig.value.dns_ipv6 = value
+}
 // 点击卡片选中
 const selectSubscription = (name: string) => {
     if (currentConfig.value.mode === 'switch') {
@@ -721,6 +735,33 @@ onUnmounted(() => {
               @input="onTproxyPortInput"
               :placeholder="t('config.port_disabled_hint')"
               class="px-2.5 sm:px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none"
+            />
+          </div>
+        </div>
+        <!-- IPv6 相关：生成期设置，写入 config.yaml 的 ipv6 / dns.ipv6，
+             随「保存并应用」重载生效（不是运行时 PATCH）。 -->
+        <div class="md:col-span-2 md:order-8 flex flex-col gap-3 p-3 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/60 dark:bg-slate-800/30">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ipv6_label') }}</label>
+              <span class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">{{ t('subscription.ipv6_hint') }}</span>
+            </div>
+            <FormSwitch :model-value="currentConfig.ipv6" @update:model-value="onIPv6Toggle" />
+          </div>
+          <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-xs font-medium" :class="currentConfig.ipv6 ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'">
+                {{ t('subscription.dns_ipv6_label') }}
+              </label>
+              <span class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
+                {{ currentConfig.ipv6 ? t('subscription.dns_ipv6_hint') : t('subscription.dns_ipv6_disabled_hint') }}
+              </span>
+            </div>
+            <FormSwitch
+              :model-value="currentConfig.dns_ipv6"
+              :disabled="!currentConfig.ipv6"
+              :disabled-hint="t('subscription.dns_ipv6_disabled_hint')"
+              @update:model-value="onDNSIPv6Toggle"
             />
           </div>
         </div>

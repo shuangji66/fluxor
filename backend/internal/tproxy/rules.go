@@ -203,7 +203,7 @@ func isV6Net(n *net.IPNet) bool {
 // 通用日志，用户根本看不出「绕过没生效」——静默失效正是必须消除的行为。
 func warnSkippedV6Exceptions(dst, src []string) {
 	logSkipped := func(kind, rule string) {
-		logx.Warn(logx.ModuleTproxy, "ipv6 %s bypass entry not applied: rule=%q (IPv6 tproxy is disabled)", kind, rule)
+		logx.Warn(logx.ModuleTproxy, "ipv6 %s bypass entry not applied: rule=%q (IPv6 tproxy is not applied)", kind, rule)
 	}
 	for _, rule := range dst {
 		rule = stripComment(rule)
@@ -238,6 +238,17 @@ func runCmd(name string, args ...string) error {
 	return nil
 }
 
+// effectiveIPv6Takeover 决定本次是否下发 IPv6 家族规则。
+//
+//   - preference 是用户「接管 IPv6 流量」开关（想不想）；
+//   - global 是订阅中心「IPv6 支持」总开关（能不能）。
+//
+// 两者必须同时为真。总开关关闭时只跳过规则、不写回 preference，因此用户不必在
+// 关掉总开关后重新勾一遍；反过来也不允许子开关把总开关带开。
+func effectiveIPv6Takeover(preference, global bool) bool {
+	return preference && global
+}
+
 // EnableTProxyRules 配置策略路由与 nftables 规则。
 //
 // IPv4 恒下发；IPv6 仅在「接管 IPv6 流量」开关打开时下发（默认关闭）：节点多数
@@ -250,10 +261,15 @@ func EnableTProxyRules(port int) error {
 	dst := dstExceptions()
 	src := srcExceptions()
 
+	// IPv6 家族：偏好与「IPv6 支持」总开关必须同时为真。
+	// 总开关关闭时只跳过、不修改偏好（tproxy.json 原样保留），恢复后下次重建自动生效。
 	families := []tproxyFamily{tproxyFamilyV4}
-	if ipv6Enabled() {
+	if effectiveIPv6Takeover(ipv6Enabled(), globalIPv6Enabled()) {
 		families = append(families, tproxyFamilyV6)
 	} else {
+		if ipv6Enabled() {
+			logx.Warn(logx.ModuleTproxy, "ipv6 tproxy takeover skipped: IPv6 support is disabled in subscriptions")
+		}
 		warnSkippedV6Exceptions(dst, src)
 	}
 

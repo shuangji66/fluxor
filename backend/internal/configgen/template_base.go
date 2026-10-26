@@ -1,9 +1,13 @@
 package configgen
 
+// configTemplate 是融合模式 / 自定义模式的基础骨架。
+//
+// 其中不写 ipv6：它属于生成期设置（config.IPv6），由 applyFluxorFields 统一写入，
+// 避免「模板与设置两处真相」。tun 块同理，见 TunBlock——它是静态安全基线，
+// 不承载用户偏好。
 const configTemplate = `mixed-port:
 tproxy-port:
 allow-lan: true
-ipv6: true
 bind-address: '*'
 mode: rule
 log-level: silent
@@ -34,18 +38,7 @@ sniffer:
       ports: [443, 8443]
   skip-domain:
     - "+.push.apple.com"
-
-tun:
-  enable: false
-  stack: mixed
-  inet6_address: 'fdfe:dcba:9876::1/126'
-  dns-hijack:
-    - "any:53"
-    - "tcp://any:53"
-  auto-route: true
-  auto-redirect: true
-  auto-detect-interface: true
-
+` + TunBlock + `
 geodata-mode: false
 geo-auto-update: true
 geo-update-interval: 24

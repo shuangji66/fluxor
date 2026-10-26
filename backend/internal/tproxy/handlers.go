@@ -187,7 +187,12 @@ func HandleTproxyProxyLocal(w http.ResponseWriter, r *http.Request) {
 func HandleTproxyProxyIPv6(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		httpx.RespondJSON(w, http.StatusOK, map[string]bool{"enabled": ipv6Enabled()})
+		// global_ipv6 是订阅中心的「IPv6 支持」总开关：它关闭时 enabled（偏好）仍然
+		// 如实返回，但规则不会下发——前端据此置灰并说明"当前不生效"。
+		httpx.RespondJSON(w, http.StatusOK, map[string]bool{
+			"enabled":     ipv6Enabled(),
+			"global_ipv6": globalIPv6Enabled(),
+		})
 	case http.MethodPost:
 		var req struct{ Enabled bool }
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

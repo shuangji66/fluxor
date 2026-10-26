@@ -54,7 +54,7 @@ func GenerateConfig(cfg config.SubscribeConfig) error {
 	}
 
 	// 替换 DNS 块
-	if err := applyDNSBlock(doc); err != nil {
+	if err := applyDNSBlock(doc, cfg.DNSIPv6); err != nil {
 		return err
 	}
 
@@ -78,6 +78,7 @@ func GenerateBaseConfig(cfg config.SubscribeConfig) error {
 		{"allow-lan", true},
 		{"mode", "rule"},
 		{"log-level", "silent"},
+		{"ipv6", cfg.IPv6},
 		{"external-controller-unix", config.CoreSocket},
 		{"external-controller", fmt.Sprintf("0.0.0.0:%d", cfg.PanelPort)},
 		{"external-ui", uiPath(cfg.UIPanel)},
@@ -100,6 +101,15 @@ func GenerateBaseConfig(cfg config.SubscribeConfig) error {
 			return fmt.Errorf("写入字段 %s 失败: %w", f.key, err)
 		}
 	}
+
+	// TUN 基线：无订阅的兜底配置同样要带上。缺了它内核会退回 DefaultRawConfig 的
+	// tun 默认值（含 fdfe:dcba:9876::1/126），从第三方面板开 TUN 会直接踩回
+	// 「disable_ipv6 宿主 + EACCES」那个坑。
+	tunNode, err := ParseTunBlock()
+	if err != nil {
+		return err
+	}
+	doc.SetNode("tun", tunNode)
 
 	// 流量隧道：无订阅的兜底配置同样要下发（融合模式删掉全部订阅后，隧道不该无声消失）。
 	// 只取融合模式当前档位那一份——切换模式下隧道挂在订阅上，没有订阅就没有作用域。
@@ -145,6 +155,9 @@ func applyFluxorFields(doc *configcheck.Doc, cfg config.SubscribeConfig) error {
 		{"external-controller-unix", config.CoreSocket},
 		{"secret", cfg.PanelSecret},
 		{"external-ui", uiPath(cfg.UIPanel)},
+		// IPv6 总开关：生成期设置（订阅中心），决定内核自身解析/出站是否使用 IPv6。
+		// 模板里不写这个键，避免与设置两处真相。
+		{"ipv6", cfg.IPv6},
 	}
 	if cfg.UIPanel == "zashboard" {
 		fields = append(fields, struct {
@@ -259,16 +272,45 @@ func mergeBlock(doc *configcheck.Doc, block string) error {
 	return nil
 }
 
-// applyDNSBlock 把 Fluxor 的统一 DNS 块写入文档。
-func applyDNSBlock(doc *configcheck.Doc) error {
+// applyDNSBlock 把 Fluxor 的统一 DNS 块写入文档，并按设置覆盖 dns.ipv6。
+func applyDNSBlock(doc *configcheck.Doc, dnsIPv6 bool) error {
+	node, err := ParseDNSBlock(dnsIPv6)
+	if err != nil {
+		return err
+	}
+	doc.SetNode("dns", node)
+	return nil
+}
+
+// ParseDNSBlock 解析统一 DNS 块，并把 dns.ipv6 改成给定取值。
+//
+// 单独导出是给切换模式用的：那边的 config.yaml 是订阅文件副本，DNS 块整块替换，
+// 但同样必须尊重「DNS 是否返回 AAAA」这个设置（订阅里自带的 dns.ipv6 不作数）。
+func ParseDNSBlock(dnsIPv6 bool) (*yaml.Node, error) {
 	var wrapper struct {
 		DNS yaml.Node `yaml:"dns"`
 	}
 	if err := yaml.Unmarshal([]byte(DnsBlock), &wrapper); err != nil {
-		return fmt.Errorf("解析 DNS 块失败: %w", err)
+		return nil, fmt.Errorf("解析 DNS 块失败: %w", err)
 	}
-	doc.SetNode("dns", &wrapper.DNS)
-	return nil
+	if wrapper.DNS.Kind == 0 {
+		return nil, fmt.Errorf("解析 DNS 块失败: 未得到 dns 节点")
+	}
+	setMappingValue(&wrapper.DNS, "ipv6", dnsIPv6)
+	return &wrapper.DNS, nil
+}
+
+// setMappingValue 就地替换映射节点中某个键的值；键不存在时追加。
+func setMappingValue(m *yaml.Node, key string, value any) {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			var v yaml.Node
+			_ = v.Encode(value)
+			m.Content[i+1] = &v
+			return
+		}
+	}
+	appendMap(m, key, value)
 }
 
 // writeConfigTarget 序列化文档并写入内核配置路径。

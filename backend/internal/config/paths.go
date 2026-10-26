@@ -39,6 +39,8 @@ var (
 	FluxorMetaFile string
 	// FluxorTproxyFile TProxy 开关与绕过列表（FluxorDataDir/tproxy.json）。
 	FluxorTproxyFile string
+	// FluxorTunFile TUN 运行参数（FluxorDataDir/tun.json；稀疏存储，不含 enable）。
+	FluxorTunFile string
 	// ConfigTarget 生成给内核使用的 config.yaml 目标路径。
 	ConfigTarget string
 	// FluxorLogFile Fluxor 后端全部日志的落盘文件（FluxorDataDir/fluxor.log），

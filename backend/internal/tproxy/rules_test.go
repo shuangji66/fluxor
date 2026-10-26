@@ -201,3 +201,25 @@ func TestDefaultBypassListsParsable(t *testing.T) {
 		}
 	}
 }
+
+// TestEffectiveIPv6Takeover 钉住「偏好 × 总开关」的门控语义。
+//
+// 总开关（订阅中心的 IPv6 支持）关闭时，即使偏好打开也不下发 v6 规则；但偏好本身
+// 不被改写，恢复总开关后下次重建即可生效。
+func TestEffectiveIPv6Takeover(t *testing.T) {
+	cases := []struct {
+		preference bool
+		global     bool
+		want       bool
+	}{
+		{false, false, false},
+		{false, true, false},
+		{true, false, false}, // 关键：总开关关闭 ⇒ 不生效
+		{true, true, true},
+	}
+	for _, c := range cases {
+		if got := effectiveIPv6Takeover(c.preference, c.global); got != c.want {
+			t.Errorf("effectiveIPv6Takeover(%v, %v) = %v，期望 %v", c.preference, c.global, got, c.want)
+		}
+	}
+}
