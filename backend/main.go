@@ -210,6 +210,24 @@ func main() {
 	// TUN 运行参数（tun.json）。注意这里**只载入用户偏好**，不会开启 TUN：
 	// config.yaml 里 tun.enable 恒为 false，TUN 只能由用户手动开启且不做回放。
 	tun.Load()
+	// TUN 与 TProxy 互斥：TProxy 下发规则前必须确认 TUN 没在接管。
+	//
+	// 校验用内核的 /configs 实时查询，而不是任何本地标志：TUN 的开关不落盘且第三方
+	// 面板也能打开它，缓存会在面板重启/内核重载/第三方操作后失真。tproxy 不能反向
+	// import tun（依赖方向是 tun → tproxy），故由 main 以回调注入。
+	tproxy.SetEnableGuard(func() error {
+		on, err := tun.CoreTunEnabled()
+		if err != nil {
+			// 查询失败不阻断：内核没运行时 TUN 必然没开；运行中但读不到时，
+			// 宁可保留现有的 TProxy 能力也不让它永久不可用——但必须留痕。
+			logx.Warn(logx.ModuleTproxy, "cannot query TUN state before applying tproxy rules: %v", err)
+			return nil
+		}
+		if on {
+			return fmt.Errorf("TUN 正在接管流量，请先关闭 TUN 再启用 TPROXY（两者互斥）")
+		}
+		return nil
+	})
 	// 冷启动收敛：把开关状态归零并清除可能残留的 nft/策略路由规则，
 	// 避免上次非优雅退出后出现「面板显示关闭、流量仍被劫持」的错配。
 	tproxy.ResetOnStartup()

@@ -14,7 +14,35 @@ var (
 	tproxyIPv6               bool
 	tproxyDstExceptionsCache []string
 	tproxySrcExceptionsCache []string
+
+	enableGuardMu sync.RWMutex
+	enableGuard   func() error
 )
+
+// SetEnableGuard 注入「下发规则前的额外校验」，由 main 在服务启动前调用一次。
+//
+// 存在的理由只有一个：TUN 与 TProxy 互斥，而 TProxy 需要拦在 enable 之前校验
+// 「TUN 是否正在接管」。tproxy 不能直接 import tun——依赖方向是 tun → tproxy，
+// 反向 import 会成环——所以改成注入回调，由 main 这个「所有包的上游」把两者接起来。
+//
+// 回调可能做网络查询（当前的实现是向内核 GET /configs），因此 guardRulesApply
+// 只在锁内取函数指针、在锁外执行，不持锁调用。
+func SetEnableGuard(fn func() error) {
+	enableGuardMu.Lock()
+	enableGuard = fn
+	enableGuardMu.Unlock()
+}
+
+// guardRulesApply 执行注入的启用前校验；未注入时放行。
+func guardRulesApply() error {
+	enableGuardMu.RLock()
+	fn := enableGuard
+	enableGuardMu.RUnlock()
+	if fn == nil {
+		return nil
+	}
+	return fn()
+}
 
 // proxyLocalEnabled 读取「同时代理本机出站流量」开关（并发安全）。
 //

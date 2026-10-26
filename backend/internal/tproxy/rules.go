@@ -253,9 +253,18 @@ func effectiveIPv6Takeover(preference, global bool) bool {
 //
 // IPv4 恒下发；IPv6 仅在「接管 IPv6 流量」开关打开时下发（默认关闭）：节点多数
 // 没有 IPv6 出口，无条件接管会把原本可直连的 IPv6 目标变成必走代理而失败。
+//
+// 写任何规则之前先执行注入的启用前校验（见 SetEnableGuard）：TUN 与 TProxy 都会
+// 改宿主路由/防火墙，同时生效会互相破坏对方的流量路径。校验放在这里而不是只放在
+// HTTP handler，是因为端口变更（/configs PATCH）与重载后的重建也会走到本函数——
+// 只在开关路径拦截，就漏掉了「TUN 开着时改 TProxy 端口」这条。
 func EnableTProxyRules(port int) error {
 	if port <= 0 {
 		return nil
+	}
+
+	if err := guardRulesApply(); err != nil {
+		return err
 	}
 
 	dst := dstExceptions()
