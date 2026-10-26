@@ -1,6 +1,7 @@
 package configgen
 
 import (
+	"slices"
 	"testing"
 
 	"fluxor/internal/configcheck"
@@ -53,6 +54,12 @@ func TestTunBlockIsSafeBaseline(t *testing.T) {
 	}
 	if len(tun.DNSHijack) == 0 {
 		t.Error("dns-hijack 不得为空")
+	}
+	// 基线里的 dns-hijack 与开启时下发的 TunDNSHijack 必须是同一份取值：
+	// 前者决定「不走 /config/tun/state 就开 TUN」的行为，后者决定面板里开启的行为，
+	// 两处漂移就是同一功能两套语义。
+	if !slices.Equal(tun.DNSHijack, TunDNSHijack) {
+		t.Errorf("tun.dns-hijack = %v，与 TunDNSHijack %v 不一致", tun.DNSHijack, TunDNSHijack)
 	}
 }
 

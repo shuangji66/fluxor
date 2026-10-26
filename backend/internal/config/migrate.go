@@ -143,7 +143,15 @@ func MigrateLegacyFiles() {
 
 // splitLegacy 把旧格式拆成新布局的五份内容。
 func splitLegacy(legacy legacyConfig) (Settings, RulesFile, TunnelsFile, MetaFile, TproxyFile) {
+	// IPv6 两个开关在旧文件里没有对应字段，必须显式补成默认开启。
+	//
+	// 不能指望 newSettingsStore 的 Init：迁移是直接写 JSON，Settings 的 bool 没有
+	// omitempty，写出的 "ipv6": false 会让 Init 的默认值失效（键存在即被覆盖）。
+	// 而升级前的模板里 ipv6 恒为 true——漏掉这两行就是「升级后内核与 DNS 静默失去 IPv6」。
+	defaults := DefaultSubscribeConfig()
 	settings := Settings{
+		IPv6:               defaults.IPv6,
+		DNSIPv6:            defaults.DNSIPv6,
 		ProxyPort:          legacy.ProxyPort,
 		TproxyPort:         legacy.TproxyPort,
 		PanelPort:          legacy.PanelPort,
@@ -217,8 +225,10 @@ func splitLegacy(legacy legacyConfig) (Settings, RulesFile, TunnelsFile, MetaFil
 		tunnels.CustomMode = CopyTunnels(legacy.CustomModeTunnels)
 	}
 
-	// TProxy：开关缺省值与 tproxy 包的既有语义一致（本机接管默认开、IPv6 默认关）
-	tproxyState := TproxyFile{ProxyLocal: true}
+	// TProxy：三个开关与 tproxy 包的默认值一致（全部关闭）。旧文件里显式写过的取值
+	// 在下面逐项覆盖；只有「旧文件缺该字段」才落到关闭——开启任何一个都会改宿主网络，
+	// 缺省必须是安全方向。
+	tproxyState := TproxyFile{}
 	if legacy.TproxyEnabled != nil {
 		tproxyState.Enabled = *legacy.TproxyEnabled
 	}

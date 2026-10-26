@@ -348,9 +348,9 @@ let activeMockConns = [
   }
 ]
 
-// TProxy 状态模拟（与后端语义保持一致）
+// TProxy 状态模拟（与后端语义保持一致：三个开关默认全关）
 let mockTproxyEnabled = false
-let mockTproxyProxyLocal = true
+let mockTproxyProxyLocal = false
 let mockTproxyIPv6 = false
 let mockTunSettings = { stack: 'mixed', device: '', dns_mode: 'hijack', ipv6: 'auto' }
 let mockTproxyDstExceptions = ['# 公共 DNS 服务器', '223.5.5.5', '1.12.12.12']

@@ -49,6 +49,7 @@ func TestMigrateLegacyFiles(t *testing.T) {
 		},
 		"custom_mode_tunnels": []map[string]any{{"id": "ct1", "network": []string{"tcp"}, "address": "127.0.0.1:1082", "target": "c.test:80"}},
 		"tproxy_enabled":      true,
+		"tproxy_proxy_local":  true, // 显式写过 → 迁移必须原样保留（缺省才是关闭）
 		"tproxy_ipv6":         true,
 		"tproxy_exceptions":   []string{"1.1.1.1"}, // 更早版本的合并字段 → 目的绕过
 	}
@@ -61,6 +62,11 @@ func TestMigrateLegacyFiles(t *testing.T) {
 	if settings.PanelSecret != "s3cret" || settings.Mode != "switch" || settings.RuleGroup != "full" ||
 		settings.ActiveSubscription != "机场A" || settings.UIPanel != "zashboard" {
 		t.Fatalf("全局设置迁移不完整: %+v", settings)
+	}
+	// 旧文件里没有 IPv6 字段，迁移必须补成默认开启：升级前模板里 ipv6 恒为 true，
+	// 写成显式 false 会让 Init 的默认值失效（键存在即被覆盖）。
+	if !settings.IPv6 || !settings.DNSIPv6 {
+		t.Fatalf("迁移后 IPv6 两个开关应默认开启: ipv6=%v dns_ipv6=%v", settings.IPv6, settings.DNSIPv6)
 	}
 	if len(settings.Subscriptions) != 1 || settings.Subscriptions[0].Prefix != "A" ||
 		settings.Subscriptions[0].UpdateInterval != 720 {

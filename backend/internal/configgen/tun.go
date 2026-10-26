@@ -37,6 +37,13 @@ tun:
   auto-detect-interface: true
 `
 
+// TunDNSHijack 是开启 TUN 时下发的 DNS 劫持目标，必须与 TunBlock 里的 dns-hijack
+// 完全一致：基线决定「没走 /config/tun/state 就打开 TUN」时的行为，runtimeConfig
+// 决定「面板里打开 TUN」时的行为，两处漂移就是同一功能两套语义。
+//
+// 单一来源在这里，tun 包直接引用；一致性由 tun_test.go 断言 TunBlock 解析结果。
+var TunDNSHijack = []string{"any:53", "tcp://any:53"}
+
 // TUN 运行参数的默认值（与 TunBlock 一一对应，供 tun 包做稀疏落盘与「恢复默认」判断）。
 //
 // 刻意只在这两个地方出现：TunBlock 是产物，这里是代码可比较的常量；两者一致性由

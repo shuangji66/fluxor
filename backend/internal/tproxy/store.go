@@ -15,11 +15,11 @@ import (
 // 默认值不落盘：两条绕过列表为 nil 表示「用代码里的预填模板」（defaultDstExceptions /
 // defaultSrcExceptions），因此预填的 20+ 行中文注释不会写进用户文件。旧单文件时代
 // 已经写进去的默认值，会在 LoadTproxyState 的归一化步骤中被移除。
-var tproxyStore = config.NewStore[config.TproxyFile]("tproxy.json", &config.FluxorTproxyFile, func(v *config.TproxyFile) {
-	// 本机流量接管默认为开：保持旧实现的语义（字段缺失即开启）
-	v.ProxyLocal = true
-	// Enabled / IPv6 默认 false（零值即可）
-})
+//
+// 三个开关（Enabled / ProxyLocal / IPv6）**全部默认关闭**，即零值即可，故没有 Init：
+// 它们都会改宿主网络（nft 表、策略路由、本机出站劫持），新建部署必须从「什么都没接管」
+// 开始，由用户逐项显式开启。旧实现里「本机流量接管默认开」是沿用更早的语义，现已收敛。
+var tproxyStore = config.NewStore[config.TproxyFile]("tproxy.json", &config.FluxorTproxyFile, nil)
 
 // effectiveExceptions 把「nil = 未自定义」还原成生效列表。
 func effectiveExceptions(stored []string, fallback func() []string) []string {

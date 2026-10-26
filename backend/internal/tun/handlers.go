@@ -20,26 +20,31 @@ import (
 // 只在开启 TUN 且判定需要承运 IPv6 时才下发；不出现在 config.yaml 的基线里。
 const tunInet6Address = "fdfe:dcba:9876::1/126"
 
-// tunDNSHijack 与基线保持一致：拦截全部 53 端口（v4/v6 同表）。
-var tunDNSHijack = []string{"any:53", "tcp://any:53"}
+// settingsPayload 是 /config/tun 的响应体（GET 与 POST 共用）。
+//
+// 共用一份而不是各写一个 map：两处字段集漂移过一次（POST 少了 global_ipv6），
+// 前端只能靠 typeof 判断兜底，接口契约也就不再可信。
+func settingsPayload(effective Settings) map[string]any {
+	return map[string]any{
+		"effective": effective,
+		"defaults":  Defaults(),
+		"host_ipv6": HostIPv6Available(),
+		// 订阅中心的「IPv6 支持」总开关：关闭时接管偏好照旧保存，但开启 TUN 时
+		// 不会下发 IPv6 地址（见 HandleTunState），前端据此把下拉置灰并说明原因。
+		"global_ipv6": config.CurrentSnapshot().IPv6,
+	}
+}
 
 // HandleTunSettings 处理 /config/tun：
 //
-//	GET  → {effective, defaults, host_ipv6}
+//	GET  → {effective, defaults, host_ipv6, global_ipv6}
 //	POST → 部分更新（只传要改的键），归一化 + 校验 + 稀疏落盘
 //
 // 本接口**不碰内核、不碰 config.yaml**：设置只在下次开启 TUN 时组装成 PATCH 下发。
 func HandleTunSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		httpx.RespondJSON(w, http.StatusOK, map[string]any{
-			"effective": Current(),
-			"defaults":  Defaults(),
-			"host_ipv6": HostIPv6Available(),
-			// 订阅中心的「IPv6 支持」总开关：关闭时接管偏好照旧保存，但开启 TUN 时
-			// 不会下发 IPv6 地址（见 HandleTunState），前端据此把下拉置灰并说明原因。
-			"global_ipv6": config.CurrentSnapshot().IPv6,
-		})
+		httpx.RespondJSON(w, http.StatusOK, settingsPayload(Current()))
 
 	case http.MethodPost:
 		var payload struct {
@@ -75,12 +80,9 @@ func HandleTunSettings(w http.ResponseWriter, r *http.Request) {
 
 		logx.Info(logx.ModuleTun, "tun settings saved: stack=%s device=%q dns-mode=%s ipv6=%s",
 			saved.Stack, saved.Device, saved.DNSMode, saved.IPv6)
-		httpx.RespondJSON(w, http.StatusOK, map[string]any{
-			"status":    "ok",
-			"effective": saved,
-			"defaults":  Defaults(),
-			"host_ipv6": HostIPv6Available(),
-		})
+		resp := settingsPayload(saved)
+		resp["status"] = "ok"
+		httpx.RespondJSON(w, http.StatusOK, resp)
 
 	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -150,26 +152,28 @@ func HandleTunState(w http.ResponseWriter, r *http.Request) {
 // 字段集合与 configgen.TunBlock 保持一致，另外按设置覆盖 stack / device / dns-mode /
 // inet6-address。auto-route / auto-redirect 固定为 true：dns-mode=hijack 在 Linux 上
 // 依赖 auto-redirect 的 nft 链，关掉它会让 hijack 静默退化成 native。
+//
+// **每个字段都必须显式下发，包括空值**：mihomo 的 patchConfigs 以 LastTunConf 为
+// 基底做合并（`pointerOrDefaultTun`），键缺失 = 沿用上一次下发值，而不是「回到默认」。
+// device 曾经按「空则省略」处理，结果是清空设备名后重新开启 TUN 仍沿用旧接口名，
+// 直到一次配置重载把 LastTunConf 重置回基线。空串才是「自动命名」的真实表达。
 func runtimeConfig(s Settings, inet6 bool) map[string]any {
 	inet6Addresses := []string{}
 	if inet6 {
 		inet6Addresses = []string{tunInet6Address}
 	}
 
-	cfg := map[string]any{
+	return map[string]any{
 		"enable":                true,
 		"stack":                 s.Stack,
+		"device":                s.Device,
 		"dns-mode":              s.DNSMode,
 		"inet6-address":         inet6Addresses,
-		"dns-hijack":            tunDNSHijack,
+		"dns-hijack":            configgen.TunDNSHijack,
 		"auto-route":            true,
 		"auto-redirect":         true,
 		"auto-detect-interface": true,
 	}
-	if s.Device != "" {
-		cfg["device"] = s.Device
-	}
-	return cfg
 }
 
 // patchCoreTun 把 tun 对象 PATCH 给内核，失败时带上内核的错误正文。

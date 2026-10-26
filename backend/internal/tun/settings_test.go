@@ -32,6 +32,29 @@ func TestCurrentDefaults(t *testing.T) {
 	}
 }
 
+// TestLoadSanitizesInvalidFile 保证手改坏的 tun.json 不会把非法值带进内核。
+//
+// 读盘后必须归一化：若不收敛，Current() 会原样返回非法栈名，开启 TUN 时直接下发，
+// 用户只会看到内核的 "invalid tun stack"；而 POST 也会被同一条非法值拒绝，等于
+// 没有任何入口能改回来。非法内容整体回落默认值，文件本身不被静默改写。
+func TestLoadSanitizesInvalidFile(t *testing.T) {
+	path := setupStore(t)
+	if err := os.WriteFile(path, []byte(`{"stack":"bogus","dns_mode":"native","device":"mihomo0"}`), 0644); err != nil {
+		t.Fatalf("写入非法 tun.json: %v", err)
+	}
+	Load()
+
+	if got, want := Current(), Defaults(); got != want {
+		t.Fatalf("Current() = %+v，期望回落默认值 %+v", got, want)
+	}
+	if tunStore.Damaged() {
+		t.Error("非法取值不是文件损坏，不应阻止后续写入")
+	}
+	if raw, err := os.ReadFile(path); err != nil || !strings.Contains(string(raw), "bogus") {
+		t.Fatalf("读盘归一化不应改写文件: raw=%q err=%v", raw, err)
+	}
+}
+
 // TestSaveSparse 保证只存与默认值不同的键（改回默认即删键）。
 func TestSaveSparse(t *testing.T) {
 	path := setupStore(t)
@@ -119,16 +142,18 @@ func TestRuntimeConfig(t *testing.T) {
 	if cfg["enable"] != true {
 		t.Error("enable 必须为 true")
 	}
-	for _, key := range []string{"stack", "dns-mode", "inet6-address", "dns-hijack", "auto-route", "auto-redirect", "auto-detect-interface"} {
+	for _, key := range []string{"stack", "device", "dns-mode", "inet6-address", "dns-hijack", "auto-route", "auto-redirect", "auto-detect-interface"} {
 		if _, ok := cfg[key]; !ok {
-			t.Errorf("缺少字段 %q（只发部分字段会继承 config.yaml 基线）", key)
+			t.Errorf("缺少字段 %q（键缺失 = 沿用 LastTunConf，而不是回到默认）", key)
 		}
 	}
 	if got := cfg["inet6-address"].([]string); len(got) != 0 {
 		t.Errorf("inet6-address = %v，期望空（不接管 IPv6）", got)
 	}
-	if _, ok := cfg["device"]; ok {
-		t.Error("device 为空时不应下发（交给内核自动命名）")
+	// 空 device 必须显式下发：patchConfigs 以 LastTunConf 为基底合并，省略该键会
+	// 沿用上一次的接口名，用户清空设备名后重新开启 TUN 不会生效。
+	if got := cfg["device"]; got != "" {
+		t.Errorf("device = %v，期望空串（自动命名也必须显式下发）", got)
 	}
 
 	withV6 := runtimeConfig(Settings{Stack: "mixed", DNSMode: "hijack", IPv6: "auto", Device: "mihomo0"}, true)

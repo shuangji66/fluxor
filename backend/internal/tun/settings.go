@@ -26,7 +26,26 @@ import (
 // tunStore 是本包独占的持久化文件（config.TunFile）。
 //
 // 没有 Init：零值即「全部用模板默认值」，与稀疏语义天然一致。
-var tunStore = config.NewStore[config.TunFile]("tun.json", &config.FluxorTunFile, nil)
+//
+// Normalize 在读盘后把文件内容收敛成一份合法设置：tun.json 是用户可读可改的普通
+// JSON，手改出非法栈名/设备名时若不收敛，Current() 会原样返回，开启 TUN 时直接下发
+// 给内核，用户只能看到一句 "invalid tun stack"；更糟的是 POST 也会被同一条非法值
+// 拒绝，等于没有任何入口能改回来。收敛后与 tproxy 的行为一致。
+var tunStore = newTunStore()
+
+func newTunStore() *config.Store[config.TunFile] {
+	s := config.NewStore[config.TunFile]("tun.json", &config.FluxorTunFile, nil)
+	s.Normalize = func(f *config.TunFile) {
+		next, err := Normalize(effective(*f))
+		if err != nil {
+			logx.Warn(logx.ModuleTun, "invalid %s, falling back to defaults: %v", s.Name, err)
+			*f = config.TunFile{}
+			return
+		}
+		*f = sparseFile(next)
+	}
+	return s
+}
 
 // Settings 是 TUN 的生效参数（tun.json 覆盖模板默认值后的结果）。
 type Settings struct {
@@ -72,17 +91,24 @@ func Save(raw Settings) (Settings, error) {
 		return Settings{}, err
 	}
 
-	def := Defaults()
 	if err := tunStore.Update(func(f *config.TunFile) error {
-		f.Stack = sparseString(next.Stack, def.Stack)
-		f.Device = sparseString(next.Device, def.Device)
-		f.DNSMode = sparseString(next.DNSMode, def.DNSMode)
-		f.IPv6 = sparseString(next.IPv6, def.IPv6)
+		*f = sparseFile(next)
 		return nil
 	}); err != nil {
 		return Settings{}, err
 	}
 	return next, nil
+}
+
+// sparseFile 把生效设置压成磁盘表示：与默认值相同的键置 nil（不落盘）。
+func sparseFile(s Settings) config.TunFile {
+	def := Defaults()
+	return config.TunFile{
+		Stack:   sparseString(s.Stack, def.Stack),
+		Device:  sparseString(s.Device, def.Device),
+		DNSMode: sparseString(s.DNSMode, def.DNSMode),
+		IPv6:    sparseString(s.IPv6, def.IPv6),
+	}
 }
 
 func effective(f config.TunFile) Settings {

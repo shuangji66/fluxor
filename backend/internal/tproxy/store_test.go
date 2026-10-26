@@ -48,8 +48,9 @@ func TestDefaultBypassTemplateNotPersisted(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "tproxy.json")); !os.IsNotExist(err) {
 		t.Fatalf("默认值不应落盘: %v", err)
 	}
-	if !proxyLocalEnabled() {
-		t.Fatal("本机流量接管默认应为开启")
+	// 三个开关默认全关：缺省值必须是不接管，由用户显式开启。
+	if proxyLocalEnabled() {
+		t.Fatal("本机流量接管默认应为关闭")
 	}
 
 	// 用户「恢复默认」= 保存一份与模板一致的列表 → 收敛为 nil，模板正文不落盘
