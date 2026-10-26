@@ -12,7 +12,6 @@ import {
   type SubscriptionInfo,
   type CustomNode,
 } from '../store/subscription'
-import FormSwitch from '../components/FormSwitch.vue'
 import CustomRulesDialog from '../components/CustomRulesDialog.vue'
 import CustomNodeDialog from '../components/CustomNodeDialog.vue'
 import CustomNodeCard from '../components/CustomNodeCard.vue'
@@ -171,18 +170,6 @@ const nameHint = computed(() =>
 // 「保存并应用」照常提交原内容，来回切换面板不会把已填地址弄丢。
 const isMetaCubeXd = computed(() => currentConfig.value.ui_panel === 'metacubexd')
 
-// IPv6 两个开关是**生成期字段**（写入 config.yaml 的 ipv6 / dns.ipv6），
-// 改动随「保存并应用」落盘并重载内核生效；不是运行时 PATCH。
-// 约束：IPv6 总开关关闭时 DNS 必然不返回 AAAA（后端也会归一化），前端同步联动，
-// 避免出现「界面显示 AAAA 开着、实际没有」。
-const onIPv6Toggle = (value: boolean) => {
-  currentConfig.value.ipv6 = value
-  if (!value) currentConfig.value.dns_ipv6 = false
-}
-
-const onDNSIPv6Toggle = (value: boolean) => {
-  currentConfig.value.dns_ipv6 = value
-}
 // 点击卡片选中
 const selectSubscription = (name: string) => {
     if (currentConfig.value.mode === 'switch') {
@@ -193,6 +180,18 @@ const selectSubscription = (name: string) => {
 const rulesStore = useRulesStore()
 const subscriptionStore = useSubscriptionStore()
 const { currentConfig, savedSubNames, savedMode, nodeProtocols } = storeToRefs(subscriptionStore)
+
+// IPv6 两项是**生成期字段**（写入 config.yaml 的 ipv6 / dns.ipv6），
+// 改动随「保存并应用」落盘并重载内核生效；不是运行时 PATCH。
+// 约束：IPv6 总开关关闭时 DNS 必然不返回 IPv6（后端也会归一化），前端用 watch 归一
+// 并隐藏 DNS 返回项——不依赖 @change 与 v-model 的触发顺序。
+// 必须放在 currentConfig 初始化之后：watch 的 getter 在 setup 阶段立即执行。
+watch(
+  () => currentConfig.value.ipv6,
+  (enabled) => {
+    if (!enabled) currentConfig.value.dns_ipv6 = false
+  },
+)
 
 // 是否处于自定义模式：自定义模式用「节点列表」替代「订阅列表」
 const isCustomMode = computed(() => currentConfig.value.mode === 'custom')
@@ -711,22 +710,24 @@ onUnmounted(() => {
     <!-- 内容区域内滚动容器 -->
     <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none p-6 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- 字段顺序：窄窗口按文档顺序（端口三件套 → 规则集/外置面板 → 面板密钥 → 后端地址）；
-             桌面端用 md:order-N 还原成「端口成对 → 密钥 → 规则集/外置面板 → 后端地址」的成组排列
-             （md:contents 拆掉包裹层后，order 决定各字段在外层网格中的落位）。 -->
-        <!-- 端口三件套：窄窗口下三列同一行，省下一行纵向空间；md 起 md:contents 让这三个
-             字段脱离包裹层直接参与外层两列网格，排列顺序由上面的 md:order-N 决定。
+        <!-- 顶部使用说明：IPv6 两项设置的语义集中在这里，字段旁不再重复描述。 -->
+        <div class="md:col-span-2 flex items-start gap-2 p-3 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/60 dark:bg-slate-800/30">
+          <InformationCircleOutline class="w-4 h-4 shrink-0 text-slate-400 mt-0.5" />
+          <p class="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{{ t('subscription.ipv6_settings_hint') }}</p>
+        </div>
+
+        <!-- 端口三件套：桌面与窄窗口都排在同一行（整行占满，不再拆进两列网格）。
              窄窗口列宽有限，输入框左右内边距在 sm 以下收紧，避免 5 位端口号被数字调节箭头挤掉。 -->
-        <div class="grid grid-cols-3 gap-2 md:contents">
-          <div class="flex flex-col gap-2 md:order-1">
+        <div class="grid grid-cols-3 gap-2 md:col-span-2 md:order-1">
+          <div class="flex flex-col gap-2">
             <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.proxy_port') }}</label>
             <input type="number" v-model="currentConfig.proxy_port" min="0" max="65535" step="1" class="px-2.5 sm:px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
           </div>
-          <div class="flex flex-col gap-2 md:order-2">
+          <div class="flex flex-col gap-2">
             <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.panel_port') }}</label>
             <input type="number" v-model="currentConfig.panel_port" min="0" max="65535" step="1" class="px-2.5 sm:px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
           </div>
-          <div class="flex flex-col gap-2 md:order-3">
+          <div class="flex flex-col gap-2">
             <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.tproxy_port') }}</label>
             <input
               type="number"
@@ -738,55 +739,29 @@ onUnmounted(() => {
             />
           </div>
         </div>
-        <!-- IPv6 相关：生成期设置，写入 config.yaml 的 ipv6 / dns.ipv6，
-             随「保存并应用」重载生效（不是运行时 PATCH）。 -->
-        <div class="md:col-span-2 md:order-8 flex flex-col gap-3 p-3 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/60 dark:bg-slate-800/30">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex flex-col gap-0.5">
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ipv6_label') }}</label>
-              <span class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">{{ t('subscription.ipv6_hint') }}</span>
-            </div>
-            <FormSwitch :model-value="currentConfig.ipv6" @update:model-value="onIPv6Toggle" />
-          </div>
-          <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
-            <div class="flex flex-col gap-0.5">
-              <label class="text-xs font-medium" :class="currentConfig.ipv6 ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'">
-                {{ t('subscription.dns_ipv6_label') }}
-              </label>
-              <span class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
-                {{ currentConfig.ipv6 ? t('subscription.dns_ipv6_hint') : t('subscription.dns_ipv6_disabled_hint') }}
-              </span>
-            </div>
-            <FormSwitch
-              :model-value="currentConfig.dns_ipv6"
-              :disabled="!currentConfig.ipv6"
-              :disabled-hint="t('subscription.dns_ipv6_disabled_hint')"
-              @update:model-value="onDNSIPv6Toggle"
-            />
-          </div>
-        </div>
-        <!-- 规则集 / 外置面板：窄窗口下同一行；md 起 md:contents 让这两个字段回到外层两列网格。
-             规则集档位只在融合模式下参与生成（切换模式的 config.yaml 是订阅文件副本，用订阅自带规则），
-             故切换模式下整块不渲染；隐藏的只是控件本身，currentConfig.rule_group 原值始终留在配置对象里，
-             「保存并应用」用 ...currentConfig 展开提交，档位照常落盘，切回融合模式仍按原档位生成。 -->
-        <div :class="currentConfig.mode === 'merge' ? 'grid grid-cols-2 gap-2 md:contents' : 'md:contents'">
-          <div v-if="currentConfig.mode === 'merge'" class="flex flex-col gap-2 md:order-5">
-            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
-            <select v-model="currentConfig.rule_group" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-              <option value="base">{{ t('subscription.rule_group_base') }}</option>
-              <option value="full">{{ t('subscription.rule_group_full') }}</option>
+
+        <!-- IPv6 两个生成期设置（端口之后、面板密钥之前）：
+             关闭「IPv6 支持」时隐藏 DNS 返回项，并把已选值归一为关闭（后端同样强制）。
+             两项都随「保存并应用」重载生效，不是运行时 PATCH。 -->
+        <div class="grid grid-cols-1 gap-2 md:col-span-2 md:order-2" :class="currentConfig.ipv6 ? 'md:grid-cols-2' : ''">
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ipv6_label') }}</label>
+            <select v-model="currentConfig.ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+              <option :value="true">{{ t('common.on') }}</option>
+              <option :value="false">{{ t('common.off') }}</option>
             </select>
           </div>
-          <div class="flex flex-col gap-2 md:order-6">
-            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ui_panel') }}</label>
-            <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-              <option value="metacubexd">MetaCubeXD</option>
-              <option value="zashboard">Zashboard</option>
+          <div v-if="currentConfig.ipv6" class="flex flex-col gap-2">
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.dns_ipv6_label') }}</label>
+            <select v-model="currentConfig.dns_ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+              <option :value="true">{{ t('common.on') }}</option>
+              <option :value="false">{{ t('common.off') }}</option>
             </select>
           </div>
         </div>
-        <!-- 面板密钥：紧跟外置面板（窄窗口下在上者之后、后端地址之前） -->
-        <div class="flex flex-col gap-2 md:order-4">
+
+        <!-- 面板密钥：IPv6 设置之后、规则集/外置面板之前 -->
+        <div class="flex flex-col gap-2 md:order-3">
           <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.panel_secret') }}</label>
           <div class="relative flex items-center">
             <input :type="showSecret ? 'text' : 'password'" v-model="currentConfig.panel_secret" class="w-full pl-4 pr-10 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
@@ -797,10 +772,31 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- 规则集 / 外置面板：窄窗口下同一行；md 起 md:contents 让这两个字段回到外层两列网格。
+             规则集档位只在融合模式下参与生成（切换模式的 config.yaml 是订阅文件副本，用订阅自带规则），
+             故切换模式下整块不渲染；隐藏的只是控件本身，currentConfig.rule_group 原值始终留在配置对象里，
+             「保存并应用」用 ...currentConfig 展开提交，档位照常落盘，切回融合模式仍按原档位生成。 -->
+        <div :class="currentConfig.mode === 'merge' ? 'grid grid-cols-2 gap-2 md:contents' : 'md:contents'">
+          <div v-if="currentConfig.mode === 'merge'" class="flex flex-col gap-2 md:order-4">
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
+            <select v-model="currentConfig.rule_group" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+              <option value="base">{{ t('subscription.rule_group_base') }}</option>
+              <option value="full">{{ t('subscription.rule_group_full') }}</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-2 md:order-5">
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ui_panel') }}</label>
+            <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+              <option value="metacubexd">MetaCubeXD</option>
+              <option value="zashboard">Zashboard</option>
+            </select>
+          </div>
+        </div>
+
         <!-- MetaCubeXD 后端地址：只有 MetaCubeXD 需要，选 Zashboard 时整块不渲染。
              隐藏的只是输入框本身，meta_backend_url 仍留在 currentConfig 里，「保存并应用」
              照常把原内容提交给后端——切来切去不会把已填的地址弄丢。 -->
-        <div v-if="isMetaCubeXd" class="flex flex-col gap-2 md:order-7">
+        <div v-if="isMetaCubeXd" class="flex flex-col gap-2 md:order-6">
           <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.meta_backend_url') }}</label>
           <div class="relative flex items-center">
             <input

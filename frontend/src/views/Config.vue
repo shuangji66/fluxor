@@ -1031,9 +1031,6 @@ onActivated(async () => {
             </div>
             <FormSwitch :model-value="configs.tun.enable" @update:model-value="handleTunToggle"/>
           </div>
-          <!-- TUN 是纯运行时状态：重载/重启后必然关闭，需用户重新开启。
-               这条提示是设计的一部分（NAS 上不允许自动接管宿主网络），不是错误。 -->
-          <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">{{ t('config.tun_runtime_only_hint') }}</p>
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('config.tun_stack') }}</label>
             <select v-model="tunSettings.stack" @change="saveTunSettings({ stack: tunSettings.stack })"
@@ -1442,7 +1439,6 @@ onActivated(async () => {
                 class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="auto">{{ t('config.tun_ipv6_auto') }}</option>
-                <option value="on">{{ t('config.tun_ipv6_on') }}</option>
                 <option value="off">{{ t('config.tun_ipv6_off') }}</option>
               </select>
               <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">

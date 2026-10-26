@@ -127,22 +127,10 @@ func HandleTunState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	settings := Current()
-	if settings.IPv6 == configgen.TunIPv6On && !HostIPv6Available() {
-		httpx.WriteJSONError(w, http.StatusBadRequest,
-			"本机新建接口默认禁用 IPv6，强制接管会让 TUN 启动失败；请先执行 "+
-				"sysctl -w net.ipv6.conf.default.disable_ipv6=0 后重试")
-		return
-	}
 
 	globalIPv6 := config.CurrentSnapshot().IPv6
 	inet6 := settings.ipv6Enabled() && globalIPv6
-	switch {
-	case !globalIPv6 && settings.IPv6 == configgen.TunIPv6On:
-		// 显式要求接管、但订阅中心把 IPv6 总开关关了：不静默照做，也不因此拒绝开启
-		// TUN（v6 只是少一条能力）——日志留痕，响应里带上实际取值。
-		logx.Warn(logx.ModuleTun,
-			"tun ipv6 takeover skipped: global ipv6 is disabled (tun ipv6 = on)")
-	case settings.IPv6 == configgen.TunIPv6Auto && !inet6:
+	if settings.IPv6 == configgen.TunIPv6Auto && !inet6 {
 		logx.Info(logx.ModuleTun,
 			"tun ipv6 auto = off (host_ipv6=%v global_ipv6=%v)", HostIPv6Available(), globalIPv6)
 	}

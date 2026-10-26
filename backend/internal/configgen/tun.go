@@ -47,12 +47,14 @@ const (
 	TunDefaultIPv6Mode = TunIPv6Auto
 )
 
-// TUN 是否承运 IPv6 的三种取值（tun.json 的 ipv6 字段）。
+// TUN 是否承运 IPv6 的两种取值（tun.json 的 ipv6 字段）。
+//
+// 刻意不提供「强制开启」：宿主支持时 auto 与强制等价，宿主不支持时强制只会让
+// TUN 起不来（内核拒绝给禁用 IPv6 的新接口挂地址），因此强制档没有可用场景。
+// 旧版本写入的 "on" 会在 tun.Normalize 里收敛为 auto，不做报错。
 const (
 	// TunIPv6Auto 跟随宿主能力：新建接口允许 IPv6 才下发地址（修复 disable_ipv6 宿主）。
 	TunIPv6Auto = "auto"
-	// TunIPv6On 强制下发；宿主不支持时由接口层拒绝保存，避免生成起不来的配置。
-	TunIPv6On = "on"
 	// TunIPv6Off 不下发地址（IPv6 不走 TUN，可能直连）。
 	TunIPv6Off = "off"
 )

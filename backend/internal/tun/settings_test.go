@@ -139,3 +139,14 @@ func TestRuntimeConfig(t *testing.T) {
 		t.Errorf("device = %v，期望 mihomo0", withV6["device"])
 	}
 }
+
+// TestNormalizeLegacyForceOn 兼容旧值：已取消的 "on"（强制开启）收敛为 auto。
+func TestNormalizeLegacyForceOn(t *testing.T) {
+	got, err := Normalize(Settings{Stack: "mixed", DNSMode: "hijack", IPv6: "on"})
+	if err != nil {
+		t.Fatalf("Normalize(on): %v", err)
+	}
+	if got.IPv6 != "auto" {
+		t.Errorf("IPv6 = %q，期望 auto（旧值 on 已取消）", got.IPv6)
+	}
+}

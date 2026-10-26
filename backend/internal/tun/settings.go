@@ -137,21 +137,19 @@ func Normalize(raw Settings) (Settings, error) {
 		return Settings{}, fmt.Errorf("无效的 DNS 处理方式: %q（可选 hijack / native / disabled）", raw.DNSMode)
 	}
 
+	// 旧版本的 "on"（强制开启）已取消：宿主支持时 auto 等价，宿主不支持时只会让
+	// TUN 起不来。旧文件/旧客户端传来的 on 直接收敛为 auto，不报错。
+	if s.IPv6 == "on" {
+		s.IPv6 = configgen.TunIPv6Auto
+	}
 	switch s.IPv6 {
-	case configgen.TunIPv6Auto, configgen.TunIPv6On, configgen.TunIPv6Off:
+	case configgen.TunIPv6Auto, configgen.TunIPv6Off:
 	default:
-		return Settings{}, fmt.Errorf("无效的 IPv6 接管方式: %q（可选 auto / on / off）", raw.IPv6)
+		return Settings{}, fmt.Errorf("无效的 IPv6 接管方式: %q（可选 auto / off）", raw.IPv6)
 	}
 
 	if s.Device != "" && !deviceRe.MatchString(s.Device) {
 		return Settings{}, fmt.Errorf("无效的 TUN 设备名: %q（最多 15 个字符，仅限字母、数字、下划线、点、连字符）", s.Device)
-	}
-
-	// 强制接管要求宿主真的能挂上 IPv6 地址，否则生成的会是一份起不来的配置。
-	// 自动档不在这里拒绝：它按宿主能力自行降级，正是为了容忍这种宿主。
-	if s.IPv6 == configgen.TunIPv6On && !HostIPv6Available() {
-		return Settings{}, fmt.Errorf("本机新建接口默认禁用 IPv6（net.ipv6.conf.default.disable_ipv6=1），强制接管会让 TUN 启动失败；" +
-			"请先执行 sysctl -w net.ipv6.conf.default.disable_ipv6=0 后重试")
 	}
 
 	return s, nil
@@ -159,15 +157,10 @@ func Normalize(raw Settings) (Settings, error) {
 
 // ipv6Enabled 返回本次开启是否应给 TUN 下发 IPv6 地址。
 //
-// auto 走宿主探测；on 在 Normalize 阶段已校验过宿主能力，这里再兜一次（保存后
-// sysctl 可能被改回去）。
+// auto 在开启时探测宿主（每次开启都重新判断，sysctl 改过也能跟上）；off 恒不下发。
 func (s Settings) ipv6Enabled() bool {
-	switch s.IPv6 {
-	case configgen.TunIPv6On:
-		return HostIPv6Available()
-	case configgen.TunIPv6Off:
+	if s.IPv6 == configgen.TunIPv6Off {
 		return false
-	default:
-		return HostIPv6Available()
 	}
+	return HostIPv6Available()
 }

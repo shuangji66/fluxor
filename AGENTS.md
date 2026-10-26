@@ -622,7 +622,7 @@ logx.Error(logx.ModuleCore, "failed to start mihomo %s: %v", config.CoreBin, err
    - 反过来，**任何配置重载（含订阅定时更新）都会拆掉正在运行的 TUN**，这是策略而非缺陷，不要为了"体验"加回放。
 4. **开启时必须 PATCH 完整 tun 对象**：`tun.runtimeConfig` 会带上 stack / dns-mode / inet6-address / dns-hijack / auto-route / auto-redirect / auto-detect-interface（以及非空时的 device）。理由同第 1 条——mihomo 的 `patchConfigs` 以 `listener.LastTunConf`（基线）为基底，只发 `enable` 会让用户设置全部静默失效。
 5. **改参数不碰 config.yaml、不重载**：`POST /config/tun` 只落 `tun.json`，参数在**下次开启 TUN** 时生效；界面改参数时若 TUN 正在运行，要提示「重新开启后生效」。
-6. **IPv6 接管三档**（`tun.json` 的 `ipv6`）：`auto`（默认，按宿主能力：`/proc/sys/net/ipv6/conf/{default,all}/disable_ipv6` 与 `/sys/module/ipv6/parameters/disable` 全为 0 才下发地址）/ `on`（强制；宿主不支持时接口层直接 400 并给 sysctl 提示）/ `off`。全局 `ipv6`（订阅中心的生成期开关）关闭时，开启 TUN 一律不下发 IPv6 地址。
+6. **IPv6 接管两档**（`tun.json` 的 `ipv6`）：`auto`（默认，按宿主能力：`/proc/sys/net/ipv6/conf/{default,all}/disable_ipv6` 与 `/sys/module/ipv6/parameters/disable` 全为 0 才下发地址）/ `off`。不提供「强制开启」——宿主支持时 auto 与强制等价，宿主不支持时强制只会让 TUN 起不来；旧值 `on` 在 `Normalize` 里收敛为 `auto`，不报错。全局 `ipv6`（订阅中心的生成期开关）关闭时，开启 TUN 一律不下发 IPv6 地址。
 7. **`dns-mode` 三档**（透传内核）：`hijack`（默认）/ `native` / `disabled`。两个平台事实：Linux 的 hijack 依赖 `auto-redirect` 的 nft 链（基线里恒为 true）；`native` 只调用 `resolvectl`，无 systemd-resolved 的平台（OpenWrt 等）上等于空操作。该键需要 mihomo ≥ v1.19.33，老内核会忽略它（行为回落到隐式 hijack）。
 8. **与 TProxy 互斥**：开启 TUN 时后端校验 `tproxy.GetTproxyState()`，前端只负责先关 TProxy；两者同时生效会互相破坏对方的流量路径。
 9. **IPv6 接管受总开关约束（单向门）**：订阅中心的「IPv6 支持」关闭时，TUN 不下载 v6 地址、TProxy 不下发 ip6 规则，但两处的**偏好值原样保留**（`tun.json` / `tproxy.json` 一个字节都不改），总开关恢复后自动重新生效。UI 只做置灰与说明，不替用户改写偏好；`/config/tun` 与 `/config/tproxy/proxy-ipv6` 的 GET 都返回 `global_ipv6` 供前端判断。
