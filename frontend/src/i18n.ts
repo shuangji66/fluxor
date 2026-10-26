@@ -353,7 +353,6 @@ const messages = {
     'subscription.panel_secret': '面板密钥',
     'subscription.ipv6_label': 'IPv6 支持',
     'subscription.dns_ipv6_label': 'DNS 返回 IPv6',
-    'subscription.ipv6_settings_hint': 'IPv6 支持：关闭后内核自身不使用 IPv6，仅支持 AAAA 的节点域名可能无法解析。DNS 返回 IPv6：关闭后不向客户端返回 IPv6 地址，可避免客户端走 IPv6 直连；TUN 未接管 IPv6 时建议关闭。两项均随「保存并应用」重载生效。',
     'subscription.rule_group': '规则集',
     'subscription.rule_group_base': '标准',
     'subscription.rule_group_full': '详细',
@@ -409,6 +408,10 @@ const messages = {
       + '· TPROXY 端口：透明代理端口，留空或 0 表示不启用。\n'
       + '· 面板密钥：访问外置面板所需的密码。\n'
       + '· 端口需在 1025-65535 之间，且互不重复。\n'
+      + '\n【IPv6】\n'
+      + '· IPv6 支持：关闭后内核自身不使用 IPv6，仅支持 AAAA 的节点域名可能无法解析。\n'
+      + '· DNS 返回 IPv6：关闭后不向客户端返回 IPv6 地址，可避免客户端走 IPv6 直连；TUN 未接管 IPv6 时建议关闭。\n'
+      + '· 两项均随「保存并应用」重载生效。\n'
       + '\n【规则集】\n'
       + '· 规则集分「标准」与「详细」两档，前者轻量、后者完整；仅在融合模式下生效，切换模式使用订阅自带规则。\n'
       + '\n【订阅列表】\n'
@@ -1079,7 +1082,6 @@ const messages = {
     'subscription.panel_secret': 'Panel Secret',
     'subscription.ipv6_label': 'IPv6 support',
     'subscription.dns_ipv6_label': 'DNS returns IPv6',
-    'subscription.ipv6_settings_hint': 'IPv6 support: when off, the core does not use IPv6 at all; node domains with AAAA-only records may fail to resolve. DNS returns IPv6: when off, clients receive no IPv6 addresses, preventing direct IPv6 connections; recommended when TUN does not take over IPv6. Both apply after Save & Apply.',
     'subscription.rule_group': 'Rule Set',
     'subscription.rule_group_base': 'Base',
     'subscription.rule_group_full': 'Detailed',
@@ -1135,6 +1137,10 @@ const messages = {
       + '· TPROXY port: transparent proxy port; leave empty or 0 to disable.\n'
       + '· Panel secret: the password required to access the external panel.\n'
       + '· Ports must be within 1025‑65535 and must not collide with each other.\n'
+      + '\n[IPv6]\n'
+      + '· IPv6 support: when off, the core itself does not use IPv6; node domains with AAAA-only records may fail to resolve.\n'
+      + '· DNS returns IPv6: when off, clients receive no IPv6 addresses, preventing direct IPv6 connections; recommended when TUN does not take over IPv6.\n'
+      + '· Both take effect after "Save & Apply" reloads the kernel.\n'
       + '\n[Rule sets]\n'
       + '· Two tiers: "Base" (lightweight) and "Detailed" (complete); both only apply in merge mode — switch mode uses the rules shipped with the subscription.\n'
       + '\n[Subscription list]\n'

@@ -169,6 +169,16 @@ const nameHint = computed(() =>
 // 显隐只作用于渲染：meta_backend_url 始终留在 currentConfig 中，
 // 「保存并应用」照常提交原内容，来回切换面板不会把已填地址弄丢。
 const isMetaCubeXd = computed(() => currentConfig.value.ui_panel === 'metacubexd')
+// IPv6 两项与规则集共用的行布局：
+//   merge + IPv6 开：桌面三项一行、窄窗口两项一行（规则集整行）
+//   merge + IPv6 关：DNS 项隐藏，因此各减一列
+const ipv6RowClass = computed(() => {
+  const merge = currentConfig.value.mode === 'merge'
+  const v6 = currentConfig.value.ipv6
+  if (!merge) return v6 ? 'grid-cols-2' : 'grid-cols-1'
+  return v6 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'
+})
+
 
 // 点击卡片选中
 const selectSubscription = (name: string) => {
@@ -710,12 +720,6 @@ onUnmounted(() => {
     <!-- 内容区域内滚动容器 -->
     <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none p-6 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- 顶部使用说明：IPv6 两项设置的语义集中在这里，字段旁不再重复描述。 -->
-        <div class="md:col-span-2 flex items-start gap-2 p-3 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/60 dark:bg-slate-800/30">
-          <InformationCircleOutline class="w-4 h-4 shrink-0 text-slate-400 mt-0.5" />
-          <p class="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{{ t('subscription.ipv6_settings_hint') }}</p>
-        </div>
-
         <!-- 端口三件套：桌面与窄窗口都排在同一行（整行占满，不再拆进两列网格）。
              窄窗口列宽有限，输入框左右内边距在 sm 以下收紧，避免 5 位端口号被数字调节箭头挤掉。 -->
         <div class="grid grid-cols-3 gap-2 md:col-span-2 md:order-1">
@@ -740,10 +744,11 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- IPv6 两个生成期设置（端口之后、面板密钥之前）：
-             关闭「IPv6 支持」时隐藏 DNS 返回项，并把已选值归一为关闭（后端同样强制）。
+        <!-- IPv6 两项 + 规则集（端口之后、面板密钥之前）：
+             桌面一行三项（merge 模式）；窄窗口 IPv6 两项一行、规则集整行。
+             关闭「IPv6 支持」时隐藏 DNS 返回项并把已选值归一为关闭（后端同样强制）。
              两项都随「保存并应用」重载生效，不是运行时 PATCH。 -->
-        <div class="grid grid-cols-1 gap-2 md:col-span-2 md:order-2" :class="currentConfig.ipv6 ? 'md:grid-cols-2' : ''">
+        <div class="grid gap-2 md:col-span-2 md:order-2" :class="ipv6RowClass">
           <div class="flex flex-col gap-2">
             <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ipv6_label') }}</label>
             <select v-model="currentConfig.ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
@@ -756,6 +761,15 @@ onUnmounted(() => {
             <select v-model="currentConfig.dns_ipv6" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
               <option :value="true">{{ t('common.on') }}</option>
               <option :value="false">{{ t('common.off') }}</option>
+            </select>
+          </div>
+          <!-- 规则集档位：仅融合模式参与生成（切换模式用订阅自带规则）。
+               窄窗口整行、桌面与两个 IPv6 下拉同排。 -->
+          <div v-if="currentConfig.mode === 'merge'" class="col-span-full md:col-span-1 flex flex-col gap-2">
+            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
+            <select v-model="currentConfig.rule_group" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+              <option value="base">{{ t('subscription.rule_group_base') }}</option>
+              <option value="full">{{ t('subscription.rule_group_full') }}</option>
             </select>
           </div>
         </div>
@@ -772,25 +786,13 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 规则集 / 外置面板：窄窗口下同一行；md 起 md:contents 让这两个字段回到外层两列网格。
-             规则集档位只在融合模式下参与生成（切换模式的 config.yaml 是订阅文件副本，用订阅自带规则），
-             故切换模式下整块不渲染；隐藏的只是控件本身，currentConfig.rule_group 原值始终留在配置对象里，
-             「保存并应用」用 ...currentConfig 展开提交，档位照常落盘，切回融合模式仍按原档位生成。 -->
-        <div :class="currentConfig.mode === 'merge' ? 'grid grid-cols-2 gap-2 md:contents' : 'md:contents'">
-          <div v-if="currentConfig.mode === 'merge'" class="flex flex-col gap-2 md:order-4">
-            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.rule_group') }}</label>
-            <select v-model="currentConfig.rule_group" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-              <option value="base">{{ t('subscription.rule_group_base') }}</option>
-              <option value="full">{{ t('subscription.rule_group_full') }}</option>
-            </select>
-          </div>
-          <div class="flex flex-col gap-2 md:order-5">
-            <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ui_panel') }}</label>
-            <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
-              <option value="metacubexd">MetaCubeXD</option>
-              <option value="zashboard">Zashboard</option>
-            </select>
-          </div>
+        <!-- 外置面板（规则集已移到上面一行） -->
+        <div class="flex flex-col gap-2 md:order-4">
+          <label class="text-xs font-medium text-slate-600 dark:text-slate-400">{{ t('subscription.ui_panel') }}</label>
+          <select v-model="currentConfig.ui_panel" class="px-4 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none">
+            <option value="metacubexd">MetaCubeXD</option>
+            <option value="zashboard">Zashboard</option>
+          </select>
         </div>
 
         <!-- MetaCubeXD 后端地址：只有 MetaCubeXD 需要，选 Zashboard 时整块不渲染。
