@@ -135,6 +135,7 @@ backend/
     │   ├── tunnels.go            #   流量隧道：校验（监听地址 host:port、目标支持域名、proxy 必须存在）
     │   │                         #     + 幂等注入 tunnels 块（写在 rule-providers/rules 之前；无效项跳过）
     │   ├── customconfig.go       #   GenerateCustomConfig：自定义模式产物 = 模板骨架 + dns + proxies 块 + 标准规则集
+    │   ├── tun.go                #   TunBlock 静态安全基线 + TUN 默认值/取值常量 + TunDNSHijack（基线与应用共用的唯一来源）
     │   └── doc.go                #   包说明
     ├── nodespec/                 # 【叶子】出站代理协议字段表（自定义模式的「默认模板」唯一来源）
     │   ├── spec.go               #   字段类型（string/text/int/bool/select/list/map/group）+ 分区与条件显示 + 默认值补齐、归一化（类型转换/必填/组合要求/未知键/剔除默认值）
@@ -163,6 +164,7 @@ backend/
     │   ├── state.go              #   启用状态、IPv6 接管开关、绕过列表缓存、读写锁
     │   │                         #     （读一律走 GetTproxyState / ipv6Enabled / proxyLocalEnabled）
     │   ├── store.go              #   开关状态/绕过列表（含预填模板）/本机流量接管/IPv6 接管开关的持久化
+    │   │                         #     （Enabled / ProxyLocal / IPv6 三个开关**默认全关**，零值即默认值）
     │   │                         #     + ResetOnStartup：冷启动归零开关并清理残留规则
     │   ├── rules.go              #   规则解析 + nftables 应用/清理（IPv4/IPv6 同构：tproxyFamily）
     │   ├── rules_test.go         #   绕过规则解析/策略路由探测/家族定义的纯函数单测
@@ -170,7 +172,9 @@ backend/
     ├── tun/                      # TUN 运行参数与启停（见 3.15）
     │   ├── settings.go           #   tun.json 稀疏持久化（只存与模板默认值不同的键；**不含 enable**）
     │   │                         #     + 取值归一化与白名单校验（stack / dns-mode / ipv6 / device）
+    │   │                         #     + 读盘后归一化：手改出的非法值回落默认并记 WARN（Store.Normalize）
     │   ├── host.go               #   HostIPv6Available：读 sysctl 判断新建 tun 接口能否挂 IPv6 地址
+    │   ├── corestate.go          #   CoreTunEnabled：向内核 GET /configs 查 TUN 是否在运行（TProxy 互斥校验用）
     │   └── handlers.go           #   /config/tun（参数）与 /config/tun/state（启停）
     ├── subscription/             # 订阅中心
     │   ├── doc.go                #   包说明
@@ -272,6 +276,7 @@ main ──> 所有 internal 包
            quality    ──> config, core, httpx
            delaytest  ──> netinfo, httpx
            appupdate  ──> buildinfo, config, httpx, netinfo
+           tun        ──> config, configgen, core, httpx, logx, tproxy
            subscription        ──> config, configcheck, configgen, core, dashapi, httpx, nodespec, subscription/download
            subscription/download ──> config, configcheck, core
 ```
@@ -280,6 +285,7 @@ main ──> 所有 internal 包
 > 1. **下沉叶子包**：`core` 需要生成配置文件，而 `subscription` 依赖 `core`。若把生成逻辑留在 `subscription` 就会与 `core` 形成环，故将配置生成与改写逻辑抽成包 `configgen`（只依赖 `config` 与叶子包 `configcheck`），由 `core` 与 `subscription` 共同依赖。
 > 2. **同层共用工具下沉**：`subscription` 与其子包 `subscription/download` 都需要 map 键规范化，若留在父包则子包反向依赖父包，故下沉为 `subscription/download/keys.go`（`NormalizeMapKeys`）；同理，`configgen`、`subscription`、`core` 三方都需要 YAML 校验与改写能力，一并下沉为叶子包 `configcheck`。
 > 3. **依赖方向统一为单向链**：订阅相关的内核调用统一为 `subscription → core`；`core.DownloadWithTempCore` 只接收 `config.Subscription` 数据结构，不反向引用订阅包，因此不产生环。
+> 4. **反向依赖改用回调注入**：`tun` 需要读 `tproxy` 的开关（开启 TUN 前校验），而 `tproxy` 又要在下发规则前查询 TUN 是否在运行。依赖方向定为 `tun → tproxy`，反向需求由 `main` 通过 `tproxy.SetEnableGuard` 注入回调（`tproxy` 不 import `tun`），因此不产生环——新增跨域「互相校验」时照此办理，不要直接互 import。
 
 > **新增后端代码时的约定**：先判断属于哪个功能域，再放入对应包；新增 HTTP Handler 放在该域的 `handlers.go` / `api*.go` 中；若新代码引入跨层调用，务必先确认不会形成依赖环——若会形成环，应把共用逻辑下沉为新的叶子包，或改为在同一方向上调用，切勿直接互相 import。
 
@@ -362,7 +368,7 @@ func (c *cancelableReadCloser) Close() error {
 | `/config/tproxy/exceptions` | GET/POST | `tproxy.HandleTproxyExceptions` | 获取或配置 TProxy 源/目的绕过列表（GET 一并返回 `defaults` 预填模板，供前端「恢复默认」） |
 | `/config/tproxy/proxy-local` | GET/POST | `tproxy.HandleTproxyProxyLocal` | 获取或切换本机流量接管开关（界面文案「接管本机流量」） |
 | `/config/tproxy/proxy-ipv6` | GET/POST | `tproxy.HandleTproxyProxyIPv6` | 获取或切换「接管 IPv6 流量」开关（默认关闭；启用 TProxy 期间前端置灰） |
-| `/config/tun` | GET/POST | `tun.HandleTunSettings` | TUN 运行参数（stack / device / dns-mode / ipv6）：GET 返回生效值 + 模板默认值 + 宿主 IPv6 能力；POST 为部分更新，稀疏落盘 `tun.json`，**不碰内核、不碰 config.yaml**，下次开启 TUN 时生效 |
+| `/config/tun` | GET/POST | `tun.HandleTunSettings` | TUN 运行参数（stack / device / dns-mode / ipv6）：GET 返回生效值 + 模板默认值 + 宿主 IPv6 能力 + `global_ipv6`；POST 为部分更新，稀疏落盘 `tun.json`，**不碰内核、不碰 config.yaml**，下次开启 TUN 时生效（GET/POST 共用同一份响应体构造，`settingsPayload`） |
 | `/config/tun/state` | POST | `tun.HandleTunState` | 开启/关闭 TUN（唯一入口）：后端组装完整 tun 对象 PATCH 内核；开关状态不落盘、**不回放** |
 | `/ipinfo/local/v4` | GET | `netinfo.HandleLocalIPv4` | 查询本地出站 IPv4 归属信息 |
 | `/ipinfo/local/v6` | GET | `netinfo.HandleLocalIPv6` | 查询本地出站 IPv6 归属信息 |
@@ -473,7 +479,7 @@ func (c *cancelableReadCloser) Close() error {
 
 切换模式的 `config.yaml` 是「订阅文件副本」，自定义规则只能在**复制之后**叠加，必须遵守：
 
-1. **订阅文件保持原样**：`proxies/<订阅名>.yaml` 始终等于「机场下发内容 + Fluxor 必需字段（端口/密钥/DNS）」，自定义规则只写入 `config.yaml`。因此注入点是 `writeRuntimeConfig`（`subscription/runtimeconfig.go`），而不是 `patchSubscriptionFile`——后者会作用到 `ensure.go` 里**所有订阅**（含未激活的纯备份文件）。
+1. **订阅文件保持原样**：`proxies/<订阅名>.yaml` 始终等于「机场下发内容 + Fluxor 必需字段（端口/密钥/DNS 块/tun 基线）」，自定义规则只写入 `config.yaml`。因此注入点是 `writeRuntimeConfig`（`subscription/runtimeconfig.go`），而不是 `patchSubscriptionFile`——后者会作用到 `ensure.go` 里**所有订阅**（含未激活的纯备份文件）。
 2. **只增不覆盖**：`rules` 是「顺序即语义」的序列，任何 `doc.Set("rules", ...)` 式的整键覆盖都会吃掉机场自带规则。`configgen.ApplyCustomRules` 只做节点级插入：`before`（默认）插到首位、`after` 插到最后一条 `MATCH` 之前；`rules` 缺失或为 null 时新建序列，`rules` 不是序列时报错并放弃改写。
    同一分组内按切片顺序依次插入，因此**切片顺序 = 界面展示顺序 = 生效顺序**：所有写操作（新增/修改/排序）落盘前都会经 `config.SortCustomRulesForDisplay` 归一化为「before 组在前、after 组在后」，避免三者出现分歧。
 3. **必须幂等**：订阅每次更新（含定时更新）都会重放一次注入，因此要先按规则文本去重再插入，重复调用产物必须逐字节一致。
@@ -617,14 +623,14 @@ logx.Error(logx.ModuleCore, "failed to start mihomo %s: %v", config.CoreBin, err
 1. **config.yaml 里的 tun 块是静态安全基线**（`configgen.TunBlock`，三条链路共用：模板 / 切换模式的订阅文件副本 / 无订阅兜底 `GenerateBaseConfig`）。它恒为 `enable: false`、`inet6-address: []`，不承载任何用户偏好。
    - 必须保留这份基线而不是省略：mihomo 的 `DefaultRawConfig` 会给 tun 填上 `stack: gvisor`、`dns-hijack: 0.0.0.0:53`、**`inet6-address: fdfe:dcba:9876::1/126`**（`config/config.go`），任何「只发 `{enable:true}`」的 PATCH 都会继承它们；宿主 `net.ipv6.conf.default.disable_ipv6=1` 时下发 IPv6 地址会以 EACCES 失败，整只 TUN 起不来（报成 `configure tun interface: permission denied`）。
    - 切换模式下机场自带的 `tun` 块必须**整块替换**（订阅里的 device / auto-route / enable 与宿主无关）。
-2. **用户偏好存 `tun.json`，稀疏**：只写与 `TunBlock` 不同的键（`tun.Save` 用 `sparseString` 对比默认值，相同即删键），**不含 `enable`**。默认值不落盘，因此以后改模板默认值能自动惠及没改过的用户。
-3. **开关状态只活在运行时，且不回放**：`/config/tun/state` 是唯一入口。内核启动、配置重载（`PUT /configs` 重新解析 config.yaml）、面板重启之后 TUN 必然关闭——用户需要重新开启；前端必须常驻提示「重载/重启后自动关闭」，这不是错误。
+2. **用户偏好存 `tun.json`，稀疏**：只写与 `TunBlock` 不同的键（`tun.Save` 用 `sparseString` 对比默认值，相同即删键），**不含 `enable`**。默认值不落盘，因此以后改模板默认值能自动惠及没改过的用户。**读盘后归一化**（`Store.Normalize`）：手改出的非法栈名/设备名整体回落默认并记一条 WARN——否则 `Current()` 会把脏值原样带进内核，开启时只得到一句 `invalid tun stack`，而 POST 也会被同一条非法值拒绝，用户没有入口改回来。
+3. **开关状态只活在运行时，且不回放**：`/config/tun/state` 是唯一入口。内核启动/重启、配置重载（`PUT /configs` 重新解析 config.yaml）之后 TUN 必然关闭——用户需要重新开启，这不是错误。面板正常退出/重启会连带停止内核（`main` 的退出钩子调用 `core.StopCore`），TUN 同样消失；只有面板被非优雅杀死（kill -9 / 崩溃）时内核仍在运行，TUN 可能还开着——此时前端以 `GET /configs` 的 `tun.enable` 为准，`ResetOnStartup` 只收敛 TProxy，不碰 TUN。提示只放在开启前的确认弹窗与开启成功的 toast 里（dc1fe72 起不再单独占一行常驻说明）。
    - 反过来，**任何配置重载（含订阅定时更新）都会拆掉正在运行的 TUN**，这是策略而非缺陷，不要为了"体验"加回放。
-4. **开启时必须 PATCH 完整 tun 对象**：`tun.runtimeConfig` 会带上 stack / dns-mode / inet6-address / dns-hijack / auto-route / auto-redirect / auto-detect-interface（以及非空时的 device）。理由同第 1 条——mihomo 的 `patchConfigs` 以 `listener.LastTunConf`（基线）为基底，只发 `enable` 会让用户设置全部静默失效。
+4. **开启时必须 PATCH 完整 tun 对象，每个字段都要显式下发（包括空值）**：`tun.runtimeConfig` 会带上 stack / device / dns-mode / inet6-address / dns-hijack / auto-route / auto-redirect / auto-detect-interface。理由同第 1 条——mihomo 的 `patchConfigs` 以 `listener.LastTunConf` 为基底做合并（`pointerOrDefaultTun`），**键缺失 = 沿用上一次下发值，而不是回到默认**；`device` 曾按「空则省略」处理，结果是清空设备名后重新开启 TUN 仍沿用旧接口名，直到一次配置重载把 `LastTunConf` 重置回基线。空串才是「自动命名」的真实表达。
 5. **改参数不碰 config.yaml、不重载**：`POST /config/tun` 只落 `tun.json`，参数在**下次开启 TUN** 时生效；界面改参数时若 TUN 正在运行，要提示「重新开启后生效」。
 6. **IPv6 接管两档**（`tun.json` 的 `ipv6`）：`auto`（默认，按宿主能力：`/proc/sys/net/ipv6/conf/{default,all}/disable_ipv6` 与 `/sys/module/ipv6/parameters/disable` 全为 0 才下发地址）/ `off`。不提供「强制开启」——宿主支持时 auto 与强制等价，宿主不支持时强制只会让 TUN 起不来；旧值 `on` 在 `Normalize` 里收敛为 `auto`，不报错。全局 `ipv6`（订阅中心的生成期开关）关闭时，开启 TUN 一律不下发 IPv6 地址。
 7. **`dns-mode` 三档**（透传内核）：`hijack`（默认）/ `native` / `disabled`。两个平台事实：Linux 的 hijack 依赖 `auto-redirect` 的 nft 链（基线里恒为 true）；`native` 只调用 `resolvectl`，无 systemd-resolved 的平台（OpenWrt 等）上等于空操作。该键需要 mihomo ≥ v1.19.33，老内核会忽略它（行为回落到隐式 hijack）。
-8. **与 TProxy 互斥**：开启 TUN 时后端校验 `tproxy.GetTproxyState()`，前端只负责先关 TProxy；两者同时生效会互相破坏对方的流量路径。
+8. **与 TProxy 双向互斥**：开启 TUN 时后端校验 `tproxy.GetTproxyState()`；反方向（开启 TProxy / 改端口后重建 / 重载后重建）由 `EnableTProxyRules` 开头的 `guardRulesApply()` 拦住，回调经 `tproxy.SetEnableGuard` 在 `main` 注入，内部实时查询内核 `GET /configs` 的 `tun.enable`（`tun.CoreTunEnabled`）——TUN 可能由第三方面板或上一次面板会话开启，只有内核知道真相，本地缓存会在面板重启/内核重载后失真。`tproxy` 不 import `tun`（依赖方向是 `tun → tproxy`），故用注入避免成环；查询失败只记 WARN 并放行（内核没运行时 TUN 必然没开）。前端仍负责先关对侧，但不再是唯一防线。
 9. **IPv6 接管受总开关约束（单向门）**：订阅中心的「IPv6 支持」关闭时，TUN 不下载 v6 地址、TProxy 不下发 ip6 规则，但两处的**偏好值原样保留**（`tun.json` / `tproxy.json` 一个字节都不改），总开关恢复后自动重新生效。UI 只做置灰与说明，不替用户改写偏好；`/config/tun` 与 `/config/tproxy/proxy-ipv6` 的 GET 都返回 `global_ipv6` 供前端判断。
 10. **两套 IPv6 概念不要混淆**：订阅中心的「IPv6 支持」（`ipv6`）与「DNS 返回 AAAA」（`dns.ipv6`）是**生成期**字段（前者关闭时后者强制关闭，见 `config.NormalizeIPv6Flags`）；TUN 的「IPv6 接管」只决定 `tun.inet6-address`。配置页不再有 IPv6 开关（它原先只 PATCH 内核运行时、重启即失效）。
 
