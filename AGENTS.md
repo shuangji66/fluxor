@@ -632,7 +632,7 @@ logx.Error(logx.ModuleCore, "failed to start mihomo %s: %v", config.CoreBin, err
 7. **`dns-mode` 三档**（透传内核）：`hijack`（默认）/ `native` / `disabled`。两个平台事实：Linux 的 hijack 依赖 `auto-redirect` 的 nft 链（基线里恒为 true）；`native` 只调用 `resolvectl`，无 systemd-resolved 的平台（OpenWrt 等）上等于空操作。该键需要 mihomo ≥ v1.19.33，老内核会忽略它（行为回落到隐式 hijack）。
 8. **与 TProxy 双向互斥**：开启 TUN 时后端校验 `tproxy.GetTproxyState()`；反方向（开启 TProxy / 改端口后重建 / 重载后重建）由 `EnableTProxyRules` 开头的 `guardRulesApply()` 拦住，回调经 `tproxy.SetEnableGuard` 在 `main` 注入，内部实时查询内核 `GET /configs` 的 `tun.enable`（`tun.CoreTunEnabled`）——TUN 可能由第三方面板或上一次面板会话开启，只有内核知道真相，本地缓存会在面板重启/内核重载后失真。`tproxy` 不 import `tun`（依赖方向是 `tun → tproxy`），故用注入避免成环；查询失败只记 WARN 并放行（内核没运行时 TUN 必然没开）。前端仍负责先关对侧，但不再是唯一防线。
 9. **IPv6 接管受总开关约束（单向门）**：订阅中心的「IPv6 支持」关闭时，TUN 不下载 v6 地址、TProxy 不下发 ip6 规则，但两处的**偏好值原样保留**（`tun.json` / `tproxy.json` 一个字节都不改），总开关恢复后自动重新生效。UI 只做置灰与说明，不替用户改写偏好；`/config/tun` 与 `/config/tproxy/proxy-ipv6` 的 GET 都返回 `global_ipv6` 供前端判断。
-10. **两套 IPv6 概念不要混淆**：订阅中心的「IPv6 支持」（`ipv6`）与「DNS 返回 AAAA」（`dns.ipv6`）是**生成期**字段（前者关闭时后者强制关闭，见 `config.NormalizeIPv6Flags`）；TUN 的「IPv6 接管」只决定 `tun.inet6-address`。配置页不再有 IPv6 开关（它原先只 PATCH 内核运行时、重启即失效）。
+10. **两套 IPv6 概念不要混淆**：订阅中心的「IPv6 支持」（`ipv6`）与「DNS 返回 AAAA」（`dns.ipv6`）是**生成期**字段（前者关闭时后者强制关闭，见 `config.NormalizeIPv6Flags`；重新开启 IPv6 支持时前端把 DNS 返回 IPv6 **恢复为开启**——关闭的那一刻 DNS 项已隐藏，保留 false 会得到「IPv6 开着却拿不到 AAAA」这个没有任何入口可解释的组合；开启后仍可单独关掉）；TUN 的「IPv6 接管」只决定 `tun.inet6-address`。配置页不再有 IPv6 开关（它原先只 PATCH 内核运行时、重启即失效）。
 
 为了保障页面切换时的流畅交互体验，并避免在后台静置运行时产生资源泄漏：
 

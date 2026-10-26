@@ -212,13 +212,17 @@ const { currentConfig, savedSubNames, savedMode, nodeProtocols } = storeToRefs(s
 
 // IPv6 两项是**生成期字段**（写入 config.yaml 的 ipv6 / dns.ipv6），
 // 改动随「保存并应用」落盘并重载内核生效；不是运行时 PATCH。
-// 约束：IPv6 总开关关闭时 DNS 必然不返回 IPv6（后端也会归一化），前端用 watch 归一
-// 并隐藏 DNS 返回项——不依赖 @change 与 v-model 的触发顺序。
+//
+// 两项联动：关闭 IPv6 支持时 DNS 必然不返回 IPv6（后端也强制归一化），DNS 项同时
+// 被隐藏；重新开启时 DNS 返回 IPv6 **默认恢复为开启**——关掉总开关的那一刻 DNS 项
+// 已不可见，若保留 false，用户会得到「IPv6 开着、却拿不到 AAAA」这个没有任何入口
+// 可解释的组合。开启后仍可单独把 DNS 项关掉（例如节点只有 IPv4 出口）。
+// 用 watch 而不是 @change，是为了不依赖 v-model 与事件回调的触发顺序。
 // 必须放在 currentConfig 初始化之后：watch 的 getter 在 setup 阶段立即执行。
 watch(
   () => currentConfig.value.ipv6,
   (enabled) => {
-    if (!enabled) currentConfig.value.dns_ipv6 = false
+    currentConfig.value.dns_ipv6 = enabled
   },
 )
 
