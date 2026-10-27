@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, onActivated, computed } from 'vue'
+import { ref, watch, onActivated, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { GlobeOutline, SyncOutline, SettingsOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
@@ -14,6 +14,7 @@ import { mapWithConcurrency } from '../utils/concurrency'
 import { apiFetch, readErrorMessage } from '../utils/api'
 import { modeI18nKey } from '../utils/i18n-keys'
 import { useViewActive } from '../composables/useViewActive'
+import { useMediaQuery } from '../composables/useMediaQuery'
 
 const { t } = useI18n()
 const proxyStore = useProxyStore()
@@ -102,9 +103,11 @@ const saveSettings = async () => {
   globalStore.showToast(t('proxies.settings_saved'), 'success')
 }
 
-// 桌面端检测
-const isDesktop = ref(window.innerWidth >= 768)
-const onResize = () => { isDesktop.value = window.innerWidth >= 768 }
+// 桌面端检测：断点与 Tailwind 的 md（48rem = 768px）保持一致。
+// 必须走 matchMedia 而不是 window.innerWidth——理由见 composables/useMediaQuery.ts：
+// 两者在部分 WebView 里会得出相反结论，代理组就会在移动端排成双列，卡片被挤到
+// 只剩类型徽标与截断成「当…」的当前节点行。
+const isDesktop = useMediaQuery('(min-width: 768px)')
 
 const renderedMode = ref(configs.value.mode || 'Rule')
 let modeSwitchTimer: number | null = null
@@ -233,10 +236,6 @@ const handleTestAll = async () => {
   }
 }
 
-onMounted(async () => {
-  window.addEventListener('resize', onResize)
-})
-
 // 兜底：按质量排序依赖质量分数，而它是内存态（见 store/ensureQualityScores）。
 // 启动阶段若内核尚未就绪，首次拉取会落空；本页每次被 KeepAlive 激活时补一次，
 // 已有分数则不发请求，因此正常切页不会产生额外内核调用。
@@ -263,10 +262,6 @@ onActivated(async () => {
     configStore.fetchConfigs(true, true)
   }
   proxyStore.ensureQualityScores()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', onResize)
 })
 </script>
 
