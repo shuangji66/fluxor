@@ -261,8 +261,8 @@ const handleSave = () => {
       </button>
     </div>
 
-    <!-- pr-2 给滚动条留位：覆盖式滚动条会压住输入框/开关的右边缘。 -->
-    <div class="flex-1 min-h-0 overflow-y-auto pr-2 space-y-4">
+    <!-- pr-2/pb-2：右侧给覆盖式滚动条留位，底部避免末项底边被滚动区边界裁掉。 -->
+    <div class="flex-1 min-h-0 overflow-y-auto pr-2 pb-2 space-y-4">
       <!-- 第一项：协议（决定下面渲染哪些字段） -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="flex flex-col gap-1.5">

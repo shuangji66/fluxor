@@ -1174,8 +1174,8 @@ onActivated(async () => {
     </div>
 
     <!-- 可滚动内容区域：占据剩余空间，超出时滚动。
-         pr-2 给滚动条留位：滚动条是覆盖式绘制，不留白会压住输入框右边缘。 -->
-    <div class="flex-1 min-h-0 overflow-y-auto pr-2">
+         pr-2/pb-2 留位：覆盖式滚动条会压住输入框右边缘，末项底边则会贴着滚动区边界被裁掉。 -->
+    <div class="flex-1 min-h-0 overflow-y-auto pr-2 pb-2">
       <div class="space-y-4">
         <!-- IPv6 接管（置于弹窗顶部：它决定 ip6 家族规则是否随 TProxy 下发）。
              开关即时生效（与下方文本的「保存」无关）；TProxy 启用期间或订阅中心
@@ -1258,8 +1258,8 @@ onActivated(async () => {
       <h4 class="text-lg font-bold">{{ t('config.tun_advanced_title') }}</h4>
     </div>
 
-    <!-- pr-2 给滚动条留位：覆盖式滚动条会压住输入框右边缘。 -->
-    <div class="flex-1 min-h-0 overflow-y-auto pr-2">
+    <!-- pr-2/pb-2：右侧给覆盖式滚动条留位，底部避免末项底边被滚动区边界裁掉。 -->
+    <div class="flex-1 min-h-0 overflow-y-auto pr-2 pb-2">
       <div class="space-y-4">
         <!-- TUN 设备名（失焦/回车写回 tun.json，下次开启 TUN 生效） -->
         <div class="flex flex-col gap-1">

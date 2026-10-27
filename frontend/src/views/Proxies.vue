@@ -404,8 +404,9 @@ onUnmounted(() => {
       <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
 
       <!-- 表单区：只有这里滚动，底部操作按钮始终留在视口内。
-           pr-2 给滚动条留位：覆盖式滚动条会压住输入框/开关的右边缘。 -->
-      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-2">
+           pr-2 给滚动条留位：覆盖式滚动条会压住输入框/开关的右边缘；
+           pb-2 让最后一项（正则输入框）的底边不贴着滚动区边界被裁掉。 -->
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-2 pb-2">
 
         <!-- 新增：自动断开连接开关 -->
         <div class="flex items-center justify-between py-1.5">

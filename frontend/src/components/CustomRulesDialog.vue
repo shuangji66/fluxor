@@ -818,8 +818,8 @@ defineExpose({ takeMutatedScopes })
       </button>
     </div>
 
-    <!-- pr-2 给滚动条留位：覆盖式滚动条会压住输入框/开关的右边缘。 -->
-    <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-2">
+    <!-- pr-2/pb-2：右侧给覆盖式滚动条留位，底部避免末项底边被滚动区边界裁掉。 -->
+    <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-2 pb-2">
       <!-- 作用域提示：只有融合模式需要（切换模式的规则本来就只作用于该订阅，无需说明），
            文案由父组件传入；组件内不判模式 -->
       <p v-if="props.hint" class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ props.hint }}</p>
