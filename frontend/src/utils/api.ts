@@ -60,6 +60,25 @@ export async function readErrorMessage(resp: Response): Promise<string> {
   return fallback;
 }
 
+/**
+ * 请求 JSON 接口的便捷封装：非 2xx 时抛出**带后端原因**的错误。
+ *
+ * 项目里 60 多处手写 `const resp = await apiFetch(...); if (!resp.ok) {...}; await resp.json()`，
+ * 其中不少在失败分支只提示「操作失败」，把后端返回的 `{"message":"..."}` 丢掉
+ * （比如内核拒绝配置的原因、端口冲突、订阅名校验失败）。这里把「判状态码 + 解析」
+ * 合成一步，错误直接由 catch 统一提示。
+ *
+ * 空响应体（204 / 只回状态码的接口）返回 undefined，避免 JSON.parse('') 抛语法错。
+ */
+export async function apiJson<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const resp = await apiFetch(path, options)
+  if (!resp.ok) throw new Error(await readErrorMessage(resp))
+  if (resp.status === 204) return undefined as T
+  const text = await resp.text()
+  if (text.trim() === '') return undefined as T
+  return JSON.parse(text) as T
+}
+
 export interface WsHandlers {
   onOpen?: () => void;
   onError?: (ev: Event) => void;

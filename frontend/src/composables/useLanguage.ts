@@ -15,9 +15,13 @@ export function useLanguage() {
   }
 
   const toggleLanguage = () => {
-    const target = locale.value === 'zh' ? 'en' : 'zh'
-    locale.value = target
-    localStorage.setItem('lang', target)
+    setLanguage(locale.value === 'zh' ? 'en' : 'zh')
+  }
+
+  // 直接切到指定语言：落 localStorage 并同步窗口标题（语言下拉用）
+  const setLanguage = (lang: string) => {
+    locale.value = lang
+    localStorage.setItem('lang', lang)
     updateTitle(globalStore.activeTab)
   }
 
@@ -28,6 +32,7 @@ export function useLanguage() {
   return {
     locale,
     currentLangDisplay,
+    setLanguage,
     toggleLanguage,
     updateTitle
   }

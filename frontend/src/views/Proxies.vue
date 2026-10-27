@@ -8,6 +8,9 @@ import { useGlobalStore } from '../store/global'
 import { useConfigStore } from '../store/config'
 import { useSubscriptionStore } from '../store/subscription'
 import ProxyGroupCard from '../components/ProxyGroupCard.vue'
+import PageHeader from '../components/PageHeader.vue'
+import AppModal from '../components/AppModal.vue'
+import { mapWithConcurrency } from '../utils/concurrency'
 import { apiFetch, readErrorMessage } from '../utils/api'
 import { modeI18nKey } from '../utils/i18n-keys'
 import { useViewActive } from '../composables/useViewActive'
@@ -18,7 +21,7 @@ const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 const subscriptionStore = useSubscriptionStore()
 
-const { proxyGroups, delays, isLoading, sortOrder, delayThresholds, historyCount, filterRegex } = storeToRefs(proxyStore)
+const { proxyGroups, isLoading, sortOrder, delayThresholds, historyCount, filterRegex } = storeToRefs(proxyStore)
 const { setSortOrder, updateSettings, setFilterRegex } = proxyStore
 const { coreStatus, configs } = storeToRefs(configStore)
 const { currentConfig } = storeToRefs(subscriptionStore)
@@ -158,38 +161,32 @@ const changeMode = async (mode: string) => {
   }
 }
 
+// 组间并发上限：内核的 /group/{name}/delay 会遍历组内全部节点，全量并发会把内核打满，
+// 纯串行又太慢（组多时一轮要等十几秒）。4 路是折中值。
+const TEST_ALL_CONCURRENCY = 4
+
 const handleTestAll = async () => {
   if (isTestingAll.value) return
   isTestingAll.value = true
   globalStore.showToast(t('proxies.testing_all'), 'info')
   try {
     const groups = proxyGroups.value // 所有组
-    let failedGroups = 0
-    for (const group of groups) {
-      const groupName = group.name
-      const testURL = 'http://www.gstatic.com/generate_204'
-      const timeout = 5000
-      const endpoint = `/group/${encodeURIComponent(groupName)}/delay?url=${encodeURIComponent(testURL)}&timeout=${timeout}`
+    const testURL = 'http://www.gstatic.com/generate_204'
+    const results = await mapWithConcurrency(groups, TEST_ALL_CONCURRENCY, async (group) => {
+      const endpoint = `/group/${encodeURIComponent(group.name)}/delay?url=${encodeURIComponent(testURL)}&timeout=5000`
       const resp = await apiFetch(endpoint)
-      if (resp.ok) {
-        const data = await resp.json()
-        // 更新延迟
-        for (const [name, delay] of Object.entries(data)) {
-          if (typeof delay === 'number' && delay > 0) {
-            delays.value[name] = delay
-          } else if (delay === 0) {
-            delays.value[name] = 0
-          } else {
-            delays.value[name] = -1
-          }
-        }
-        // 每完成一组刷新一次（立即更新UI）
-        proxyStore.fetchProxies(true)
-      } else {
-        failedGroups++
-        console.warn(`组 ${groupName} 测速失败`)
+      if (!resp.ok) {
+        console.warn(`组 ${group.name} 测速失败`)
+        return false
       }
-    }
+      // 逐组落地结果，测速过程中列表就在变色（整体刷新放到最后统一做）
+      proxyStore.applyDelayMap(await resp.json())
+      return true
+    })
+    // null = 该组任务抛错（如网络中断），必须计入失败，否则会误报「测速完成」
+    const failedGroups = results.filter((ok) => !ok).length
+    // 全程只刷新一次：旧实现每完成一组就整表重取，组多时列表会持续重排闪烁
+    await proxyStore.fetchProxies(true)
     if (groups.length > 0 && failedGroups === groups.length) {
       globalStore.showToast(t('common.operation_failed'), 'error')
     } else if (failedGroups > 0) {
@@ -244,90 +241,46 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <!-- 顶部工具栏：移动两行，桌面一行 -->
-    <div class="glass-medium shadow-none px-6 py-3 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all shrink-0">
-      <!-- 移动端布局（两行） -->
-      <div class="flex md:hidden flex-col w-full gap-3">
-        <div class="flex items-center justify-between">
-          <h3 class="text-base font-semibold flex items-center gap-2">
-            <GlobeOutline class="w-5 h-5 text-accent" />
-            {{ t('proxies.title') }}
-            <!-- 齿轮按钮：代理设置入口，紧贴标题右侧 -->
-            <button
-              @click="openSettingsDialog"
-              class="-my-1 p-1.5 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              :title="t('proxies.settings_title')"
-            >
-              <SettingsOutline class="w-4 h-4" />
-            </button>
-          </h3>
-          <div class="flex items-center gap-2">
-            <!-- 全部测速按钮 -->
-            <button
-              @click="handleTestAll"
-              :disabled="isTestingAll"
-              class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
-              {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
-            </button>
-          </div>
-        </div>
-        <div class="flex justify-center">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
-            <button
-              v-for="modeOption in ['Rule', 'Global', 'Direct']"
-              :key="modeOption"
-              @click="changeMode(modeOption)"
-              :disabled="!coreStatus.running"
-              class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t(modeI18nKey(modeOption)) }}
-            </button>
-          </div>
+    <PageHeader :icon="GlobeOutline" gap="gap-3 md:gap-4">
+      <template #title>
+        {{ t('proxies.title') }}
+        <!-- 齿轮按钮：代理设置入口，紧贴标题右侧 -->
+        <button
+          @click="openSettingsDialog"
+          class="-my-1 p-1.5 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          :title="t('proxies.settings_title')"
+        >
+          <SettingsOutline class="w-4 h-4" />
+        </button>
+      </template>
+
+      <!-- 模式切换：桌面端居中，移动端独占一行 -->
+      <div class="flex justify-center order-last w-full md:order-none md:w-auto md:flex-1">
+        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full md:w-auto transition-all">
+          <button
+            v-for="modeOption in ['Rule', 'Global', 'Direct']"
+            :key="modeOption"
+            @click="changeMode(modeOption)"
+            :disabled="!coreStatus.running"
+            class="flex-1 md:flex-none px-4 md:px-6 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+          >
+            {{ t(modeI18nKey(modeOption)) }}
+          </button>
         </div>
       </div>
 
-      <!-- 桌面端布局（一行） -->
-      <div class="hidden md:flex items-center justify-between w-full">
-        <h3 class="text-base font-semibold flex items-center gap-2">
-          <GlobeOutline class="w-5 h-5 text-accent" />
-          {{ t('proxies.title') }}
-          <!-- 齿轮按钮：代理设置入口，紧贴标题右侧 -->
-          <button
-            @click="openSettingsDialog"
-            class="-my-1 p-1.5 text-slate-500 hover:text-accent rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            :title="t('proxies.settings_title')"
-          >
-            <SettingsOutline class="w-4 h-4" />
-          </button>
-        </h3>
-        <div class="flex-1 flex justify-center">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all">
-            <button
-              v-for="modeOption in ['Rule', 'Global', 'Direct']"
-              :key="modeOption"
-              @click="changeMode(modeOption)"
-              :disabled="!coreStatus.running"
-              class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="configs.mode === modeOption ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t(modeI18nKey(modeOption)) }}
-            </button>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button
-            @click="handleTestAll"
-            :disabled="isTestingAll"
-            class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
-            {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
-          </button>
-        </div>
-      </div>
-    </div>
+      <template #actions>
+        <button
+          @click="handleTestAll"
+          :disabled="isTestingAll"
+          class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isTestingAll }" />
+          {{ isTestingAll ? t('proxies.testing') : t('proxies.test_all') }}
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- 内容区域 -->
     <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 p-6 space-y-6 pr-4" style="scrollbar-gutter: stable">
@@ -410,104 +363,106 @@ onUnmounted(() => {
     </div>
 
     <!-- 设置弹窗 -->
-    <Teleport to="body">
-      <div
-        v-if="isActive && showSettingsDialog"
-        class="fixed inset-0 z-[9999] glass-mask flex items-center justify-center p-4"
-        @click.self="showSettingsDialog = false"
-      >
-        <div class="glass-heavy w-full max-w-[92vw] sm:max-w-sm rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] max-h-[90vh] overflow-y-auto">
-          <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
+    <AppModal
+      :open="isActive && showSettingsDialog"
+      :label="t('proxies.settings_title')"
+      panel-class="w-full max-w-[92vw] sm:max-w-sm rounded-[20px] p-6 flex flex-col gap-4 max-h-[90vh]"
+      @close="showSettingsDialog = false"
+    >
+      <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
 
-          <!-- 新增：自动断开连接开关 -->
-          <div class="flex items-center justify-between py-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 select-none cursor-pointer">
-              {{ t('proxies.auto_close_connections') }}
-            </label>
-            <div class="relative inline-flex items-center cursor-pointer" @click="settingsForm.autoCloseConnections = !settingsForm.autoCloseConnections">
-              <div class="w-9 h-5 rounded-full transition-colors duration-200 ease-in-out"
-                   :class="settingsForm.autoCloseConnections ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-600'"></div>
-              <div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out"
-                   :class="settingsForm.autoCloseConnections ? 'translate-x-4' : 'translate-x-0'"></div>
-            </div>
-          </div>
+      <!-- 表单区：只有这里滚动，底部操作按钮始终留在视口内 -->
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1">
 
-          <!-- 排序 -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.sort_order') }}</label>
-            <select
-              v-model="settingsForm.sort"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
-            >
-              <option value="default">{{ t('proxies.sort_default') }}</option>
-              <option value="name">{{ t('proxies.sort_name') }}</option>
-              <option value="delay">{{ t('proxies.sort_delay') }}</option>
-              <option value="quality">{{ t('proxies.sort_quality') }}</option>
-            </select>
-          </div>
-
-          <!-- 低延迟阈值 -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_low') }}</label>
-            <input
-              type="number"
-              v-model.number="settingsForm.thresholdLow"
-              min="1"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
-            />
-          </div>
-
-          <!-- 中延迟阈值 -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_mid') }}</label>
-            <input
-              type="number"
-              v-model.number="settingsForm.thresholdMid"
-              min="1"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
-            />
-          </div>
-
-          <!-- 历史条数 -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.history_count') }}</label>
-            <input
-              type="number"
-              v-model.number="settingsForm.historyCount"
-              min="5"
-              max="10"
-              step="1"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
-            />
-          </div>
-
-          <!-- 节点过滤正则 -->
-          <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.filter_regex') }}</label>
-            <textarea
-              v-model="settingsForm.filterRegex"
-              :placeholder="t('proxies.filter_regex_placeholder')"
-              rows="2"
-              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none font-mono resize-y min-h-[3.5rem]"
-            ></textarea>
-          </div>
-
-          <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60">
-            <button
-              @click="showSettingsDialog = false"
-              class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all"
-            >
-              {{ t('common.cancel') }}
-            </button>
-            <button
-              @click="saveSettings"
-              class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15"
-            >
-              {{ t('common.save') }}
-            </button>
+        <!-- 新增：自动断开连接开关 -->
+        <div class="flex items-center justify-between py-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 select-none cursor-pointer">
+            {{ t('proxies.auto_close_connections') }}
+          </label>
+          <div class="relative inline-flex items-center cursor-pointer" @click="settingsForm.autoCloseConnections = !settingsForm.autoCloseConnections">
+            <div class="w-9 h-5 rounded-full transition-colors duration-200 ease-in-out"
+                 :class="settingsForm.autoCloseConnections ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-600'"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out"
+                 :class="settingsForm.autoCloseConnections ? 'translate-x-4' : 'translate-x-0'"></div>
           </div>
         </div>
+
+        <!-- 排序 -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.sort_order') }}</label>
+          <select
+            v-model="settingsForm.sort"
+            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+          >
+            <option value="default">{{ t('proxies.sort_default') }}</option>
+            <option value="name">{{ t('proxies.sort_name') }}</option>
+            <option value="delay">{{ t('proxies.sort_delay') }}</option>
+            <option value="quality">{{ t('proxies.sort_quality') }}</option>
+          </select>
+        </div>
+
+        <!-- 低延迟阈值 -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_low') }}</label>
+          <input
+            type="number"
+            v-model.number="settingsForm.thresholdLow"
+            min="1"
+            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+          />
+        </div>
+
+        <!-- 中延迟阈值 -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.threshold_mid') }}</label>
+          <input
+            type="number"
+            v-model.number="settingsForm.thresholdMid"
+            min="1"
+            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+          />
+        </div>
+
+        <!-- 历史条数 -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.history_count') }}</label>
+          <input
+            type="number"
+            v-model.number="settingsForm.historyCount"
+            min="5"
+            max="10"
+            step="1"
+            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+          />
+        </div>
+
+        <!-- 节点过滤正则 -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.filter_regex') }}</label>
+          <textarea
+            v-model="settingsForm.filterRegex"
+            :placeholder="t('proxies.filter_regex_placeholder')"
+            rows="2"
+            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none font-mono resize-y min-h-[3.5rem]"
+          ></textarea>
+        </div>
       </div>
-    </Teleport>
+
+      <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60 shrink-0">
+        <button
+          @click="showSettingsDialog = false"
+          class="px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all"
+        >
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          @click="saveSettings"
+          class="px-4 py-2 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15"
+        >
+          {{ t('common.save') }}
+        </button>
+      </div>
+    </AppModal>
+
   </div>
 </template>

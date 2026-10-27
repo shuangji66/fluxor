@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiFetch } from '../utils/api'
+import { apiJson } from '../utils/api'
+import type { RulesFrame, RulesProvidersFrame } from '../types/api'
 import { createStaleFlag } from '../utils/staleFlag'
 
 export interface RuleItem {
@@ -35,13 +36,10 @@ export const useRulesStore = defineStore('rules', () => {
   const fetchRules = async (silent = false) => {
     if (!silent) isLoadingRules.value = true
     try {
-      const resp = await apiFetch('/rules')
-      if (!resp.ok) {
-        console.error('获取规则失败：HTTP', resp.status)
-        return false
-      }
-      const data = await resp.json()
-      const list = data.rules || []
+      // 非 2xx 由 apiJson 抛出（含后端 message），统一落到下方 catch
+      const data = await apiJson<RulesFrame>('/rules')
+      // 内核会附带 extra/index 等前端未建模的字段，这里保留其扩展性
+      const list: any[] = data.rules || []
       list.forEach((r: any, idx: number) => {
         // 内核 /rules 已下发权威 index；仅在缺失时才回退到数组下标。
         // 直接写死 idx 会在前端做过任何过滤/重排后与内核错位，
@@ -64,12 +62,8 @@ export const useRulesStore = defineStore('rules', () => {
   const fetchProviders = async (silent = false) => {
     if (!silent) isLoadingProviders.value = true
     try {
-      const resp = await apiFetch('/providers/rules')
-      if (!resp.ok) {
-        console.error('获取规则提供商失败：HTTP', resp.status)
-        return false
-      }
-      const data = await resp.json()
+      // 非 2xx 由 apiJson 抛出（含后端 message），统一落到下方 catch
+      const data = await apiJson<RulesProvidersFrame>('/providers/rules')
       const providersObj = data.providers || {}
       providers.value = Object.keys(providersObj).map(name => ({
         name,

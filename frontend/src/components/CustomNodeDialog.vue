@@ -5,10 +5,11 @@
 //   基础项 → 传输层（network + ws-opts/grpc-opts 等，按 network 条件显示）→ TLS → 高级。
 // 默认值预填自后端声明（default），留空即用协议默认值。组件不做任何 API 请求——
 // 保存只把节点对象交给父组件放进列表，真正落库发生在「保存并应用」。
-import { computed, reactive, watch, ref } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CloseOutline, ChevronDownOutline, ChevronForwardOutline, InformationCircleOutline } from '@vicons/ionicons5'
 import NodeFieldInput from './NodeFieldInput.vue'
+import AppModal from './AppModal.vue'
 import FieldLabel from './FieldLabel.vue'
 import type { CustomNode, NodeFieldSpec, NodeFieldSection, NodeProtocolSpec } from '../store/subscription'
 
@@ -246,106 +247,108 @@ const handleSave = () => {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="isActive && visible" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4">
-      <div class="glass-heavy w-full max-w-3xl max-h-[88vh] rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
-        <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
-          <h2 class="text-lg font-bold">{{ title }}</h2>
-          <button @click="emit('close')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-            <CloseOutline class="w-5 h-5" />
-          </button>
+  <AppModal
+    :open="isActive && visible"
+    :label="title"
+    panel-class="w-full max-w-3xl max-h-[88vh] rounded-[20px] p-6 flex flex-col gap-4"
+    :close-on-backdrop="false"
+    @close="emit('close')"
+  >
+    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
+      <h2 class="text-lg font-bold">{{ title }}</h2>
+      <button @click="emit('close')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+        <CloseOutline class="w-5 h-5" />
+      </button>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+      <!-- 第一项：协议（决定下面渲染哪些字段） -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400"><FieldLabel :text="t('subscription.node_protocol')" :english="englishText('subscription.node_protocol')" /> <span class="text-danger">*</span></label>
+          <select
+            v-model="form.protocolType"
+            @change="onProtocolChange"
+            class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm"
+          >
+            <option v-for="protocol in protocols" :key="protocol.type" :value="protocol.type">{{ protocol.name }}</option>
+          </select>
+          <!-- 过时协议仅提示，不禁用、不阻止保存：既有节点与机场仍在用的协议都要能存进去 -->
+          <p v-if="selectedProtocol?.deprecated" class="text-[11px] text-danger">{{ t('subscription.node_protocol_deprecated') }}</p>
+          <!-- 隧道类协议：中性小字（不是错误），提示按目标网段引流；同样不参与任何校验 -->
+          <p v-else-if="selectedProtocol?.tunnel" class="text-[11px] text-slate-400 dark:text-slate-500">{{ t('subscription.node_protocol_tunnel_hint') }}</p>
         </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400"><FieldLabel :text="t('subscription.node_name')" :english="englishText('subscription.node_name')" /> <span class="text-danger">*</span></label>
+          <input
+            type="text"
+            v-model="form.name"
+            :placeholder="t('subscription.node_name_placeholder')"
+            class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm"
+          />
+          <p v-if="nameError" class="text-[11px] text-danger">{{ nameError }}</p>
+        </div>
+      </div>
 
-        <div class="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
-          <!-- 第一项：协议（决定下面渲染哪些字段） -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400"><FieldLabel :text="t('subscription.node_protocol')" :english="englishText('subscription.node_protocol')" /> <span class="text-danger">*</span></label>
-              <select
-                v-model="form.protocolType"
-                @change="onProtocolChange"
-                class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm"
-              >
-                <option v-for="protocol in protocols" :key="protocol.type" :value="protocol.type">{{ protocol.name }}</option>
-              </select>
-              <!-- 过时协议仅提示，不禁用、不阻止保存：既有节点与机场仍在用的协议都要能存进去 -->
-              <p v-if="selectedProtocol?.deprecated" class="text-[11px] text-danger">{{ t('subscription.node_protocol_deprecated') }}</p>
-              <!-- 隧道类协议：中性小字（不是错误），提示按目标网段引流；同样不参与任何校验 -->
-              <p v-else-if="selectedProtocol?.tunnel" class="text-[11px] text-slate-400 dark:text-slate-500">{{ t('subscription.node_protocol_tunnel_hint') }}</p>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400"><FieldLabel :text="t('subscription.node_name')" :english="englishText('subscription.node_name')" /> <span class="text-danger">*</span></label>
-              <input
-                type="text"
-                v-model="form.name"
-                :placeholder="t('subscription.node_name_placeholder')"
-                class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm"
-              />
-              <p v-if="nameError" class="text-[11px] text-danger">{{ nameError }}</p>
-            </div>
-          </div>
+      <!-- 基础项：始终展开 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <NodeFieldInput
+          v-for="field in basicFields"
+          :key="field.key"
+          :field="field"
+          :protocol-type="form.protocolType"
+          v-model="form.values[field.key]"
+        />
+      </div>
 
-          <!-- 基础项：始终展开 -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <!-- 传输层 / TLS / 高级：各自可折叠，含条件显示的选项块 -->
+      <div v-for="section in sections" :key="section.key" class="border-t border-slate-100 dark:border-slate-800 pt-3">
+        <template v-if="sectionFields(section.key).length > 0">
+          <button
+            type="button"
+            @click="openSections[section.key] = !openSections[section.key]"
+            class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
+          >
+            <ChevronDownOutline v-if="openSections[section.key]" class="w-3.5 h-3.5" />
+            <ChevronForwardOutline v-else class="w-3.5 h-3.5" />
+            <FieldLabel :text="t(section.titleKey)" :english="englishText(section.titleKey)" /> ({{ sectionFields(section.key).length }})
+          </button>
+          <div v-if="openSections[section.key]" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
             <NodeFieldInput
-              v-for="field in basicFields"
+              v-for="field in sectionFields(section.key)"
               :key="field.key"
               :field="field"
               :protocol-type="form.protocolType"
               v-model="form.values[field.key]"
             />
           </div>
-
-          <!-- 传输层 / TLS / 高级：各自可折叠，含条件显示的选项块 -->
-          <div v-for="section in sections" :key="section.key" class="border-t border-slate-100 dark:border-slate-800 pt-3">
-            <template v-if="sectionFields(section.key).length > 0">
-              <button
-                type="button"
-                @click="openSections[section.key] = !openSections[section.key]"
-                class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
-              >
-                <ChevronDownOutline v-if="openSections[section.key]" class="w-3.5 h-3.5" />
-                <ChevronForwardOutline v-else class="w-3.5 h-3.5" />
-                <FieldLabel :text="t(section.titleKey)" :english="englishText(section.titleKey)" /> ({{ sectionFields(section.key).length }})
-              </button>
-              <div v-if="openSections[section.key]" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                <NodeFieldInput
-                  v-for="field in sectionFields(section.key)"
-                  :key="field.key"
-                  :field="field"
-                  :protocol-type="form.protocolType"
-                  v-model="form.values[field.key]"
-                />
-              </div>
-            </template>
-          </div>
-
-          <p v-if="missingRequired.length > 0" class="text-xs text-danger leading-normal">
-            {{ t('subscription.node_required_hint', { fields: missingRequired.join(' / ') }) }}
-          </p>
-          <p v-if="missingRequireAny.length > 0" class="text-xs text-danger leading-normal">
-            {{ t('subscription.node_require_any_hint', { groups: missingRequireAny.join(' / ') }) }}
-          </p>
-
-          <p class="text-xs text-slate-400 dark:text-slate-500 leading-normal flex items-start gap-1.5">
-            <InformationCircleOutline class="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            {{ t('subscription.node_modal_hint') }}
-          </p>
-        </div>
-
-        <div class="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
-          <button @click="emit('close')" class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
-            {{ t('subscription.cancel') }}
-          </button>
-          <button
-            @click="handleSave"
-            :disabled="!!nameError || missingRequired.length > 0 || missingRequireAny.length > 0"
-            class="px-4 py-2 text-sm font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {{ t('subscription.save_to_list') }}
-          </button>
-        </div>
+        </template>
       </div>
+
+      <p v-if="missingRequired.length > 0" class="text-xs text-danger leading-normal">
+        {{ t('subscription.node_required_hint', { fields: missingRequired.join(' / ') }) }}
+      </p>
+      <p v-if="missingRequireAny.length > 0" class="text-xs text-danger leading-normal">
+        {{ t('subscription.node_require_any_hint', { groups: missingRequireAny.join(' / ') }) }}
+      </p>
+
+      <p class="text-xs text-slate-400 dark:text-slate-500 leading-normal flex items-start gap-1.5">
+        <InformationCircleOutline class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        {{ t('subscription.node_modal_hint') }}
+      </p>
     </div>
-  </Teleport>
+
+    <div class="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
+      <button @click="emit('close')" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
+        {{ t('subscription.cancel') }}
+      </button>
+      <button
+        @click="handleSave"
+        :disabled="!!nameError || missingRequired.length > 0 || missingRequireAny.length > 0"
+        class="px-4 py-2 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {{ t('subscription.save_to_list') }}
+      </button>
+    </div>
+  </AppModal>
 </template>

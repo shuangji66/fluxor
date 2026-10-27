@@ -8,6 +8,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    emptyOutDir: true
+    emptyOutDir: true,
+    // vendor 单独成块：vue / vue-i18n / pinia 等内容随版本固定，
+    // 与「改一行业务代码」解耦，避免每次改前端都让整包缓存失效
+    // （后端对 /assets/ 的不可变缓存策略见 AGENTS.md 3.3）。
+    rolldownOptions: {
+      output: {
+        advancedChunks: {
+          groups: [{ name: 'vendor', test: /node_modules/ }]
+        }
+      }
+    }
   }
 })

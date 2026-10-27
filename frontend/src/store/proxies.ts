@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiFetch } from '../utils/api'
+import { apiFetch, apiJson } from '../utils/api'
 import { useSubscriptionStore } from './subscription'
 import { createStaleFlag } from '../utils/staleFlag'
 
@@ -248,6 +248,25 @@ export const useProxyStore = defineStore('proxies', () => {
     return inFlight
   }
 
+  /**
+   * 把内核测速接口返回的 { 节点名: 延迟 } 写进 delays。
+   *
+   * 负值/非数字一律记为 -1（超时），0 视为「测速中」——这套映射原先在
+   * 「全部测速」（Proxies.vue）与「单组测速」（ProxyGroupCard.vue）里各写了一份，
+   * 迟早会有一边漏改。放这里让两个入口共用同一套判定。
+   */
+  const applyDelayMap = (data: Record<string, unknown>) => {
+    for (const [name, raw] of Object.entries(data)) {
+      if (typeof raw === 'number' && raw > 0) {
+        delays.value[name] = raw
+      } else if (raw === 0) {
+        delays.value[name] = 0
+      } else {
+        delays.value[name] = -1
+      }
+    }
+  }
+
   // 测速单个节点（自动解析策略组）
   const testDelay = async (proxyName: string) => {
     // 动态获取当前模式
@@ -375,15 +394,13 @@ export const useProxyStore = defineStore('proxies', () => {
   // 获取质量分数
   const fetchQualityScores = async () => {
     try {
-      const resp = await apiFetch('/proxies/quality')
-      if (resp.ok) {
-        const data = await resp.json()
-        const scores: Record<string, number> = {}
-        for (const [name, val] of Object.entries(data)) {
-          scores[name] = (val as any).score || 0
-        }
-        qualityScores.value = scores
+      // 非 2xx 由 apiJson 抛出（含后端 message），下面统一记日志
+      const data = await apiJson<Record<string, { score?: number }>>('/proxies/quality')
+      const scores: Record<string, number> = {}
+      for (const [name, val] of Object.entries(data)) {
+        scores[name] = val?.score || 0
       }
+      qualityScores.value = scores
     } catch (e) {
       console.warn('获取质量分数失败', e)
     }
@@ -408,6 +425,7 @@ export const useProxyStore = defineStore('proxies', () => {
     expandedState,
     fetchProxies,
     testDelay,
+    applyDelayMap,
     // 策略组链式解析（解析结果由 Store 统一缓存，组件只读）
     getEffectiveDelay,
     getEffectiveNode,

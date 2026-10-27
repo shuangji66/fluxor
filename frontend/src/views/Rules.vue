@@ -2,7 +2,9 @@
 import { ref, onMounted, onActivated, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
-import { apiFetch } from '../utils/api'
+import { apiFetch, readErrorMessage } from '../utils/api'
+import { formatDateTime } from '../utils/format'
+import PageHeader from '../components/PageHeader.vue'
 import { SyncOutline, LayersOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { useConfigStore } from '../store/config'
@@ -141,7 +143,7 @@ const handleToggleRule = async (rule: RuleItem) => {
       globalStore.showToast(t('rules.updated'), 'success')
     } else {
       rule.enabled = originalEnabled
-      globalStore.showToast(t('common.operation_failed'), 'error')
+      globalStore.showToast(`${t('common.operation_failed')}: ${await readErrorMessage(resp)}`, 'error')
     }
   } catch (e) {
     rule.enabled = originalEnabled
@@ -149,11 +151,8 @@ const handleToggleRule = async (rule: RuleItem) => {
   }
 }
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr || dateStr.startsWith('0001')) return t('rules.unknown_time')
-  const date = new Date(dateStr)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
+// 零值 / 非法时间由 formatDateTime 判 null，这里补上本页的未知时间文案
+const formatDate = (dateStr: string) => formatDateTime(dateStr) || t('rules.unknown_time')
 
 const loadMoreTrigger = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
@@ -230,12 +229,12 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <div class="flex items-center justify-between md:justify-start gap-4 flex-1 md:flex-initial">
-        <h3 class="text-base font-semibold flex items-center gap-2">
-          <LayersOutline class="w-5 h-5 text-accent" />
-          {{ t('nav.rules') }}
-        </h3>
+    <PageHeader
+      :title="t('nav.rules')"
+      :icon="LayersOutline"
+      left-class="justify-between md:justify-start gap-4 flex-1 md:flex-initial"
+    >
+      <template #lead>
         <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
           <button @click="activeTab = 'rules'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'rules' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
             {{ t('rules.rules_tab') }} ({{ rules.length }})
@@ -244,19 +243,21 @@ onUnmounted(() => {
             {{ t('rules.providers_tab') }} ({{ providers.length }})
           </button>
         </div>
-      </div>
+      </template>
       <!-- 右侧：搜索框与控制按钮合并容器（在大屏下横向右对齐，绝不换行） -->
-      <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0 flex-nowrap">
-        <input type="text" v-model="searchText" :placeholder="t('rules.search_placeholder')" class="w-full sm:w-60 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
-        
-        <div class="flex gap-2 shrink-0">
-          <button v-if="activeTab === 'providers'" @click="handleUpdateAllProviders" :disabled="isUpdatingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
-            <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isUpdatingAll }" />
-            {{ t('rules.update_all') }}
-          </button>
+      <template #actions>
+        <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0 flex-nowrap">
+          <input type="text" v-model="searchText" :placeholder="t('rules.search_placeholder')" class="w-full sm:w-60 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
+
+          <div class="flex gap-2 shrink-0">
+            <button v-if="activeTab === 'providers'" @click="handleUpdateAllProviders" :disabled="isUpdatingAll" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+              <SyncOutline class="w-3.5 h-3.5" :class="{ 'animate-spin': isUpdatingAll }" />
+              {{ t('rules.update_all') }}
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- 统一大内容卡片 -->
     <div class="flex-1 min-h-0 glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-col overflow-hidden">

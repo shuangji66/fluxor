@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppModal from './AppModal.vue'
 // 自定义规则 / 流量隧道弹窗（多作用域 + 页签）。
 //
 // 由订阅页共用两种模式：
@@ -786,346 +787,340 @@ defineExpose({ takeMutatedScopes })
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="isActive && visible" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="closeDialog">
-      <div class="glass-heavy w-full max-w-lg max-h-[85vh] rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
-        <div class="flex items-center border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
-          <h2 class="text-lg font-bold break-all">{{ title }}</h2>
-        </div>
+  <AppModal
+    :open="isActive && visible"
+    :label="title"
+    panel-class="w-full max-w-lg max-h-[85vh] rounded-[20px] p-6 flex flex-col gap-4"
+    @close="closeDialog"
+  >
+    <div class="flex items-center border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
+      <h2 class="text-lg font-bold break-all">{{ title }}</h2>
+    </div>
 
-        <!-- 作用域页签：仅多作用域（融合模式 base/full）时出现，单作用域不与标题重复 -->
-        <div v-if="scopes.length > 1" class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
-          <button
-            v-for="scope in scopes"
-            :key="scope.key"
-            type="button"
-            @click="selectScope(scope.key)"
-            class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center justify-center gap-1.5"
-            :class="scope.key === activeScopeKey ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-          >
-            <span class="truncate">{{ scope.label }}</span>
-            <span
-              v-if="scope.effective"
-              class="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0"
-              :class="scope.key === activeScopeKey ? 'bg-white/20 text-white' : 'bg-accent/10 text-accent'"
-            >
-              {{ t('subscription.custom_rule_effective_badge') }}
-            </span>
-          </button>
-        </div>
+    <!-- 作用域页签：仅多作用域（融合模式 base/full）时出现，单作用域不与标题重复 -->
+    <div v-if="scopes.length > 1" class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
+      <button
+        v-for="scope in scopes"
+        :key="scope.key"
+        type="button"
+        @click="selectScope(scope.key)"
+        class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center justify-center gap-1.5"
+        :class="scope.key === activeScopeKey ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+      >
+        <span class="truncate">{{ scope.label }}</span>
+        <span
+          v-if="scope.effective"
+          class="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0"
+          :class="scope.key === activeScopeKey ? 'bg-white/20 text-white' : 'bg-accent/10 text-accent'"
+        >
+          {{ t('subscription.custom_rule_effective_badge') }}
+        </span>
+      </button>
+    </div>
 
-        <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1">
-          <!-- 作用域提示：只有融合模式需要（切换模式的规则本来就只作用于该订阅，无需说明），
-               文案由父组件传入；组件内不判模式 -->
-          <p v-if="props.hint" class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ props.hint }}</p>
+    <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1">
+      <!-- 作用域提示：只有融合模式需要（切换模式的规则本来就只作用于该订阅，无需说明），
+           文案由父组件传入；组件内不判模式 -->
+      <p v-if="props.hint" class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ props.hint }}</p>
 
-          <div v-if="isLoading" class="flex items-center justify-center gap-2 py-8 text-xs text-slate-500 dark:text-slate-400">
-            <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
-            {{ t('common.loading') }}
+      <div v-if="isLoading" class="flex items-center justify-center gap-2 py-8 text-xs text-slate-500 dark:text-slate-400">
+        <div class="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 !border-t-accent rounded-full animate-spin"></div>
+        {{ t('common.loading') }}
+      </div>
+
+      <template v-else-if="activePayload && ruleForm">
+        <p v-if="!activePayload.file_ready" class="text-xs text-warning leading-normal py-1">{{ t('subscription.custom_rule_not_ready') }}</p>
+        <p v-else-if="hasNoRuleProviders && !isTunnelType" class="text-xs text-warning leading-normal py-1">{{ t('subscription.custom_rule_no_providers') }}</p>
+
+        <fieldset :disabled="formDisabled" class="min-w-0 space-y-3" :class="{ 'opacity-60': formDisabled }">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_type') }}</label>
+            <select v-model="ruleForm.type" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
+              <option v-for="spec in ruleTypes" :key="spec.type" :value="spec.type">{{ spec.type }}</option>
+              <!-- 流量隧道不是内核的规则类型，排在类型清单末尾：选中后整块表单换成隧道字段 -->
+              <option :value="TUNNEL_TYPE">{{ t('subscription.custom_rule_type_tunnels') }}</option>
+            </select>
           </div>
 
-          <template v-else-if="activePayload && ruleForm">
-            <p v-if="!activePayload.file_ready" class="text-xs text-warning leading-normal py-1">{{ t('subscription.custom_rule_not_ready') }}</p>
-            <p v-else-if="hasNoRuleProviders && !isTunnelType" class="text-xs text-warning leading-normal py-1">{{ t('subscription.custom_rule_no_providers') }}</p>
-
-            <fieldset :disabled="formDisabled" class="min-w-0 space-y-3" :class="{ 'opacity-60': formDisabled }">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_type') }}</label>
-                <select v-model="ruleForm.type" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
-                  <option v-for="spec in ruleTypes" :key="spec.type" :value="spec.type">{{ spec.type }}</option>
-                  <!-- 流量隧道不是内核的规则类型，排在类型清单末尾：选中后整块表单换成隧道字段 -->
-                  <option :value="TUNNEL_TYPE">{{ t('subscription.custom_rule_type_tunnels') }}</option>
-                </select>
-              </div>
-
-              <!-- 隧道字段：监听类型（下拉）/ 本地监听地址 / 目标转发地址 / proxy（可关闭） -->
-              <template v-if="isTunnelType">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_network') }}</label>
-                  <select v-model="ruleForm.tunnel_network" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
-                    <option v-for="network in TUNNEL_NETWORKS" :key="network" :value="network">{{ network }}</option>
-                  </select>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_address') }}</label>
-                  <input type="text" v-model="ruleForm.tunnel_address" placeholder="127.0.0.1:8888 or 0.0.0.0:8888" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_target') }}</label>
-                  <input type="text" v-model="ruleForm.tunnel_target" placeholder="8.8.8.8:8888 or example.com" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_proxy') }}</label>
-                  <select v-model="ruleForm.tunnel_proxy" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
-                    <!-- 关闭 = 不下发 proxy 键：内核按正常规则匹配选择出口（并非「直连」） -->
-                    <option value="">{{ t('subscription.tunnel_proxy_off') }}</option>
-                    <optgroup v-if="ruleGroups.length" :label="t('subscription.custom_rule_groups_label')">
-                      <option v-for="group in ruleGroups" :key="group" :value="group">{{ group }}</option>
-                    </optgroup>
-                    <!-- 节点只在自定义模式下出现：该模式的节点是静态 proxies，内核能解析；
-                         融合/切换模式的节点来自 provider 或订阅文件，数量太多且会随机场变动 -->
-                    <optgroup v-if="ruleNodes.length" :label="t('subscription.custom_rule_nodes_label')">
-                      <option v-for="node in ruleNodes" :key="node" :value="node">{{ node }}</option>
-                    </optgroup>
-                  </select>
-                </div>
-              </template>
-
-              <div v-if="!isTunnelType" class="flex flex-col gap-1.5">
-                <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_payload') }}</label>
-                <select v-if="isRuleSetType" v-model="ruleForm.payload" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
-                  <option v-for="provider in ruleProviders" :key="provider" :value="provider">{{ provider }}</option>
-                </select>
-                <input v-else type="text" v-model="ruleForm.payload" :placeholder="selectedRuleType ? selectedRuleType.example : ''" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-              </div>
-
-              <div v-if="!isTunnelType" class="flex flex-col gap-1.5">
-                <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_target') }}</label>
-                <select v-model="ruleForm.target" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
-                  <optgroup :label="t('subscription.custom_rule_builtin_label')">
-                    <option v-for="builtin in ruleBuiltins" :key="builtin" :value="builtin">{{ ruleTargetLabel(builtin) }}</option>
-                  </optgroup>
-                  <optgroup v-if="ruleGroups.length || ruleTargetExtra.length" :label="t('subscription.custom_rule_groups_label')">
-                    <option v-for="group in ruleGroups" :key="group" :value="group">{{ group }}</option>
-                    <!-- 历史规则的目标已不在可选列表（如引用了改名的代理组）：原样列出，避免下拉空选导致保存时被改写 -->
-                    <option v-for="extra in ruleTargetExtra" :key="extra" :value="extra">{{ extra }}</option>
-                  </optgroup>
-                  <!-- 节点作为目标只在自定义模式下出现（该模式的节点是静态 proxies，内核能解析；
-                       融合/切换模式的节点运行时才加载，静态校验看不到，故后端不下发） -->
-                  <optgroup v-if="ruleNodes.length" :label="t('subscription.custom_rule_nodes_label')">
-                    <option v-for="node in ruleNodes" :key="node" :value="node">{{ node }}</option>
-                  </optgroup>
-                </select>
-                <!-- 选中的目标已不在可选列表（典型场景：节点改名后旧名残留在表单里）：
-                     不自动改写该值（历史目标要原样保留，用户也可能把节点名改回去），但必须点出来，
-                     否则用户只会反复撞后端的 400 而不知道要改哪里 -->
-                <p v-if="ruleTargetExtra.length" class="text-[11px] text-danger">{{ t('subscription.custom_rule_target_unknown') }}</p>
-              </div>
-
-              <div v-if="!isTunnelType" class="flex flex-col gap-1.5">
-                <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_position') }}</label>
-                <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all">
-                  <button
-                    type="button"
-                    @click="ruleForm.position = 'before'"
-                    class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-                    :class="ruleForm.position === 'before' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-                  >
-                    {{ t('subscription.custom_rule_position_before') }}
-                  </button>
-                  <button
-                    type="button"
-                    @click="ruleForm.position = 'after'"
-                    class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-                    :class="ruleForm.position === 'after' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-                  >
-                    {{ t('subscription.custom_rule_position_after') }}
-                  </button>
-                </div>
-              </div>
-
-              <label v-if="selectedRuleType && selectedRuleType.no_resolve" class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 select-none cursor-pointer">
-                <input type="checkbox" v-model="ruleForm.no_resolve" class="w-3.5 h-3.5 rounded accent-accent" />
-                {{ t('subscription.custom_rule_no_resolve') }}
-              </label>
-
-              <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  @click="handleSubmit"
-                  :disabled="!canSubmit"
-                  class="flex-1 px-4 py-2 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <SyncOutline v-if="isSavingRule || isSavingTunnel" class="w-3.5 h-3.5 animate-spin" />
-                  <CreateOutline v-else-if="isEditing" class="w-4 h-4" />
-                  <AddOutline v-else class="w-4 h-4" />
-                  {{ submitLabel }}
-                </button>
-                <button
-                  v-if="isEditing"
-                  type="button"
-                  @click="cancelEdit"
-                  class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all"
-                >
-                  {{ t('subscription.custom_rule_cancel_edit') }}
-                </button>
-              </div>
-            </fieldset>
-
-            <div class="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-              <h3 class="text-xs font-bold text-slate-600 dark:text-slate-300">{{ t('subscription.custom_rules') }}</h3>
-              <div v-if="ruleList.length === 0" class="text-xs text-slate-400 dark:text-slate-600 py-3 text-center">
-                {{ t('subscription.custom_rule_empty') }}
-              </div>
-              <div
-                v-for="rule in ruleList"
-                :key="rule.id"
-                class="flex items-start gap-2 p-2.5 rounded-lg border bg-slate-50/50 dark:bg-slate-900/30"
-                :class="editingRuleId === rule.id ? 'border-accent' : 'border-slate-200/60 dark:border-slate-800/60'"
-              >
-                <div class="min-w-0 flex-1 flex flex-col gap-1.5">
-                  <code class="font-mono text-[11px] break-all text-slate-700 dark:text-slate-200 select-none">{{ rule.line }}</code>
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-500 dark:text-slate-400">
-                      {{ rule.position === 'before' ? t('subscription.custom_rule_before_badge') : t('subscription.custom_rule_after_badge') }}
-                    </span>
-                    <span v-if="editingRuleId === rule.id" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/10 text-accent">
-                      {{ t('subscription.custom_rule_editing') }}
-                    </span>
-                    <span v-if="!rule.valid" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/10 text-red-500">
-                      {{ t('subscription.custom_rule_invalid_badge') }}
-                    </span>
-                    <span v-if="!rule.valid && rule.reason" class="text-[10px] text-red-500 break-all">{{ rule.reason }}</span>
-                  </div>
-                </div>
-                <!-- 操作按钮：图标尺寸不变，只把包裹内边距与按钮间距各收一级，
-                     让这部分更紧凑、把宽度让给配置文本 -->
-                <div class="flex items-center gap-1 shrink-0">
-                  <button
-                    @click="startEditRule(rule)"
-                    class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all"
-                    :title="t('subscription.custom_rule_edit')"
-                  >
-                    <CreateOutline class="w-4 h-4" />
-                  </button>
-                  <button
-                    @click="handleMoveRule(rule, 'up')"
-                    :disabled="isRuleBusy || !moveLimitsFor(rule.id).canMoveUp"
-                    class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    :title="t('subscription.custom_rule_move_up')"
-                  >
-                    <SyncOutline v-if="movingRuleId === rule.id && movingDirection === 'up'" class="w-4 h-4 animate-spin" />
-                    <ArrowUpOutline v-else class="w-4 h-4" />
-                  </button>
-                  <button
-                    @click="handleMoveRule(rule, 'down')"
-                    :disabled="isRuleBusy || !moveLimitsFor(rule.id).canMoveDown"
-                    class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    :title="t('subscription.custom_rule_move_down')"
-                  >
-                    <SyncOutline v-if="movingRuleId === rule.id && movingDirection === 'down'" class="w-4 h-4 animate-spin" />
-                    <ArrowDownOutline v-else class="w-4 h-4" />
-                  </button>
-                  <button
-                    @click="handleDeleteRule(rule)"
-                    :disabled="isRuleBusy"
-                    class="p-1.5 hover:bg-red-500/10 hover:text-red-500 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    :title="t('common.delete')"
-                  >
-                    <SyncOutline v-if="deletingRuleId === rule.id" class="w-4 h-4 animate-spin" />
-                    <TrashOutline v-else class="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+          <!-- 隧道字段：监听类型（下拉）/ 本地监听地址 / 目标转发地址 / proxy（可关闭） -->
+          <template v-if="isTunnelType">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_network') }}</label>
+              <select v-model="ruleForm.tunnel_network" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
+                <option v-for="network in TUNNEL_NETWORKS" :key="network" :value="network">{{ network }}</option>
+              </select>
             </div>
 
-            <!-- 流量隧道：独立成段排在规则列表下方。没有插入位置分组（同属 config.yaml 的
-                 一个 tunnels 块），但列表顺序即产物顺序，因此同样支持组内上下换序；
-                 开关控制该条是否写进 config.yaml（关掉的隧道不生效但保留配置）。 -->
-            <div class="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-              <div class="flex items-center justify-between gap-2">
-                <h3 class="text-xs font-bold text-slate-600 dark:text-slate-300">{{ t('subscription.tunnel_section_title') }}</h3>
-                <span v-if="tunnelList.length" class="text-[11px] text-slate-400 dark:text-slate-500">
-                  {{ t('subscription.tunnel_enabled_summary', { on: enabledTunnelCount, total: tunnelList.length }) }}
-                </span>
-              </div>
-              <div v-if="tunnelList.length === 0" class="text-xs text-slate-400 dark:text-slate-600 py-3 text-center">
-                {{ t('subscription.tunnel_empty') }}
-              </div>
-              <div
-                v-for="(tunnel, index) in tunnelList"
-                :key="tunnel.id"
-                class="flex items-start gap-2 p-2.5 rounded-lg border bg-slate-50/50 dark:bg-slate-900/30"
-                :class="editingTunnelId === tunnel.id ? 'border-accent' : 'border-slate-200/60 dark:border-slate-800/60'"
-              >
-                <div class="min-w-0 flex-1 flex flex-col gap-1.5">
-                  <!-- 第一行只放配置本身：开关与状态徽标一起下移到第二行，把整行宽度让给配置文本 -->
-                  <code class="font-mono text-[11px] break-all text-slate-700 dark:text-slate-200 select-none">{{ tunnel.line }}</code>
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <!-- 启停开关（整条隧道的 PUT，只翻转 enabled）：与状态徽标同排并降一级尺寸 -->
-                    <FormSwitch
-                      class="shrink-0"
-                      size="sm"
-                      :model-value="tunnel.enabled"
-                      :disabled="isTunnelBusy"
-                      @update:model-value="handleToggleTunnel(tunnel)"
-                    />
-                    <span
-                      class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                      :class="tunnel.enabled ? 'bg-accent/10 text-accent' : 'bg-slate-500/10 text-slate-500 dark:text-slate-400'"
-                    >
-                      {{ tunnel.enabled ? t('subscription.tunnel_enabled_badge') : t('subscription.tunnel_disabled_badge') }}
-                    </span>
-                    <span v-if="editingTunnelId === tunnel.id" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/10 text-accent">
-                      {{ t('subscription.custom_rule_editing') }}
-                    </span>
-                    <span v-if="!tunnel.valid" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/10 text-red-500">
-                      {{ t('subscription.custom_rule_invalid_badge') }}
-                    </span>
-                    <span v-if="!tunnel.valid && tunnel.reason" class="text-[10px] text-red-500 break-all">{{ tunnel.reason }}</span>
-                  </div>
-                </div>
-                <!-- 操作按钮：图标尺寸不变，只把包裹内边距与按钮间距各收一级，
-                     让这部分更紧凑、把宽度让给配置文本 -->
-                <div class="flex items-center gap-1 shrink-0">
-                  <button
-                    @click="startEditTunnel(tunnel)"
-                    class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all"
-                    :title="t('subscription.custom_rule_edit')"
-                  >
-                    <CreateOutline class="w-4 h-4" />
-                  </button>
-                  <button
-                    @click="handleMoveTunnel(tunnel, 'up')"
-                    :disabled="isTunnelBusy || !tunnelMoveLimits(index).canMoveUp"
-                    class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    :title="t('subscription.custom_rule_move_up')"
-                  >
-                    <SyncOutline v-if="movingTunnelId === tunnel.id && movingTunnelDirection === 'up'" class="w-4 h-4 animate-spin" />
-                    <ArrowUpOutline v-else class="w-4 h-4" />
-                  </button>
-                  <button
-                    @click="handleMoveTunnel(tunnel, 'down')"
-                    :disabled="isTunnelBusy || !tunnelMoveLimits(index).canMoveDown"
-                    class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    :title="t('subscription.custom_rule_move_down')"
-                  >
-                    <SyncOutline v-if="movingTunnelId === tunnel.id && movingTunnelDirection === 'down'" class="w-4 h-4 animate-spin" />
-                    <ArrowDownOutline v-else class="w-4 h-4" />
-                  </button>
-                  <button
-                    @click="handleDeleteTunnel(tunnel)"
-                    :disabled="isTunnelBusy"
-                    class="p-1.5 hover:bg-red-500/10 hover:text-red-500 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    :title="t('common.delete')"
-                  >
-                    <SyncOutline v-if="deletingTunnelId === tunnel.id" class="w-4 h-4 animate-spin" />
-                    <TrashOutline v-else class="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_address') }}</label>
+              <input type="text" v-model="ruleForm.tunnel_address" placeholder="127.0.0.1:8888 or 0.0.0.0:8888" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_target') }}</label>
+              <input type="text" v-model="ruleForm.tunnel_target" placeholder="8.8.8.8:8888 or example.com" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.tunnel_proxy') }}</label>
+              <select v-model="ruleForm.tunnel_proxy" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
+                <!-- 关闭 = 不下发 proxy 键：内核按正常规则匹配选择出口（并非「直连」） -->
+                <option value="">{{ t('subscription.tunnel_proxy_off') }}</option>
+                <optgroup v-if="ruleGroups.length" :label="t('subscription.custom_rule_groups_label')">
+                  <option v-for="group in ruleGroups" :key="group" :value="group">{{ group }}</option>
+                </optgroup>
+                <!-- 节点只在自定义模式下出现：该模式的节点是静态 proxies，内核能解析；
+                     融合/切换模式的节点来自 provider 或订阅文件，数量太多且会随机场变动 -->
+                <optgroup v-if="ruleNodes.length" :label="t('subscription.custom_rule_nodes_label')">
+                  <option v-for="node in ruleNodes" :key="node" :value="node">{{ node }}</option>
+                </optgroup>
+              </select>
             </div>
           </template>
 
-          <p v-else class="text-xs text-danger leading-normal py-1">{{ t('subscription.custom_rule_load_failed') }}</p>
+          <div v-if="!isTunnelType" class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_payload') }}</label>
+            <select v-if="isRuleSetType" v-model="ruleForm.payload" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
+              <option v-for="provider in ruleProviders" :key="provider" :value="provider">{{ provider }}</option>
+            </select>
+            <input v-else type="text" v-model="ruleForm.payload" :placeholder="selectedRuleType ? selectedRuleType.example : ''" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+          </div>
+
+          <div v-if="!isTunnelType" class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_target') }}</label>
+            <select v-model="ruleForm.target" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm">
+              <optgroup :label="t('subscription.custom_rule_builtin_label')">
+                <option v-for="builtin in ruleBuiltins" :key="builtin" :value="builtin">{{ ruleTargetLabel(builtin) }}</option>
+              </optgroup>
+              <optgroup v-if="ruleGroups.length || ruleTargetExtra.length" :label="t('subscription.custom_rule_groups_label')">
+                <option v-for="group in ruleGroups" :key="group" :value="group">{{ group }}</option>
+                <!-- 历史规则的目标已不在可选列表（如引用了改名的代理组）：原样列出，避免下拉空选导致保存时被改写 -->
+                <option v-for="extra in ruleTargetExtra" :key="extra" :value="extra">{{ extra }}</option>
+              </optgroup>
+              <!-- 节点作为目标只在自定义模式下出现（该模式的节点是静态 proxies，内核能解析；
+                   融合/切换模式的节点运行时才加载，静态校验看不到，故后端不下发） -->
+              <optgroup v-if="ruleNodes.length" :label="t('subscription.custom_rule_nodes_label')">
+                <option v-for="node in ruleNodes" :key="node" :value="node">{{ node }}</option>
+              </optgroup>
+            </select>
+            <!-- 选中的目标已不在可选列表（典型场景：节点改名后旧名残留在表单里）：
+                 不自动改写该值（历史目标要原样保留，用户也可能把节点名改回去），但必须点出来，
+                 否则用户只会反复撞后端的 400 而不知道要改哪里 -->
+            <p v-if="ruleTargetExtra.length" class="text-[11px] text-danger">{{ t('subscription.custom_rule_target_unknown') }}</p>
+          </div>
+
+          <div v-if="!isTunnelType" class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.custom_rule_position') }}</label>
+            <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all">
+              <button
+                type="button"
+                @click="ruleForm.position = 'before'"
+                class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+                :class="ruleForm.position === 'before' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+              >
+                {{ t('subscription.custom_rule_position_before') }}
+              </button>
+              <button
+                type="button"
+                @click="ruleForm.position = 'after'"
+                class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+                :class="ruleForm.position === 'after' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+              >
+                {{ t('subscription.custom_rule_position_after') }}
+              </button>
+            </div>
+          </div>
+
+          <label v-if="selectedRuleType && selectedRuleType.no_resolve" class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 select-none cursor-pointer">
+            <input type="checkbox" v-model="ruleForm.no_resolve" class="w-3.5 h-3.5 rounded accent-accent" />
+            {{ t('subscription.custom_rule_no_resolve') }}
+          </label>
+
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="handleSubmit"
+              :disabled="!canSubmit"
+              class="flex-1 px-4 py-2 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <SyncOutline v-if="isSavingRule || isSavingTunnel" class="w-3.5 h-3.5 animate-spin" />
+              <CreateOutline v-else-if="isEditing" class="w-4 h-4" />
+              <AddOutline v-else class="w-4 h-4" />
+              {{ submitLabel }}
+            </button>
+            <button
+              v-if="isEditing"
+              type="button"
+              @click="cancelEdit"
+              class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all"
+            >
+              {{ t('subscription.custom_rule_cancel_edit') }}
+            </button>
+          </div>
+        </fieldset>
+
+        <div class="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+          <h3 class="text-xs font-bold text-slate-600 dark:text-slate-300">{{ t('subscription.custom_rules') }}</h3>
+          <div v-if="ruleList.length === 0" class="text-xs text-slate-400 dark:text-slate-600 py-3 text-center">
+            {{ t('subscription.custom_rule_empty') }}
+          </div>
+          <div
+            v-for="rule in ruleList"
+            :key="rule.id"
+            class="flex items-start gap-2 p-2.5 rounded-lg border bg-slate-50/50 dark:bg-slate-900/30"
+            :class="editingRuleId === rule.id ? 'border-accent' : 'border-slate-200/60 dark:border-slate-800/60'"
+          >
+            <div class="min-w-0 flex-1 flex flex-col gap-1.5">
+              <code class="font-mono text-[11px] break-all text-slate-700 dark:text-slate-200 select-none">{{ rule.line }}</code>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-500 dark:text-slate-400">
+                  {{ rule.position === 'before' ? t('subscription.custom_rule_before_badge') : t('subscription.custom_rule_after_badge') }}
+                </span>
+                <span v-if="editingRuleId === rule.id" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/10 text-accent">
+                  {{ t('subscription.custom_rule_editing') }}
+                </span>
+                <span v-if="!rule.valid" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/10 text-red-500">
+                  {{ t('subscription.custom_rule_invalid_badge') }}
+                </span>
+                <span v-if="!rule.valid && rule.reason" class="text-[10px] text-red-500 break-all">{{ rule.reason }}</span>
+              </div>
+            </div>
+            <!-- 操作按钮：图标尺寸不变，只把包裹内边距与按钮间距各收一级，
+                 让这部分更紧凑、把宽度让给配置文本 -->
+            <div class="flex items-center gap-1 shrink-0">
+              <button
+                @click="startEditRule(rule)"
+                class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all"
+                :title="t('subscription.custom_rule_edit')"
+              >
+                <CreateOutline class="w-4 h-4" />
+              </button>
+              <button
+                @click="handleMoveRule(rule, 'up')"
+                :disabled="isRuleBusy || !moveLimitsFor(rule.id).canMoveUp"
+                class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                :title="t('subscription.custom_rule_move_up')"
+              >
+                <SyncOutline v-if="movingRuleId === rule.id && movingDirection === 'up'" class="w-4 h-4 animate-spin" />
+                <ArrowUpOutline v-else class="w-4 h-4" />
+              </button>
+              <button
+                @click="handleMoveRule(rule, 'down')"
+                :disabled="isRuleBusy || !moveLimitsFor(rule.id).canMoveDown"
+                class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                :title="t('subscription.custom_rule_move_down')"
+              >
+                <SyncOutline v-if="movingRuleId === rule.id && movingDirection === 'down'" class="w-4 h-4 animate-spin" />
+                <ArrowDownOutline v-else class="w-4 h-4" />
+              </button>
+              <button
+                @click="handleDeleteRule(rule)"
+                :disabled="isRuleBusy"
+                class="p-1.5 hover:bg-red-500/10 hover:text-red-500 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                :title="t('common.delete')"
+              >
+                <SyncOutline v-if="deletingRuleId === rule.id" class="w-4 h-4 animate-spin" />
+                <TrashOutline v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
-          <button @click="closeDialog" class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
-            {{ t('common.close') }}
-          </button>
+        <!-- 流量隧道：独立成段排在规则列表下方。没有插入位置分组（同属 config.yaml 的
+             一个 tunnels 块），但列表顺序即产物顺序，因此同样支持组内上下换序；
+             开关控制该条是否写进 config.yaml（关掉的隧道不生效但保留配置）。 -->
+        <div class="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-xs font-bold text-slate-600 dark:text-slate-300">{{ t('subscription.tunnel_section_title') }}</h3>
+            <span v-if="tunnelList.length" class="text-[11px] text-slate-400 dark:text-slate-500">
+              {{ t('subscription.tunnel_enabled_summary', { on: enabledTunnelCount, total: tunnelList.length }) }}
+            </span>
+          </div>
+          <div v-if="tunnelList.length === 0" class="text-xs text-slate-400 dark:text-slate-600 py-3 text-center">
+            {{ t('subscription.tunnel_empty') }}
+          </div>
+          <div
+            v-for="(tunnel, index) in tunnelList"
+            :key="tunnel.id"
+            class="flex items-start gap-2 p-2.5 rounded-lg border bg-slate-50/50 dark:bg-slate-900/30"
+            :class="editingTunnelId === tunnel.id ? 'border-accent' : 'border-slate-200/60 dark:border-slate-800/60'"
+          >
+            <div class="min-w-0 flex-1 flex flex-col gap-1.5">
+              <!-- 第一行只放配置本身：开关与状态徽标一起下移到第二行，把整行宽度让给配置文本 -->
+              <code class="font-mono text-[11px] break-all text-slate-700 dark:text-slate-200 select-none">{{ tunnel.line }}</code>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <!-- 启停开关（整条隧道的 PUT，只翻转 enabled）：与状态徽标同排并降一级尺寸 -->
+                <FormSwitch
+                  class="shrink-0"
+                  size="sm"
+                  :model-value="tunnel.enabled"
+                  :disabled="isTunnelBusy"
+                  @update:model-value="handleToggleTunnel(tunnel)"
+                />
+                <span
+                  class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                  :class="tunnel.enabled ? 'bg-accent/10 text-accent' : 'bg-slate-500/10 text-slate-500 dark:text-slate-400'"
+                >
+                  {{ tunnel.enabled ? t('subscription.tunnel_enabled_badge') : t('subscription.tunnel_disabled_badge') }}
+                </span>
+                <span v-if="editingTunnelId === tunnel.id" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent/10 text-accent">
+                  {{ t('subscription.custom_rule_editing') }}
+                </span>
+                <span v-if="!tunnel.valid" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/10 text-red-500">
+                  {{ t('subscription.custom_rule_invalid_badge') }}
+                </span>
+                <span v-if="!tunnel.valid && tunnel.reason" class="text-[10px] text-red-500 break-all">{{ tunnel.reason }}</span>
+              </div>
+            </div>
+            <!-- 操作按钮：图标尺寸不变，只把包裹内边距与按钮间距各收一级，
+                 让这部分更紧凑、把宽度让给配置文本 -->
+            <div class="flex items-center gap-1 shrink-0">
+              <button
+                @click="startEditTunnel(tunnel)"
+                class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all"
+                :title="t('subscription.custom_rule_edit')"
+              >
+                <CreateOutline class="w-4 h-4" />
+              </button>
+              <button
+                @click="handleMoveTunnel(tunnel, 'up')"
+                :disabled="isTunnelBusy || !tunnelMoveLimits(index).canMoveUp"
+                class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                :title="t('subscription.custom_rule_move_up')"
+              >
+                <SyncOutline v-if="movingTunnelId === tunnel.id && movingTunnelDirection === 'up'" class="w-4 h-4 animate-spin" />
+                <ArrowUpOutline v-else class="w-4 h-4" />
+              </button>
+              <button
+                @click="handleMoveTunnel(tunnel, 'down')"
+                :disabled="isTunnelBusy || !tunnelMoveLimits(index).canMoveDown"
+                class="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                :title="t('subscription.custom_rule_move_down')"
+              >
+                <SyncOutline v-if="movingTunnelId === tunnel.id && movingTunnelDirection === 'down'" class="w-4 h-4 animate-spin" />
+                <ArrowDownOutline v-else class="w-4 h-4" />
+              </button>
+              <button
+                @click="handleDeleteTunnel(tunnel)"
+                :disabled="isTunnelBusy"
+                class="p-1.5 hover:bg-red-500/10 hover:text-red-500 text-slate-500 dark:text-slate-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                :title="t('common.delete')"
+              >
+                <SyncOutline v-if="deletingTunnelId === tunnel.id" class="w-4 h-4 animate-spin" />
+                <TrashOutline v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </template>
+
+      <p v-else class="text-xs text-danger leading-normal py-1">{{ t('subscription.custom_rule_load_failed') }}</p>
     </div>
-  </Teleport>
-</template>
 
-<style>
-@keyframes zoomIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-</style>
+    <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+      <button @click="closeDialog" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
+        {{ t('common.close') }}
+      </button>
+    </div>
+  </AppModal>
+</template>

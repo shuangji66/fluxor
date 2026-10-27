@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onActivated } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, readErrorMessage } from '../utils/api'
-import { OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SearchOutline, SyncOutline, ColorPaletteOutline, SettingsOutline, InformationCircleOutline, DocumentTextOutline } from '@vicons/ionicons5'
+import { OptionsOutline, HardwareChipOutline, ShieldCheckmarkOutline, BuildOutline, SyncOutline, SettingsOutline, InformationCircleOutline, DocumentTextOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, type ConfigData } from '../store/config'
@@ -10,9 +10,13 @@ import { useOverviewStore, CORE_VERSION_LOADING, CORE_VERSION_UNKNOWN } from '..
 import { useProxyStore } from '../store/proxies'
 import { useRulesStore } from '../store/rules'
 import FormSwitch from '../components/FormSwitch.vue'
+import AppModal from '../components/AppModal.vue'
+import DnsQueryCard from '../components/config/DnsQueryCard.vue'
+import InterfaceSettingsCard from '../components/config/InterfaceSettingsCard.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { useViewActive } from '../composables/useViewActive'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
 const overviewStore = useOverviewStore()
@@ -32,14 +36,6 @@ export interface CoreStatus {
   running: boolean
   loading: boolean
 }
-
-// DNS 查询测试
-const dnsQuery = ref({
-  name: '',
-  type: 'A',
-  result: '',
-  loading: false
-})
 
 const isUpgrading = ref(false)
 const isReloading = ref(false)
@@ -174,7 +170,7 @@ const saveTproxyExceptions = async () => {
       globalStore.showToast(t('config.tproxy_exceptions_saved'), 'success')
       showTproxyExceptionsDialog.value = false
     } else {
-      globalStore.showToast(t('common.operation_failed'), 'error')
+      globalStore.showToast(`${t('common.operation_failed')}: ${await readErrorMessage(resp)}`, 'error')
     }
   } catch (e) {
     globalStore.showToast(t('common.error'), 'error')
@@ -388,7 +384,7 @@ const disableTproxyOnBackend = async () => {
       body: JSON.stringify({ enable: false })
     })
     if (!resp.ok) {
-      globalStore.showToast(t('common.operation_failed'), 'error')
+      globalStore.showToast(`${t('common.operation_failed')}: ${await readErrorMessage(resp)}`, 'error')
     }
   } catch (e) {
     globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
@@ -683,36 +679,6 @@ const handleUpgradeCore = async () => {
   }
 }
 
-const handleDNSQuery = async (e?: Event) => {
-  if (!dnsQuery.value.name.trim()) return
-
-  // 主动释放焦点，在移动端自动收起虚拟键盘，以便用户看清下方的解析结果
-  if (e && e.target instanceof HTMLElement) {
-    e.target.blur()
-  }
-
-  dnsQuery.value.loading = true
-  dnsQuery.value.result = ''
-  try {
-    const query = `name=${encodeURIComponent(dnsQuery.value.name)}&type=${dnsQuery.value.type}`
-    const resp = await apiFetch(`/dns/query?${query}`)
-    if (resp.ok) {
-      const data = await resp.json()
-      if (data.Status === 0 && data.Answer && data.Answer.length > 0) {
-        dnsQuery.value.result = data.Answer.map((a: any) => a.data).join('\n')
-      } else {
-        dnsQuery.value.result = JSON.stringify(data, null, 2)
-      }
-    } else {
-      dnsQuery.value.result = t('config.dns_query_failed')
-    }
-  } catch (e) {
-    dnsQuery.value.result = `${t('config.dns_query_failed')}: ${(e as Error).message}`
-  } finally {
-    dnsQuery.value.loading = false
-  }
-}
-
 // 处理本机流量接管开关。
 //
 // 语义（与用户约定一致）：
@@ -746,7 +712,7 @@ const persistProxyLocal = async (enabled: boolean) => {
       body: JSON.stringify({ enabled })
     })
     if (!resp.ok) {
-      globalStore.showToast(t('common.operation_failed'), 'error')
+      globalStore.showToast(`${t('common.operation_failed')}: ${await readErrorMessage(resp)}`, 'error')
     }
   } catch (e) {
     globalStore.showToast(`${t('common.error')}: ${(e as Error).message}`, 'error')
@@ -832,9 +798,6 @@ const handleTunToggle = async (newVal: boolean) => {
   }
 }
 
-const changeLang = () => {
-  localStorage.setItem('lang', locale.value)
-}
 
 onMounted(async () => {
   fetchInterfaces()
@@ -867,13 +830,9 @@ onActivated(async () => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <!-- 顶部操作栏 -->
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <h3 class="text-base font-semibold flex items-center gap-2">
-        <SettingsOutline class="w-5 h-5 text-accent" />
-        {{ t('nav.config') }}
-      </h3>
-
+    <PageHeader :title="t('nav.config')" :icon="SettingsOutline">
       <!-- 文档 + 关于 按钮组（紧挨） -->
+      <template #actions>
         <div class="flex items-center gap-1">
           <a href="https://ttq.fjb.dpdns.org" target="_blank" rel="noopener noreferrer"
             class="flex items-center justify-center text-xs font-semibold rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 transition-all text-slate-600 dark:text-slate-300 hover:scale-105 active:scale-95 border border-slate-200/50 dark:border-slate-800/30 px-3 py-1.5 gap-1.5 group"
@@ -889,7 +848,8 @@ onActivated(async () => {
             <span>{{ t('about.title') }}</span>
           </button>
         </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- 核心状态加载中的优雅 Loading 占位 -->
     <div v-if="coreStatus.loading" class="flex-1 flex flex-col items-center justify-center gap-3 select-none">
@@ -1185,279 +1145,204 @@ onActivated(async () => {
         </div>
 
         <!-- 5. 界面设置（始终显示） -->
-        <div
-          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-5 h-full transition-all flex flex-col relative">
-          <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-            <ColorPaletteOutline class="w-4 h-4 text-accent" />
-            {{ t('config.interface_settings') }}
-          </h4>
-
-          <div class="space-y-4 flex-1">
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.language') }}</label>
-              <select v-model="locale" @change="changeLang"
-                class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-                <option value="zh">{{ t('config.lang_zh') }}</option>
-                <option value="en">{{ t('config.lang_en') }}</option>
-              </select>
-            </div>
-
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.theme') }}</label>
-              <select v-model="globalStore.theme"
-                class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-                <option value="light">{{ t('config.theme_light') }}</option>
-                <option value="dark">{{ t('config.theme_dark') }}</option>
-                <option value="purple">{{ t('config.theme_purple') }}</option>
-                <option value="pink">{{ t('config.theme_pink') }}</option>
-                <option value="green">{{ t('config.theme_green') }}</option>
-                <option value="blue">{{ t('config.theme_blue') }}</option>
-                <option value="system">{{ t('config.theme_system') }}</option>
-              </select>
-            </div>
-
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-700 dark:text-slate-300">{{ t('config.start_page') }}</label>
-              <select v-model="globalStore.startPage"
-                class="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none w-full">
-                <option value="last">{{ t('config.start_page_last') }}</option>
-                <option value="overview">{{ t('nav.overview') }}</option>
-                <option value="proxies">{{ t('nav.proxies') }}</option>
-                <option value="subscription">{{ t('nav.subscription') }}</option>
-                <option value="rules">{{ t('nav.rules') }}</option>
-                <option value="connections">{{ t('nav.connections') }}</option>
-                <option value="logs">{{ t('nav.logs') }}</option>
-                <option value="config">{{ t('nav.config') }}</option>
-              </select>
-            </div>
-          </div>
-        </div>
+        <InterfaceSettingsCard />
 
         <!-- 6. DNS 查询（内核启动时显示） -->
-        <div v-if="coreStatus.running"
-          class="live-card bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-xl border border-slate-200/40 dark:border-slate-800/40 hover:border-slate-300/80 dark:hover:border-slate-700/80 hover:-translate-y-[3px] hover:shadow-md hover:bg-slate-100/80 dark:hover:bg-slate-900/80 duration-300 space-y-4 h-full transition-all flex flex-col relative">
-          <h4 class="font-bold text-sm border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-            <SearchOutline class="w-4 h-4 text-accent" />
-            {{ t('config.dns_query') }}
-          </h4>
+        <DnsQueryCard v-if="coreStatus.running" />
 
-          <div class="flex-1 flex flex-col justify-between gap-4">
-            <div class="flex flex-col gap-2">
-              <input type="text" v-model="dnsQuery.name" :placeholder="t('config.dns_placeholder')"
-                @keyup.enter="handleDNSQuery"
-                class="w-full px-4 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none" />
-              <div class="flex gap-2">
-                <select v-model="dnsQuery.type"
-                  class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-accent outline-none">
-                  <option value="A">A</option>
-                  <option value="AAAA">AAAA</option>
-                  <option value="MX">MX</option>
-                  <option value="TXT">TXT</option>
-                </select>
-                <button @click="handleDNSQuery" :disabled="dnsQuery.loading"
-                  class="flex-[2] py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-1">
-                  {{ dnsQuery.loading ? t('config.dns_querying') : t('config.dns_query_btn') }}
-                </button>
-              </div>
-            </div>
-
-            <!-- 结果容器：高度有上下限（下限保证空态/少行时不下塌，上限保证行数再多也不撑大卡片），
-                 超出上限的内容在容器内纵向滚动 -->
-            <pre
-              class="p-4 bg-slate-50 dark:bg-slate-900/50 font-mono text-xs rounded-xl overflow-y-auto whitespace-pre-wrap break-all flex-1 min-h-28 max-h-56 border border-slate-200 dark:border-slate-800 transition-all"
-              :class="dnsQuery.result ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500 italic flex items-center justify-center select-none'">{{ dnsQuery.result || t('config.dns_result_default') }}</pre>
-          </div>
-        </div>
       </div>
     </div>
   </div>
 
   <!-- ====== TProxy 绕过列表弹窗 ====== -->
-  <Teleport to="body">
-    <div v-if="isActive && showTproxyExceptionsDialog" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showTproxyExceptionsDialog = false">
-      <!-- 限制弹窗最大高度为视口 90%，flex 列布局 -->
-      <div class="glass-heavy w-full max-w-lg max-h-[90vh] rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
-        <!-- 标题 + 恢复默认，固定不滚动 -->
-        <div class="flex items-center justify-between gap-3 flex-shrink-0">
-          <h4 class="text-lg font-bold">{{ t('config.tproxy_exceptions_title') }}</h4>
-          <button
-            @click="restoreTproxyDefaults"
-            class="px-2.5 py-1 text-xs font-semibold rounded-lg text-accent hover:bg-accent/10 border border-accent/30 transition-all shrink-0"
-            :title="t('config.tproxy_restore_defaults_hint')"
-          >
-            {{ t('config.tproxy_restore_defaults') }}
-          </button>
-        </div>
+  <AppModal
+    :open="isActive && showTproxyExceptionsDialog"
+    :label="t('config.tproxy_exceptions_title')"
+    panel-class="w-full max-w-lg max-h-[90vh] rounded-[20px] p-6 flex flex-col gap-4"
+    @close="showTproxyExceptionsDialog = false"
+  >
+    <!-- 标题 + 恢复默认，固定不滚动 -->
+    <div class="flex items-center justify-between gap-3 flex-shrink-0">
+      <h4 class="text-lg font-bold">{{ t('config.tproxy_exceptions_title') }}</h4>
+      <button
+        @click="restoreTproxyDefaults"
+        class="px-2.5 py-1 text-xs font-semibold rounded-lg text-accent hover:bg-accent/10 border border-accent/30 transition-all shrink-0"
+        :title="t('config.tproxy_restore_defaults_hint')"
+      >
+        {{ t('config.tproxy_restore_defaults') }}
+      </button>
+    </div>
 
-        <!-- 可滚动内容区域：占据剩余空间，超出时滚动。
-             pr-2 给滚动条留位：滚动条是覆盖式绘制，不留白会压住输入框右边缘。 -->
-        <div class="flex-1 min-h-0 overflow-y-auto pr-2">
-          <div class="space-y-4">
-            <!-- IPv6 接管（置于弹窗顶部：它决定 ip6 家族规则是否随 TProxy 下发）。
-                 开关即时生效（与下方文本的「保存」无关）；TProxy 启用期间或订阅中心
-                 关闭「IPv6 支持」时置灰，偏好保留不改写。 -->
-            <div class="pb-3 border-b border-slate-100 dark:border-slate-800/60">
-              <div class="flex items-center justify-between gap-3">
-                <label
-                  class="text-xs font-semibold cursor-help"
-                  :class="configStore.tproxyEnabled || !globalIPv6 ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-300'"
-                  :title="t('config.tproxy_ipv6_hint')"
-                >
-                  {{ t('config.tproxy_ipv6_label') }}
-                </label>
-                <div v-if="!tproxyIPv6Loaded" class="w-7 h-4 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
-                <FormSwitch
-                  v-else
-                  :model-value="tproxyIPv6"
-                  :disabled="configStore.tproxyEnabled || !globalIPv6"
-                  :disabled-hint="configStore.tproxyEnabled ? t('config.tproxy_ipv6_readonly_warning') : t('config.tproxy_ipv6_global_disabled_hint')"
-                  @update:model-value="handleTproxyIPv6Toggle"
-                  @blocked="onTproxyIPv6Blocked"
-                />
-              </div>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-                {{ globalIPv6 ? t('config.tproxy_ipv6_hint') : t('config.tproxy_ipv6_global_disabled_hint') }}
-              </p>
-            </div>
-
-            <!-- 目的绕过 -->
-            <div>
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                {{ t('config.tproxy_dst_exceptions_label') }}
-              </label>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_dst_exceptions_hint') }}</p>
-              <textarea
-                v-model="tproxyDstExceptionsText"
-                rows="6"
-                class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
-                :placeholder="t('config.tproxy_dst_exceptions_placeholder')"
-              ></textarea>
-            </div>
-
-            <!-- 源绕过 -->
-            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                {{ t('config.tproxy_src_exceptions_label') }}
-              </label>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_src_exceptions_hint') }}</p>
-              <textarea
-                v-model="tproxySrcExceptionsText"
-                rows="6"
-                class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
-                :placeholder="t('config.tproxy_src_exceptions_placeholder')"
-              ></textarea>
-            </div>
-
+    <!-- 可滚动内容区域：占据剩余空间，超出时滚动。
+         pr-2 给滚动条留位：滚动条是覆盖式绘制，不留白会压住输入框右边缘。 -->
+    <div class="flex-1 min-h-0 overflow-y-auto pr-2">
+      <div class="space-y-4">
+        <!-- IPv6 接管（置于弹窗顶部：它决定 ip6 家族规则是否随 TProxy 下发）。
+             开关即时生效（与下方文本的「保存」无关）；TProxy 启用期间或订阅中心
+             关闭「IPv6 支持」时置灰，偏好保留不改写。 -->
+        <div class="pb-3 border-b border-slate-100 dark:border-slate-800/60">
+          <div class="flex items-center justify-between gap-3">
+            <label
+              class="text-xs font-semibold cursor-help"
+              :class="configStore.tproxyEnabled || !globalIPv6 ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-300'"
+              :title="t('config.tproxy_ipv6_hint')"
+            >
+              {{ t('config.tproxy_ipv6_label') }}
+            </label>
+            <div v-if="!tproxyIPv6Loaded" class="w-7 h-4 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse"></div>
+            <FormSwitch
+              v-else
+              :model-value="tproxyIPv6"
+              :disabled="configStore.tproxyEnabled || !globalIPv6"
+              :disabled-hint="configStore.tproxyEnabled ? t('config.tproxy_ipv6_readonly_warning') : t('config.tproxy_ipv6_global_disabled_hint')"
+              @update:model-value="handleTproxyIPv6Toggle"
+              @blocked="onTproxyIPv6Blocked"
+            />
           </div>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+            {{ globalIPv6 ? t('config.tproxy_ipv6_hint') : t('config.tproxy_ipv6_global_disabled_hint') }}
+          </p>
         </div>
 
-        <!-- 底部按钮，固定不滚动 -->
-        <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex-shrink-0">
-          <button @click="showTproxyExceptionsDialog = false" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all">
-            {{ t('common.cancel') }}
-          </button>
-          <button @click="saveTproxyExceptions" class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
-            {{ t('common.save') }}
-          </button>
+        <!-- 目的绕过 -->
+        <div>
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {{ t('config.tproxy_dst_exceptions_label') }}
+          </label>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_dst_exceptions_hint') }}</p>
+          <textarea
+            v-model="tproxyDstExceptionsText"
+            rows="6"
+            class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
+            :placeholder="t('config.tproxy_dst_exceptions_placeholder')"
+          ></textarea>
         </div>
+
+        <!-- 源绕过 -->
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-800/60">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {{ t('config.tproxy_src_exceptions_label') }}
+          </label>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ t('config.tproxy_src_exceptions_hint') }}</p>
+          <textarea
+            v-model="tproxySrcExceptionsText"
+            rows="6"
+            class="w-full p-3 text-sm font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none resize-y min-h-[100px]"
+            :placeholder="t('config.tproxy_src_exceptions_placeholder')"
+          ></textarea>
+        </div>
+
       </div>
     </div>
-  </Teleport>
+
+    <!-- 底部按钮，固定不滚动 -->
+    <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex-shrink-0">
+      <button @click="showTproxyExceptionsDialog = false" class="px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all">
+        {{ t('common.cancel') }}
+      </button>
+      <button @click="saveTproxyExceptions" class="px-4 py-2 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
+        {{ t('common.save') }}
+      </button>
+    </div>
+
+  </AppModal>
 
   <!-- ====== TUN 高级设置弹窗（实时修改，仅关闭） ====== -->
-  <Teleport to="body">
-    <div v-if="isActive && showTunAdvancedDialog" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showTunAdvancedDialog = false">
-      <div class="glass-heavy w-full max-w-lg max-h-[90vh] rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out]">
-        <div class="flex-shrink-0">
-          <h4 class="text-lg font-bold">{{ t('config.tun_advanced_title') }}</h4>
+  <AppModal
+    :open="isActive && showTunAdvancedDialog"
+    :label="t('config.tun_advanced_title')"
+    panel-class="w-full max-w-lg max-h-[90vh] rounded-[20px] p-6 flex flex-col gap-4"
+    @close="showTunAdvancedDialog = false"
+  >
+    <div class="flex-shrink-0">
+      <h4 class="text-lg font-bold">{{ t('config.tun_advanced_title') }}</h4>
+    </div>
+
+    <!-- pr-2 给滚动条留位：覆盖式滚动条会压住输入框右边缘。 -->
+    <div class="flex-1 min-h-0 overflow-y-auto pr-2">
+      <div class="space-y-4">
+        <!-- TUN 设备名（失焦/回车写回 tun.json，下次开启 TUN 生效） -->
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {{ t('config.tun_device') }}
+          </label>
+          <input
+            type="text"
+            v-model="tunSettings.device"
+            @blur="saveTunSettings({ device: tunSettings.device })"
+            @keyup.enter="saveTunSettings({ device: tunSettings.device })"
+            :placeholder="t('config.interface_name_placeholder')"
+            class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
+          />
         </div>
 
-        <!-- pr-2 给滚动条留位：覆盖式滚动条会压住输入框右边缘。 -->
-        <div class="flex-1 min-h-0 overflow-y-auto pr-2">
-          <div class="space-y-4">
-            <!-- TUN 设备名（失焦/回车写回 tun.json，下次开启 TUN 生效） -->
-            <div class="flex flex-col gap-1">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                {{ t('config.tun_device') }}
-              </label>
-              <input
-                type="text"
-                v-model="tunSettings.device"
-                @blur="saveTunSettings({ device: tunSettings.device })"
-                @keyup.enter="saveTunSettings({ device: tunSettings.device })"
-                :placeholder="t('config.interface_name_placeholder')"
-                class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
-              />
-            </div>
-
-            <!-- 出口网卡（选择即写回；这是内核顶层字段，与 TUN 参数不同，仍是运行时 PATCH） -->
-            <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                {{ t('config.interface_name') }}
-              </label>
-              <select
-                v-model="configs['interface-name']"
-                @change="saveInterface"
-                class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
-              >
-                <option value="">{{ t('config.interface_name_auto') }}</option>
-                <option v-for="iface in interfaces" :key="iface" :value="iface">{{ iface }}</option>
-              </select>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                {{ t('config.tun_advanced_interface_hint') }}
-              </p>
-            </div>
-
-            <!-- DNS 处理方式（tun.dns-mode） -->
-            <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                {{ t('config.tun_dns_mode') }}
-              </label>
-              <select
-                v-model="tunSettings.dns_mode"
-                @change="saveTunSettings({ dns_mode: tunSettings.dns_mode })"
-                class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
-              >
-                <option value="hijack">{{ t('config.tun_dns_mode_hijack') }}</option>
-                <option value="native">{{ t('config.tun_dns_mode_native') }}</option>
-                <option value="disabled">{{ t('config.tun_dns_mode_disabled') }}</option>
-              </select>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                {{ t('config.tun_dns_mode_hint') }}
-              </p>
-            </div>
-
-            <!-- IPv6 接管（tun.inet6-address） -->
-            <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                {{ t('config.tun_ipv6_mode') }}
-              </label>
-              <select
-                v-model="tunSettings.ipv6"
-                @change="saveTunSettings({ ipv6: tunSettings.ipv6 })"
-                :disabled="!globalIPv6"
-                class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <option value="auto">{{ t('config.tun_ipv6_auto') }}</option>
-                <option value="off">{{ t('config.tun_ipv6_off') }}</option>
-              </select>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                {{ !globalIPv6 ? t('config.tun_ipv6_global_disabled') : (tunHostIPv6 ? t('config.tun_ipv6_host_ok') : t('config.tun_ipv6_host_disabled')) }}
-              </p>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500">
-                {{ t('config.tun_ipv6_hint') }}
-              </p>
-            </div>
-          </div>
+        <!-- 出口网卡（选择即写回；这是内核顶层字段，与 TUN 参数不同，仍是运行时 PATCH） -->
+        <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {{ t('config.interface_name') }}
+          </label>
+          <select
+            v-model="configs['interface-name']"
+            @change="saveInterface"
+            class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
+          >
+            <option value="">{{ t('config.interface_name_auto') }}</option>
+            <option v-for="iface in interfaces" :key="iface" :value="iface">{{ iface }}</option>
+          </select>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+            {{ t('config.tun_advanced_interface_hint') }}
+          </p>
         </div>
 
-        <!-- 仅关闭按钮：参数只在下次开启 TUN 时生效，无需"保存" -->
-        <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800/60 flex-shrink-0">
-          <button @click="showTunAdvancedDialog = false" class="px-4 py-2 text-sm font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
-            {{ t('common.close') }}
-          </button>
+        <!-- DNS 处理方式（tun.dns-mode） -->
+        <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {{ t('config.tun_dns_mode') }}
+          </label>
+          <select
+            v-model="tunSettings.dns_mode"
+            @change="saveTunSettings({ dns_mode: tunSettings.dns_mode })"
+            class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full"
+          >
+            <option value="hijack">{{ t('config.tun_dns_mode_hijack') }}</option>
+            <option value="native">{{ t('config.tun_dns_mode_native') }}</option>
+            <option value="disabled">{{ t('config.tun_dns_mode_disabled') }}</option>
+          </select>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+            {{ t('config.tun_dns_mode_hint') }}
+          </p>
+        </div>
+
+        <!-- IPv6 接管（tun.inet6-address） -->
+        <div class="flex flex-col gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {{ t('config.tun_ipv6_mode') }}
+          </label>
+          <select
+            v-model="tunSettings.ipv6"
+            @change="saveTunSettings({ ipv6: tunSettings.ipv6 })"
+            :disabled="!globalIPv6"
+            class="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none w-full disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <option value="auto">{{ t('config.tun_ipv6_auto') }}</option>
+            <option value="off">{{ t('config.tun_ipv6_off') }}</option>
+          </select>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+            {{ !globalIPv6 ? t('config.tun_ipv6_global_disabled') : (tunHostIPv6 ? t('config.tun_ipv6_host_ok') : t('config.tun_ipv6_host_disabled')) }}
+          </p>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500">
+            {{ t('config.tun_ipv6_hint') }}
+          </p>
         </div>
       </div>
     </div>
-  </Teleport>
+
+    <!-- 仅关闭按钮：参数只在下次开启 TUN 时生效，无需"保存" -->
+    <div class="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800/60 flex-shrink-0">
+      <button @click="showTunAdvancedDialog = false" class="px-4 py-2 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
+        {{ t('common.close') }}
+      </button>
+    </div>
+
+  </AppModal>
 </template>

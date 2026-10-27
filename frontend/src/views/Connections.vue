@@ -2,7 +2,10 @@
 import { ref, onMounted, onUnmounted, onActivated, onDeactivated, computed, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, readErrorMessage } from '../utils/api'
+import { formatBytes, formatSpeed, formatTimestamp, formatDuration } from '../utils/format'
 import { useViewActive } from '../composables/useViewActive'
+import PageHeader from '../components/PageHeader.vue'
+import AppModal from '../components/AppModal.vue'
 import {
   ArrowDownOutline,
   ArrowUpOutline,
@@ -261,28 +264,6 @@ const closeDetail = () => {
 }
 
 // 辅助格式化
-const formatTimestamp = (timeStr: string) => {
-  if (!timeStr) return '-'
-  try {
-    return new Date(timeStr).toLocaleString()
-  } catch {
-    return timeStr
-  }
-}
-
-const formatSpeedValue = (bytes: number) => {
-  if (bytes === undefined || bytes === null) return '-'
-  return formatBytes(bytes) + '/s'
-}
-
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(Math.abs(bytes) || 1) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
-
 // 获取连接详情中的各字段
 const detailFields = computed(() => {
   const c = selectedConnection.value
@@ -468,21 +449,6 @@ const handleClearAllClosed = async () => {
   }
 }
 
-const formatSpeed = (bytes: number) => {
-  return formatBytes(bytes) + '/s'
-}
-
-const formatDurationDisplay = (startTime: string) => {
-  if (!startTime) return '-'
-  const diff = Date.now() - new Date(startTime).getTime()
-  const sec = Math.floor(diff / 1000)
-  if (sec < 60) return `${sec}s`
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m`
-  const hour = Math.floor(min / 60)
-  return `${hour}h ${min % 60}m`
-}
-
 // 固定列（在移动端卡片中已单独显示）
 const fixedColumns = new Set(['host', 'type', 'rule', 'chain', 'uploadSpeed', 'downloadSpeed', 'duration','metadata.process'])
 
@@ -517,17 +483,17 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <!-- 顶部栏 -->
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <div class="flex items-center justify-between md:justify-start gap-4 flex-1 md:flex-initial">
-        <div class="flex items-center gap-2">
-          <h3 class="text-base font-semibold flex items-center gap-2">
-            <LinkOutline class="w-5 h-5 text-accent" />
-            {{ t('connections.title') }}
-          </h3>
-          <button @click="openSettings" class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" :title="t('connections.column_settings')">
-            <SettingsOutline class="w-4 h-4" />
-          </button>
-        </div>
+    <PageHeader
+      :icon="LinkOutline"
+      left-class="justify-between md:justify-start gap-4 flex-1 md:flex-initial"
+    >
+      <template #title>
+        {{ t('connections.title') }}
+        <button @click="openSettings" class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" :title="t('connections.column_settings')">
+          <SettingsOutline class="w-4 h-4" />
+        </button>
+      </template>
+      <template #lead>
         <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all shrink-0">
           <button @click="activeTab = 'active'" class="px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200" :class="activeTab === 'active' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'">
             {{ t('connections.active') }} ({{ activeConnections.length }})
@@ -536,9 +502,10 @@ onUnmounted(() => {
             {{ t('connections.closed') }} ({{ closedConnections.length }})
           </button>
         </div>
-      </div>
+      </template>
 
-      <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0 flex-nowrap">
+      <template #actions>
+        <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0 flex-nowrap">
         <input type="text" v-model="searchText" :placeholder="t('connections.search_placeholder')" class="w-full sm:w-60 px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none" />
         <div class="flex gap-2 shrink-0">
           <button v-if="activeTab === 'active'" @click="isPaused = !isPaused" class="px-4 py-1.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 whitespace-nowrap" :class="isPaused ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-transparent'">
@@ -554,8 +521,9 @@ onUnmounted(() => {
             {{ t('connections.clear_all_closed') }}
           </button>
         </div>
-      </div>
-    </div>
+        </div>
+      </template>
+    </PageHeader>
 
     <!-- 表格容器 -->
     <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-1">
@@ -632,7 +600,7 @@ onUnmounted(() => {
 
                 <template v-else-if="col.specialRender === 'duration'">
                   <span class="font-mono text-slate-500">
-                    {{ activeTab === 'active' ? formatDurationDisplay(c.start) : c.closedAt }}
+                    {{ activeTab === 'active' ? formatDuration(c.start) : c.closedAt }}
                   </span>
                 </template>
 
@@ -758,7 +726,7 @@ onUnmounted(() => {
                 <div class="flex flex-col">
                   <span class="text-slate-400">{{ activeTab === 'active' ? t('connections.duration') : t('connections.closed_at') }}</span>
                   <span class="font-mono text-slate-500 mt-0.5">
-                    {{ activeTab === 'active' ? formatDurationDisplay(c.start) : c.closedAt }}
+                    {{ activeTab === 'active' ? formatDuration(c.start) : c.closedAt }}
                   </span>
                 </div>
               </div>
@@ -781,188 +749,192 @@ onUnmounted(() => {
   </div>
 
   <!-- ====== 列设置弹窗 ====== -->
-  <Teleport to="body">
-    <div v-if="isActive && showSettings" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="closeSettings">
-      <div class="glass-heavy border w-full max-w-lg max-h-[80vh] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] overflow-hidden">
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
-          <h3 class="text-base font-semibold flex items-center gap-2">
-            <SettingsOutline class="w-5 h-5 text-accent" />
-            {{ t('connections.column_settings_title') }}
-          </h3>
-          <button @click="closeSettings" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-            <CloseOutline class="w-4 h-4 text-slate-400" />
-          </button>
-        </div>
-        <div class="flex-1 overflow-y-auto pr-1">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div v-for="col in columnDefs" :key="col.key"
-                 class="flex items-center justify-between py-1.5 px-2 rounded-lg"
-                 :class="{
-                   'hover:bg-slate-50/50 dark:hover:bg-slate-800/30': !(isMobile && col.defaultVisible),
-                   'opacity-50 cursor-not-allowed': isMobile && col.defaultVisible
-                 }">
-              <label class="text-xs font-medium text-slate-700 dark:text-slate-200 select-none"
-                     :class="{ 'cursor-not-allowed': isMobile && col.defaultVisible, 'cursor-pointer': !(isMobile && col.defaultVisible) }"
-                     @click="isMobile && col.defaultVisible ? null : (tempVisibility[col.key] = !tempVisibility[col.key])">
-                {{ t(col.labelKey) }}
-              </label>
-              <div class="relative inline-flex items-center"
-                   :class="{ 'cursor-not-allowed': isMobile && col.defaultVisible, 'cursor-pointer': !(isMobile && col.defaultVisible) }"
-                   @click="isMobile && col.defaultVisible ? null : (tempVisibility[col.key] = !tempVisibility[col.key])">
-                <div class="w-9 h-5 rounded-full transition-colors duration-200 ease-in-out"
-                     :class="tempVisibility[col.key] ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-600'"></div>
-                <div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out"
-                     :class="tempVisibility[col.key] ? 'translate-x-4' : 'translate-x-0'"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="border-t border-slate-100 dark:border-slate-800/60 pt-3 flex justify-between gap-2">
-          <button @click="resetSettings" class="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
-            {{ t('common.reset') }}
-          </button>
-          <div class="flex gap-2">
-            <button @click="closeSettings" class="px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
-              {{ t('common.cancel') }}
-            </button>
-            <button @click="saveSettings" class="px-4 py-2 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all active:scale-95 shadow-sm">
-              {{ t('common.save') }}
-            </button>
+  <AppModal
+    :open="isActive && showSettings"
+    :label="t('connections.column_settings_title')"
+    panel-class="w-full max-w-lg max-h-[80vh] rounded-2xl p-6 flex flex-col gap-4"
+    @close="closeSettings"
+  >
+    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3">
+      <h3 class="text-base font-semibold flex items-center gap-2">
+        <SettingsOutline class="w-5 h-5 text-accent" />
+        {{ t('connections.column_settings_title') }}
+      </h3>
+      <button @click="closeSettings" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+        <CloseOutline class="w-4 h-4 text-slate-400" />
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto pr-1">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div v-for="col in columnDefs" :key="col.key"
+             class="flex items-center justify-between py-1.5 px-2 rounded-lg"
+             :class="{
+               'hover:bg-slate-50/50 dark:hover:bg-slate-800/30': !(isMobile && col.defaultVisible),
+               'opacity-50 cursor-not-allowed': isMobile && col.defaultVisible
+             }">
+          <label class="text-xs font-medium text-slate-700 dark:text-slate-200 select-none"
+                 :class="{ 'cursor-not-allowed': isMobile && col.defaultVisible, 'cursor-pointer': !(isMobile && col.defaultVisible) }"
+                 @click="isMobile && col.defaultVisible ? null : (tempVisibility[col.key] = !tempVisibility[col.key])">
+            {{ t(col.labelKey) }}
+          </label>
+          <div class="relative inline-flex items-center"
+               :class="{ 'cursor-not-allowed': isMobile && col.defaultVisible, 'cursor-pointer': !(isMobile && col.defaultVisible) }"
+               @click="isMobile && col.defaultVisible ? null : (tempVisibility[col.key] = !tempVisibility[col.key])">
+            <div class="w-9 h-5 rounded-full transition-colors duration-200 ease-in-out"
+                 :class="tempVisibility[col.key] ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-600'"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out"
+                 :class="tempVisibility[col.key] ? 'translate-x-4' : 'translate-x-0'"></div>
           </div>
         </div>
       </div>
     </div>
-  </Teleport>
+    <div class="border-t border-slate-100 dark:border-slate-800/60 pt-3 flex justify-between gap-2">
+      <button @click="resetSettings" class="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
+        {{ t('common.reset') }}
+      </button>
+      <div class="flex gap-2">
+        <button @click="closeSettings" class="px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
+          {{ t('common.cancel') }}
+        </button>
+        <button @click="saveSettings" class="px-4 py-2 text-xs font-semibold rounded-xl bg-accent hover:bg-accent-hover text-white transition-all active:scale-95 shadow-sm">
+          {{ t('common.save') }}
+        </button>
+      </div>
+    </div>
+
+  </AppModal>
 
   <!-- ====== 连接详情弹窗 ====== -->
-  <Teleport to="body">
-    <div v-if="isActive && showDetailDialog && selectedConnection" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="closeDetail">
-      <div class="glass-heavy border w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-[zoomIn_0.15s_ease-out] overflow-hidden">
-        <!-- 头部 -->
-        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3 shrink-0">
-          <h3 class="text-base font-semibold flex items-center gap-2">
-            <InformationCircleOutline class="w-5 h-5 text-accent" />
-            {{ t('connections.detail.title') }}
-          </h3>
-          <button @click="closeDetail" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-            <CloseOutline class="w-4 h-4 text-slate-400" />
-          </button>
+  <AppModal
+    :open="isActive && showDetailDialog && selectedConnection"
+    :label="t('connections.detail.title')"
+    panel-class="w-full max-w-3xl max-h-[90vh] rounded-2xl p-6 flex flex-col gap-4"
+    @close="closeDetail"
+  >
+    <!-- 头部 -->
+    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3 shrink-0">
+      <h3 class="text-base font-semibold flex items-center gap-2">
+        <InformationCircleOutline class="w-5 h-5 text-accent" />
+        {{ t('connections.detail.title') }}
+      </h3>
+      <button @click="closeDetail" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+        <CloseOutline class="w-4 h-4 text-slate-400" />
+      </button>
+    </div>
+
+    <!-- 内容 -->
+    <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+      <!-- 基本信息 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
+        <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+          <DocumentTextOutline class="w-3.5 h-3.5" />
+          {{ t('connections.detail.basic') }}
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          <div><span class="text-slate-400">{{ t('connections.detail.id') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300 break-all">{{ detailFields?.id || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.start') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.start ? formatTimestamp(detailFields.start) : '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.rule') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.rule || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.rulePayload') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.rulePayload || '-' }}</span></div>
         </div>
+      </div>
 
-        <!-- 内容 -->
-        <div class="flex-1 overflow-y-auto pr-1 space-y-4">
-          <!-- 基本信息 -->
-          <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
-            <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-              <DocumentTextOutline class="w-3.5 h-3.5" />
-              {{ t('connections.detail.basic') }}
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-              <div><span class="text-slate-400">{{ t('connections.detail.id') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300 break-all">{{ detailFields?.id || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.start') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.start ? formatTimestamp(detailFields.start) : '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.rule') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.rule || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.rulePayload') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.rulePayload || '-' }}</span></div>
-            </div>
-          </div>
-
-          <!-- 流量 -->
-          <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
-            <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-              <BarChartOutline class="w-3.5 h-3.5" />
-              {{ t('connections.detail.traffic') }}
-            </h4>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs">
-              <div><span class="text-slate-400">{{ t('connections.detail.upload') }}:</span> <span class="font-mono text-blue-500 font-medium">{{ formatBytes(detailFields?.upload || 0) }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.download') }}:</span> <span class="font-mono text-success font-medium">{{ formatBytes(detailFields?.download || 0) }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.uploadSpeed') }}:</span> <span class="font-mono text-blue-500">{{ detailFields?.speedUp !== undefined ? formatSpeedValue(detailFields.speedUp) : '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.downloadSpeed') }}:</span> <span class="font-mono text-success">{{ detailFields?.speedDown !== undefined ? formatSpeedValue(detailFields.speedDown) : '-' }}</span></div>
-            </div>
-          </div>
-
-          <!-- 元数据 -->
-          <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
-            <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-              <ServerOutline class="w-3.5 h-3.5" />
-              {{ t('connections.detail.metadata') }}
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-              <div><span class="text-slate-400">{{ t('connections.detail.network') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.network || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.type') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.type || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.host') }}:</span> <span
-                  class="font-mono text-slate-700 dark:text-slate-300 cursor-pointer hover:text-accent transition-colors"
-                  :title="detailFields?.host ? t('connections.detail.click_copy_host') : ''"
-                  @click="copyText(detailFields?.host, t('connections.detail.copy_label_host'))">{{ detailFields?.host || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.sniffHost') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.sniffHost || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.dnsMode') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.dnsMode || '-' }}</span></div>
-            </div>
-          </div>
-
-          <!-- 源与目标 -->
-          <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
-            <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-              <PeopleOutline class="w-3.5 h-3.5" />
-              {{ t('connections.detail.source_target') }}
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-              <div><span class="text-slate-400">{{ t('connections.detail.source') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.sourceIP && detailFields?.sourcePort ? detailFields.sourceIP + ':' + detailFields.sourcePort : detailFields?.sourceIP || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.target') }}:</span> <span
-                  class="font-mono text-slate-700 dark:text-slate-300 cursor-pointer hover:text-accent transition-colors"
-                  :title="detailTarget !== '-' ? t('connections.detail.click_copy_target') : ''"
-                  @click="copyText(detailTarget, t('connections.detail.copy_label_target'))">{{ detailTarget }}</span></div>
-              <div class="sm:col-span-2"><span class="text-slate-400">{{ t('connections.detail.remoteDestination') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.remoteDestination || '-' }}</span></div>
-            </div>
-          </div>
-
-          <!-- 入站 -->
-          <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
-            <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-              <CloudOutline class="w-3.5 h-3.5" />
-              {{ t('connections.detail.inbound') }}
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-              <div><span class="text-slate-400">{{ t('connections.detail.inboundName') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.inboundName || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.inboundIP') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.inboundIP || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.inboundUser') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.inboundUser || '-' }}</span></div>
-            </div>
-          </div>
-
-          <!-- 进程 -->
-          <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
-            <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-              <RocketOutline class="w-3.5 h-3.5" />
-              {{ t('connections.detail.process') }}
-            </h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-              <div><span class="text-slate-400">{{ t('connections.detail.processName') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.process || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.processPath') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300 break-all">{{ detailFields?.processPath || '-' }}</span></div>
-              <div><span class="text-slate-400">{{ t('connections.detail.uid') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.uid ?? '-' }}</span></div>
-            </div>
-          </div>
-
-          <!-- 链路 -->
-          <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
-            <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-              <GitBranchOutline class="w-3.5 h-3.5" />
-              {{ t('connections.detail.chain') }}
-            </h4>
-            <div class="text-xs font-mono text-slate-700 dark:text-slate-300 break-all leading-relaxed">
-              <span v-if="detailFields?.chains && detailFields.chains.length > 0" class="inline-flex flex-wrap gap-1">
-                <span v-for="(item, idx) in detailFields.chains" :key="idx" class="bg-slate-200/60 dark:bg-slate-800/50 px-1.5 py-0.5 rounded">
-                  {{ item }}
-                </span>
-              </span>
-              <span v-else>-</span>
-            </div>
-          </div>
+      <!-- 流量 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
+        <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+          <BarChartOutline class="w-3.5 h-3.5" />
+          {{ t('connections.detail.traffic') }}
+        </h4>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs">
+          <div><span class="text-slate-400">{{ t('connections.detail.upload') }}:</span> <span class="font-mono text-blue-500 font-medium">{{ formatBytes(detailFields?.upload || 0) }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.download') }}:</span> <span class="font-mono text-success font-medium">{{ formatBytes(detailFields?.download || 0) }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.uploadSpeed') }}:</span> <span class="font-mono text-blue-500">{{ detailFields?.speedUp !== undefined ? formatSpeed(detailFields.speedUp) : '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.downloadSpeed') }}:</span> <span class="font-mono text-success">{{ detailFields?.speedDown !== undefined ? formatSpeed(detailFields.speedDown) : '-' }}</span></div>
         </div>
+      </div>
 
-        <!-- 底部关闭 -->
-        <div class="border-t border-slate-100 dark:border-slate-800/60 pt-3 flex justify-end shrink-0">
-          <button @click="closeDetail" class="px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
-            {{ t('common.close') }}
-          </button>
+      <!-- 元数据 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
+        <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+          <ServerOutline class="w-3.5 h-3.5" />
+          {{ t('connections.detail.metadata') }}
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          <div><span class="text-slate-400">{{ t('connections.detail.network') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.network || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.type') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.type || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.host') }}:</span> <span
+              class="font-mono text-slate-700 dark:text-slate-300 cursor-pointer hover:text-accent transition-colors"
+              :title="detailFields?.host ? t('connections.detail.click_copy_host') : ''"
+              @click="copyText(detailFields?.host, t('connections.detail.copy_label_host'))">{{ detailFields?.host || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.sniffHost') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.sniffHost || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.dnsMode') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.dnsMode || '-' }}</span></div>
+        </div>
+      </div>
+
+      <!-- 源与目标 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
+        <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+          <PeopleOutline class="w-3.5 h-3.5" />
+          {{ t('connections.detail.source_target') }}
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          <div><span class="text-slate-400">{{ t('connections.detail.source') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.sourceIP && detailFields?.sourcePort ? detailFields.sourceIP + ':' + detailFields.sourcePort : detailFields?.sourceIP || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.target') }}:</span> <span
+              class="font-mono text-slate-700 dark:text-slate-300 cursor-pointer hover:text-accent transition-colors"
+              :title="detailTarget !== '-' ? t('connections.detail.click_copy_target') : ''"
+              @click="copyText(detailTarget, t('connections.detail.copy_label_target'))">{{ detailTarget }}</span></div>
+          <div class="sm:col-span-2"><span class="text-slate-400">{{ t('connections.detail.remoteDestination') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.remoteDestination || '-' }}</span></div>
+        </div>
+      </div>
+
+      <!-- 入站 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
+        <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+          <CloudOutline class="w-3.5 h-3.5" />
+          {{ t('connections.detail.inbound') }}
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          <div><span class="text-slate-400">{{ t('connections.detail.inboundName') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.inboundName || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.inboundIP') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.inboundIP || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.inboundUser') }}:</span> <span class="font-medium text-slate-700 dark:text-slate-300">{{ detailFields?.inboundUser || '-' }}</span></div>
+        </div>
+      </div>
+
+      <!-- 进程 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
+        <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+          <RocketOutline class="w-3.5 h-3.5" />
+          {{ t('connections.detail.process') }}
+        </h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          <div><span class="text-slate-400">{{ t('connections.detail.processName') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.process || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.processPath') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300 break-all">{{ detailFields?.processPath || '-' }}</span></div>
+          <div><span class="text-slate-400">{{ t('connections.detail.uid') }}:</span> <span class="font-mono text-slate-700 dark:text-slate-300">{{ detailFields?.uid ?? '-' }}</span></div>
+        </div>
+      </div>
+
+      <!-- 链路 -->
+      <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
+        <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+          <GitBranchOutline class="w-3.5 h-3.5" />
+          {{ t('connections.detail.chain') }}
+        </h4>
+        <div class="text-xs font-mono text-slate-700 dark:text-slate-300 break-all leading-relaxed">
+          <span v-if="detailFields?.chains && detailFields.chains.length > 0" class="inline-flex flex-wrap gap-1">
+            <span v-for="(item, idx) in detailFields.chains" :key="idx" class="bg-slate-200/60 dark:bg-slate-800/50 px-1.5 py-0.5 rounded">
+              {{ item }}
+            </span>
+          </span>
+          <span v-else>-</span>
         </div>
       </div>
     </div>
-  </Teleport>
+
+    <!-- 底部关闭 -->
+    <div class="border-t border-slate-100 dark:border-slate-800/60 pt-3 flex justify-end shrink-0">
+      <button @click="closeDetail" class="px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 transition-all active:scale-95">
+        {{ t('common.close') }}
+      </button>
+    </div>
+
+  </AppModal>
 </template>

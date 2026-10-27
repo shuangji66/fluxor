@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { wsConnect } from '../utils/api'
+import { createRealtimeStream } from '../utils/realtimeStream'
 
 export interface LogItem {
   id: number
@@ -14,11 +14,6 @@ export const useLogStore = defineStore('logs', () => {
   const autoScroll = ref(true)
   const isPaused = ref(false)
 
-  let ws: WebSocket | null = null
-  const subscriberCount = ref(0)
-  let debounceTimeout: any = null
-  let reconnectDelay = 1000
-  const MAX_RECONNECT_DELAY = 30000
 
   // 格式化时间为 HH:mm:ss.SSS
   const formatTime = (date: Date) => {
@@ -27,24 +22,55 @@ export const useLogStore = defineStore('logs', () => {
     return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${ms}`
   }
 
-  // 添加单条日志
-  const addLog = (log: LogItem, maxLogs = 2000) => {
-    logs.value.push(log)
-    if (logs.value.length > maxLogs) {
-      logs.value.shift()
-    }
+  // === 批量入队 ===
+  //
+  // 日志是逐条推送的，而每条都是一次响应式写入：旧实现直接 push 到 logs，
+  // 满 2000 条后还要 shift() 重建整个数组索引——高密度日志（debug 全开时每秒数十条）
+  // 下，每条日志都会触发 2000 项数组的 index 重建与列表 patch，明显掉帧。
+  //
+  // 现在先进缓冲区，每 100ms 合并成一次数组替换：一次渲染消费一批日志，
+  // 超限用一次 slice 截断，不再逐条 shift。暂停/清空时同步丢弃缓冲。
+  const MAX_LOGS = 2000
+  const FLUSH_INTERVAL_MS = 100
+  let pending: LogItem[] = []
+  let flushTimer: number | null = null
+
+  const flushPending = () => {
+    flushTimer = null
+    if (pending.length === 0) return
+    const merged = logs.value.concat(pending)
+    pending = []
+    logs.value = merged.length > MAX_LOGS ? merged.slice(merged.length - MAX_LOGS) : merged
   }
 
-  // 清空日志
+  const scheduleFlush = () => {
+    if (flushTimer !== null) return
+    flushTimer = window.setTimeout(flushPending, FLUSH_INTERVAL_MS)
+  }
+
+  // 添加单条日志（入缓冲，由定时器合并）
+  const addLog = (log: LogItem) => {
+    if (isPaused.value) return
+    pending.push(log)
+    scheduleFlush()
+  }
+
+  // 清空日志：连缓冲一起清，否则清空后 100ms 内会「复活」一批
   const clearLogs = () => {
+    pending = []
+    if (flushTimer !== null) {
+      clearTimeout(flushTimer)
+      flushTimer = null
+    }
     logs.value = []
   }
 
-  // 建立 WebSocket 连接
-  const connect = () => {
-    if (ws) return
-    ws = wsConnect('/logs', (e: MessageEvent) => {
-      if (isPaused.value) return
+  // 日志流：引用计数与断线重连交给 createRealtimeStream；
+  // 日志是高频流，重连用指数退避（1s → 30s），避免内核未就绪时每秒刷一次。
+  const stream = createRealtimeStream({
+    path: '/logs',
+    reconnect: { initialDelayMs: 1000, maxDelayMs: 30000, factor: 2 },
+    onMessage: (e: MessageEvent) => {
       let item: LogItem
       try {
         const data = JSON.parse(e.data)
@@ -63,61 +89,17 @@ export const useLogStore = defineStore('logs', () => {
         }
       }
       addLog(item)
-    }, {
-      onOpen: () => {
-        reconnectDelay = 1000
-      },
-      onClose: () => {
-        ws = null
-        if (subscriberCount.value > 0) {
-          setTimeout(() => {
-            if (subscriberCount.value > 0) connect()
-          }, reconnectDelay)
-          reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY)
-        }
-      },
-      onError: () => {
-        ws = null
-      }
-    })
-  }
+    },
+  })
 
-  // 关闭连接
-  const disconnect = () => {
-    if (ws) {
-      ws.close()
-      ws = null
-    }
-  }
-
-  // 增加引用订阅计数
-  const subscribe = () => {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout)
-      debounceTimeout = null
-    }
-    subscriberCount.value++
-    if (subscriberCount.value === 1) {
-      connect()
-    }
-  }
-
-  // 减少订阅并防抖断开
-  const unsubscribe = () => {
-    subscriberCount.value = Math.max(0, subscriberCount.value - 1)
-    if (subscriberCount.value === 0) {
-      debounceTimeout = setTimeout(() => {
-        if (subscriberCount.value === 0) {
-          disconnect()
-        }
-      }, 3000)
-    }
-  }
+  const subscribe = stream.subscribe
+  const unsubscribe = stream.unsubscribe
 
   return {
     logs,
     autoScroll,
     isPaused,
+    isConnected: stream.connected,
     addLog,
     clearLogs,
     subscribe,

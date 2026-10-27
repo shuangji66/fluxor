@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { wsConnect, sseConnect, apiFetch } from '../utils/api'
+import { sseConnect, apiFetch } from '../utils/api'
+import { createRealtimeStream } from '../utils/realtimeStream'
 import { useProxyStore } from './proxies'
 
 export interface DashboardStats {
@@ -40,19 +41,17 @@ export const useOverviewStore = defineStore('overview', () => {
   const downloadHistory = ref<number[]>([])
   const timeHistory = ref<string[]>([])
   const uiPanel = ref('metacubexd')
-  const isTrafficConnected = ref(false)
-  const isMemoryConnected = ref(false)
 
-  // === Traffic WS ===
-  let wsTraffic: WebSocket | null = null
-  const trafficSubscribers = ref(0)
-  let trafficDebounce: any = null
-
-  const connectTraffic = () => {
-    if (wsTraffic) return
-    wsTraffic = wsConnect('/traffic', (e: MessageEvent) => {
-      isTrafficConnected.value = true
-      let up = 0, down = 0
+  // === Traffic / Memory 实时流 ===
+  //
+  // 两者的生命周期（引用计数、防抖断开、断线重连）完全一样，差别只在帧格式与展示字段，
+  // 因此共用 createRealtimeStream，只写「一帧怎么解析」。概览页按激活态订阅/退订，
+  // 切走页面即断开，不会在别的页面持续重绘图表。
+  const trafficStream = createRealtimeStream({
+    path: '/traffic',
+    onMessage: (e: MessageEvent) => {
+      let up = 0
+      let down = 0
       if (typeof e.data === 'string') {
         const d = JSON.parse(e.data)
         up = d.up || d.upload || 0
@@ -65,70 +64,16 @@ export const useOverviewStore = defineStore('overview', () => {
       stats.value.uploadSpeed = up
       stats.value.downloadSpeed = down
       pushHistory(up, down)
-    }, {
-      onOpen: () => {
-        isTrafficConnected.value = true
-      },
-      onClose: () => {
-        wsTraffic = null
-        isTrafficConnected.value = false
-        if (trafficSubscribers.value > 0) {
-          setTimeout(() => {
-            if (trafficSubscribers.value > 0) connectTraffic()
-          }, 5000)
-        } else {
-          stats.value.uploadSpeed = 0
-          stats.value.downloadSpeed = 0
-        }
-      },
-      onError: () => {
-        wsTraffic = null
-        isTrafficConnected.value = false
-      }
-    })
-  }
+    },
+    onIdle: () => {
+      stats.value.uploadSpeed = 0
+      stats.value.downloadSpeed = 0
+    },
+  })
 
-  const disconnectTraffic = () => {
-    if (wsTraffic) {
-      wsTraffic.close()
-      wsTraffic = null
-    }
-    isTrafficConnected.value = false
-    stats.value.uploadSpeed = 0
-    stats.value.downloadSpeed = 0
-  }
-
-  const subscribeTraffic = () => {
-    if (trafficDebounce) {
-      clearTimeout(trafficDebounce)
-      trafficDebounce = null
-    }
-    trafficSubscribers.value++
-    if (trafficSubscribers.value === 1) {
-      connectTraffic()
-    }
-  }
-
-  const unsubscribeTraffic = () => {
-    trafficSubscribers.value = Math.max(0, trafficSubscribers.value - 1)
-    if (trafficSubscribers.value === 0) {
-      trafficDebounce = setTimeout(() => {
-        if (trafficSubscribers.value === 0) {
-          disconnectTraffic()
-        }
-      }, 3000)
-    }
-  }
-
-  // === Memory WS ===
-  let wsMemory: WebSocket | null = null
-  const memorySubscribers = ref(0)
-  let memoryDebounce: any = null
-
-  const connectMemory = () => {
-    if (wsMemory) return
-    wsMemory = wsConnect('/memory', (e: MessageEvent) => {
-      isMemoryConnected.value = true
+  const memoryStream = createRealtimeStream({
+    path: '/memory',
+    onMessage: (e: MessageEvent) => {
       let mem = 0
       if (typeof e.data === 'string') {
         const d = JSON.parse(e.data)
@@ -136,61 +81,19 @@ export const useOverviewStore = defineStore('overview', () => {
       } else if (e.data instanceof ArrayBuffer) {
         mem = Number(new DataView(e.data).getBigUint64(0, false))
       }
-      if (mem > 0) {
-        stats.value.memory = mem
-      }
-    }, {
-      onOpen: () => {
-        isMemoryConnected.value = true
-      },
-      onClose: () => {
-        wsMemory = null
-        isMemoryConnected.value = false
-        if (memorySubscribers.value > 0) {
-          setTimeout(() => {
-            if (memorySubscribers.value > 0) connectMemory()
-          }, 5000)
-        } else {
-          stats.value.memory = 0
-        }
-      },
-      onError: () => {
-        wsMemory = null
-        isMemoryConnected.value = false
-      }
-    })
-  }
+      if (mem > 0) stats.value.memory = mem
+    },
+    onIdle: () => {
+      stats.value.memory = 0
+    },
+  })
 
-  const disconnectMemory = () => {
-    if (wsMemory) {
-      wsMemory.close()
-      wsMemory = null
-    }
-    isMemoryConnected.value = false
-    stats.value.memory = 0
-  }
-
-  const subscribeMemory = () => {
-    if (memoryDebounce) {
-      clearTimeout(memoryDebounce)
-      memoryDebounce = null
-    }
-    memorySubscribers.value++
-    if (memorySubscribers.value === 1) {
-      connectMemory()
-    }
-  }
-
-  const unsubscribeMemory = () => {
-    memorySubscribers.value = Math.max(0, memorySubscribers.value - 1)
-    if (memorySubscribers.value === 0) {
-      memoryDebounce = setTimeout(() => {
-        if (memorySubscribers.value === 0) {
-          disconnectMemory()
-        }
-      }, 3000)
-    }
-  }
+  const isTrafficConnected = trafficStream.connected
+  const isMemoryConnected = memoryStream.connected
+  const subscribeTraffic = trafficStream.subscribe
+  const unsubscribeTraffic = trafficStream.unsubscribe
+  const subscribeMemory = memoryStream.subscribe
+  const unsubscribeMemory = memoryStream.unsubscribe
 
  const syncCurrentNodeFromProxyStore = () => {
     const proxyStore = useProxyStore()

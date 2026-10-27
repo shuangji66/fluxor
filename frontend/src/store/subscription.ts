@@ -1,7 +1,7 @@
 // stores/subscription.ts
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiFetch } from '../utils/api'
+import { apiFetch, apiJson } from '../utils/api'
 
 export interface SubscriptionInfo {
   upload: number
@@ -366,11 +366,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
 
     nodeProtocolsPromise = (async () => {
       try {
-        const resp = await apiFetch('/subscribe/node-protocols')
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`)
-        }
-        const data = await resp.json()
+        const data = await apiJson<{ protocols?: typeof nodeProtocols.value }>('/subscribe/node-protocols')
         nodeProtocols.value = data.protocols || []
         isNodeProtocolsLoaded.value = nodeProtocols.value.length > 0
       } catch (e) {

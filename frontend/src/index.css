@@ -1154,3 +1154,10 @@ aside {
   contain-intrinsic-size: auto 1.35rem;
 }
 }
+
+/* 弹窗进入动画：AppModal 依赖全局 zoomIn（此前各处只在各自组件的 <style> 里定义，
+   组件一旦不再内联渲染弹窗就会失效）。 */
+@keyframes zoomIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}

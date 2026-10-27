@@ -1,17 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import { wsConnect } from '../utils/api'
+import { createRealtimeStream } from '../utils/realtimeStream'
+import type { ConnectionsFrame, ConnectionWire, ConnectionMetadata } from '../types/api'
 
-export interface ConnectionMetadata {
-  host: string
-  destinationIP: string
-  destinationPort: number
-  sourcePort: number
-  type: string
-  network: string
-  process?: string
-  sourceIP?: string
-}
+export type { ConnectionMetadata }
 
 export interface ConnectionItem {
   id: string
@@ -38,10 +30,6 @@ export const useConnectionsStore = defineStore('connections', () => {
   const uploadTotal = ref(0)
   const downloadTotal = ref(0)
 
-  let ws: WebSocket | null = null
-  const subscriberCount = ref(0)
-  const isWsConnected = ref(false)
-  let debounceTimeout: any = null
   let isFirstFrame = true
   const prevSnapshot = new Map<string, { upload: number, download: number, timestamp: number }>()
 
@@ -51,15 +39,15 @@ export const useConnectionsStore = defineStore('connections', () => {
     }
   })
 
-  // 建立 WebSocket 连接
-  const connect = () => {
-    if (ws) return
-    isFirstFrame = true
-    ws = wsConnect('/connections', (e: MessageEvent) => {
+  // 连接流：引用计数/防抖断开/断线重连由 createRealtimeStream 统一负责，
+  // 本 store 只关心「一帧数据怎么算」。
+  const stream = createRealtimeStream({
+    path: '/connections',
+    onMessage: (e: MessageEvent) => {
       if (isPaused.value) return
       try {
-        const data = JSON.parse(e.data)
-        const newActiveList: any[] = data.connections || []
+        const data = JSON.parse(e.data) as ConnectionsFrame
+        const newActiveList: ConnectionWire[] = data.connections || []
         const now = performance.now()
 
         connectionsCount.value = newActiveList.length
@@ -83,6 +71,9 @@ export const useConnectionsStore = defineStore('connections', () => {
           }
           newActiveMap.set(conn.id, {
             ...conn,
+            metadata: conn.metadata || {},
+            chains: conn.chains || [],
+            rule: conn.rule || '',
             speedUp,
             speedDown
           })
@@ -123,64 +114,39 @@ export const useConnectionsStore = defineStore('connections', () => {
       } catch (err) {
         console.warn('解析连接失败', err)
       }
-    }, {
-      onOpen: () => {
-        isWsConnected.value = true
-      },
-      onClose: () => {
-        ws = null
-        isWsConnected.value = false
+    },
+    onStatusChange: (connected) => {
+      isWsConnected.value = connected
+      if (connected) {
+        // 断线重连同样属于「首帧」：不清标记的话，重连后的第一帧会拿断线前的
+        // 列表做差集，把整批陈旧连接误判成「刚刚关闭」。旧实现在每次 connect()
+        // 开头重置该标记，迁到流封装后只能挂在 open 上。
+        isFirstFrame = true
+      } else {
         prevSnapshot.clear()
-        if (subscriberCount.value > 0) {
-          setTimeout(() => {
-            if (subscriberCount.value > 0) connect()
-          }, 5000)
-        } else {
-          activeConnections.value = []
-          connectionsCount.value = 0
-        }
-      },
-      onError: () => {
-        ws = null
-        isWsConnected.value = false
       }
-    })
+    },
+    onIdle: () => {
+      activeConnections.value = []
+      connectionsCount.value = 0
+    },
+  })
+
+  // 首帧标记：重连/暂停恢复后重新起算，避免把陈旧快照当成「连接已关闭」
+  const subscribe = () => {
+    isFirstFrame = true
+    stream.subscribe()
   }
 
-  // 关闭连接
+  const isWsConnected = stream.connected
+  const unsubscribe = stream.unsubscribe
+
+  // 立即断开并清空快照（页面销毁等场景）；正常切页走 unsubscribe 的防抖断开
   const disconnect = () => {
-    if (ws) {
-      ws.close()
-      ws = null
-    }
-    isWsConnected.value = false
+    stream.disconnect()
     prevSnapshot.clear()
     activeConnections.value = []
     connectionsCount.value = 0
-  }
-
-  // 增加引用订阅计数
-  const subscribe = () => {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout)
-      debounceTimeout = null
-    }
-    subscriberCount.value++
-    if (subscriberCount.value === 1) {
-      connect()
-    }
-  }
-
-  // 减少订阅并防抖断开
-  const unsubscribe = () => {
-    subscriberCount.value = Math.max(0, subscriberCount.value - 1)
-    if (subscriberCount.value === 0) {
-      debounceTimeout = setTimeout(() => {
-        if (subscriberCount.value === 0) {
-          disconnect()
-        }
-      }, 3000)
-    }
   }
 
   // 清空已关闭记录

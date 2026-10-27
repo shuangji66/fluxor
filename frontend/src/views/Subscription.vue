@@ -2,6 +2,7 @@
 import { ref, onMounted, onActivated, onDeactivated, computed, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../utils/api'
+import { formatGB, formatDateTime } from '../utils/format'
 import { MailOutline, EyeOutline, EyeOffOutline, SyncOutline, CreateOutline, TrashOutline, CloseOutline, HelpCircleOutline, OptionsOutline, AddOutline, SaveOutline } from '@vicons/ionicons5'
 import { useGlobalStore } from '../store/global'
 import { storeToRefs } from 'pinia'
@@ -20,6 +21,8 @@ import { useProxyStore } from '../store/proxies'
 import { useConfigStore } from '../store/config'
 import { validateSubscriptionName, filterSubscriptionNameInput, MAX_SUBSCRIPTION_NAME_LENGTH } from '../utils/subscription-name'
 import { useViewActive } from '../composables/useViewActive'
+import PageHeader from '../components/PageHeader.vue'
+import AppModal from '../components/AppModal.vue'
 
 const globalStore = useGlobalStore()
 const configStore = useConfigStore()
@@ -686,18 +689,7 @@ const onTproxyPortInput = (event: Event) => {
   }
 }
 
-// 辅助格式化
-const formatGB = (bytes: number) => {
-  if (!bytes) return '0.0 GB'
-  return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
-}
-
-const formatUpdateTime = (dateStr: string | null) => {
-  if (!dateStr) return null
-  const date = new Date(dateStr)
-  if (isNaN(date.getTime())) return null
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
+// 辅助格式化：订阅卡片固定 GB 口径，更新时间失败时回退「未知」（见模板）
 
 const formatExpire = (expire: number) => {
   if (!expire) return t('subscription.expire_forever')
@@ -733,67 +725,37 @@ onUnmounted(() => {
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full">
     <!-- 顶部操作栏：移动端两行（标题+保存 / 模式切换），桌面端一行且模式切换居中
          ——与代理页顶栏同一套布局。 -->
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all shrink-0 md:h-[56px]">
-      <!-- 移动端：两行 -->
-      <div class="flex md:hidden flex-col w-full gap-3">
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="text-base font-semibold flex items-center gap-2 min-w-0">
-            <MailOutline class="w-5 h-5 text-accent" />
-            {{ t('subscription.title') }}
-            <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
-              <HelpCircleOutline class="w-4 h-4" />
-            </button>
-          </h3>
-          <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
-            <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
-            <SaveOutline v-else class="w-3.5 h-3.5" />
-            {{ isApplying ? t('subscription.applying_short') : t('subscription.save_and_apply') }}
+    <PageHeader :icon="MailOutline" gap="gap-3 md:gap-4">
+      <template #title>
+        {{ t('subscription.title') }}
+        <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
+          <HelpCircleOutline class="w-4 h-4" />
+        </button>
+      </template>
+
+      <!-- 模式切换：桌面端占据剩余空间并居中，移动端独占第二行 -->
+      <div class="flex justify-center order-last w-full md:order-none md:w-auto md:flex-1">
+        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full md:w-auto transition-all">
+          <button
+            v-for="m in modeOptions"
+            :key="m.value"
+            @click="currentConfig.mode = m.value"
+            class="flex-1 md:flex-none px-4 md:px-6 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
+            :class="currentConfig.mode === m.value ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
+          >
+            {{ t(m.label) }}
           </button>
-        </div>
-        <div class="flex justify-center">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 w-full sm:w-auto transition-all">
-            <button
-              v-for="m in modeOptions"
-              :key="m.value"
-              @click="currentConfig.mode = m.value"
-              class="flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-              :class="currentConfig.mode === m.value ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t(m.label) }}
-            </button>
-          </div>
         </div>
       </div>
 
-      <!-- 桌面端：一行，模式切换占据标题与保存之间的剩余空间并居中 -->
-      <div class="hidden md:flex items-center justify-between w-full gap-4">
-        <h3 class="text-base font-semibold flex items-center gap-2 shrink-0">
-          <MailOutline class="w-5 h-5 text-accent" />
-          {{ t('subscription.title') }}
-          <button @click="showHelpModal = true" class="flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 p-0.5 -ml-0.5" :title="t('subscription.help_title')">
-            <HelpCircleOutline class="w-4 h-4" />
-          </button>
-        </h3>
-        <div class="flex-1 flex justify-center">
-          <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 transition-all">
-            <button
-              v-for="m in modeOptions"
-              :key="m.value"
-              @click="currentConfig.mode = m.value"
-              class="px-6 py-1.5 text-xs font-semibold rounded-md transition-all duration-200"
-              :class="currentConfig.mode === m.value ? 'bg-accent text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'"
-            >
-              {{ t(m.label) }}
-            </button>
-          </div>
-        </div>
+      <template #actions>
         <button @click="saveAndApply" :disabled="isApplying" class="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
           <SyncOutline v-if="isApplying" class="w-3.5 h-3.5 animate-spin" />
           <SaveOutline v-else class="w-3.5 h-3.5" />
           {{ isApplying ? t('subscription.applying_short') : t('subscription.save_and_apply') }}
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- 内容区域内滚动容器 -->
     <div class="flex-1 min-h-0 overflow-y-auto glass-medium shadow-none p-6 rounded-xl border border-slate-200/50 dark:border-slate-800/50 transition-all pr-4">
@@ -999,7 +961,7 @@ onUnmounted(() => {
               <span>{{ t('subscription.valid_until_label') }}{{ formatExpire(item.displayInfo.expire) }}</span>
             </div>
             <div class="flex justify-between text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              <span>{{ t('subscription.updated_at_label') }}{{ formatUpdateTime(item.displayInfo.updatedAt) || t('common.unknown') }}</span>
+              <span>{{ t('subscription.updated_at_label') }}{{ formatDateTime(item.displayInfo.updatedAt) || t('common.unknown') }}</span>
             </div>
           </div>
           <div v-else class="text-xs text-slate-400 dark:text-slate-500">
@@ -1026,77 +988,80 @@ onUnmounted(() => {
     </Teleport>
 
     <!-- 使用说明弹窗 -->
-    <Teleport to="body">
-      <div v-if="isActive && showHelpModal" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4" @click.self="showHelpModal = false">
-        <div class="glass-heavy w-full max-w-lg max-h-[85vh] rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
-          <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
-            <h2 class="text-lg font-bold">{{ t('subscription.help_title') }}</h2>
-            <button @click="showHelpModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-              <CloseOutline class="w-5 h-5" />
-            </button>
-          </div>
-          <div class="flex-1 min-h-0 overflow-y-auto pr-1 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-            {{ t('subscription.help_content') }}
-          </div>
+    <AppModal
+      :open="isActive && showHelpModal"
+      :label="t('subscription.help_title')"
+      panel-class="w-full max-w-lg max-h-[85vh] rounded-[20px] p-6 flex flex-col gap-4"
+      @close="showHelpModal = false"
+    >
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
+        <h2 class="text-lg font-bold">{{ t('subscription.help_title') }}</h2>
+        <button @click="showHelpModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+          <CloseOutline class="w-5 h-5" />
+        </button>
+      </div>
+      <div class="flex-1 min-h-0 overflow-y-auto pr-1 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+        {{ t('subscription.help_content') }}
+      </div>
+    </AppModal>
+
+    <!-- 添加 / 编辑订阅弹窗 -->
+    <AppModal
+      :open="isActive && showModal"
+      :label="modalTitle"
+      :close-on-backdrop="false"
+      panel-class="w-full max-w-lg rounded-[20px] p-6 flex flex-col gap-4"
+      @close="closeSubModal"
+    >
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+        <h2 class="text-lg font-bold">{{ modalTitle }}</h2>
+        <button @click="closeSubModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+          <CloseOutline class="w-5 h-5" />
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.name') }}</label>
+          <input
+            type="text"
+            :value="editForm.name"
+            @input="editForm.name = filterSubscriptionNameInput(($event.target as HTMLInputElement).value)"
+            :maxlength="MAX_SUBSCRIPTION_NAME_LENGTH"
+            :placeholder="t('subscription.name_placeholder')"
+            class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm"
+          />
+          <p v-if="nameHint" class="text-[11px] text-danger">{{ nameHint }}</p>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.url') }}</label>
+          <input type="text" v-model="editForm.url" placeholder="https://example.com/sub" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.update_interval') }}</label>
+          <input type="number" v-model="editForm.update_interval" placeholder="86400" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.health_interval') }}</label>
+          <input type="number" v-model="editForm.health_interval" placeholder="300" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.prefix') }}</label>
+          <input type="text" v-model="editForm.prefix" :placeholder="t('subscription.prefix_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
         </div>
       </div>
-    </Teleport>
 
-    <!-- Modal -->
-    <Teleport to="body">
-      <div v-if="isActive && showModal" class="fixed inset-0 glass-mask z-[9999] flex items-center justify-center p-4">
-        <div class="glass-heavy w-full max-w-lg rounded-[20px] shadow-2xl border p-6 flex flex-col gap-4 animate-[zoomIn_0.2s_ease-out]">
-          <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h2 class="text-lg font-bold">{{ modalTitle }}</h2>
-            <button @click="closeSubModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-              <CloseOutline class="w-5 h-5" />
-            </button>
-          </div>
+      <p class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ t('subscription.modal_hint') }}</p>
 
-          <div class="space-y-4">
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.name') }}</label>
-              <input
-                type="text"
-                :value="editForm.name"
-                @input="editForm.name = filterSubscriptionNameInput(($event.target as HTMLInputElement).value)"
-                :maxlength="MAX_SUBSCRIPTION_NAME_LENGTH"
-                :placeholder="t('subscription.name_placeholder')"
-                class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm"
-              />
-              <p v-if="nameHint" class="text-[11px] text-danger">{{ nameHint }}</p>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.url') }}</label>
-              <input type="text" v-model="editForm.url" placeholder="https://example.com/sub" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.update_interval') }}</label>
-              <input type="number" v-model="editForm.update_interval" placeholder="86400" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.health_interval') }}</label>
-              <input type="number" v-model="editForm.health_interval" placeholder="300" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('subscription.prefix') }}</label>
-              <input type="text" v-model="editForm.prefix" :placeholder="t('subscription.prefix_placeholder')" class="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:ring-2 focus:ring-accent outline-none text-sm" />
-            </div>
-          </div>
-
-          <p class="text-xs text-slate-400 dark:text-slate-500 leading-normal">{{ t('subscription.modal_hint') }}</p>
-
-          <div class="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button @click="closeSubModal" class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
-              {{ t('subscription.cancel') }}
-            </button>
-            <button @click="saveSubToList" class="px-4 py-2 text-sm font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
-              {{ t('subscription.save_to_list') }}
-            </button>
-          </div>
-        </div>
+      <div class="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <button @click="closeSubModal" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
+          {{ t('subscription.cancel') }}
+        </button>
+        <button @click="saveSubToList" class="px-4 py-2 text-xs font-semibold rounded-lg bg-accent hover:bg-accent-hover text-white transition-all shadow-md shadow-accent/15">
+          {{ t('subscription.save_to_list') }}
+        </button>
       </div>
-    </Teleport>
+    </AppModal>
 
     <!-- 自定义规则弹窗：切换模式（作用域=订阅）、融合模式（作用域=base/full 两档）、
          自定义模式（作用域=标准档位）共用同一组件。
@@ -1126,10 +1091,3 @@ onUnmounted(() => {
   </div>
 
 </template>
-
-<style>
-@keyframes zoomIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-</style>

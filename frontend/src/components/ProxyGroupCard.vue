@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
-import { apiFetch } from '../utils/api'
+import { apiFetch, readErrorMessage } from '../utils/api'
 import { ChevronForwardOutline, SyncOutline, LayersOutline } from '@vicons/ionicons5'
 import { useProxyStore, type ProxyGroup } from '../store/proxies'
 import { useGlobalStore } from '../store/global'
@@ -267,24 +267,13 @@ const handleTestGroup = async () => {
     const endpoint = `/group/${encodeURIComponent(groupName)}/delay?url=${encodeURIComponent(testURL)}&timeout=${timeout}`
     const resp = await apiFetch(endpoint)
     if (resp.ok) {
-      const data = await resp.json()
-      // data 格式: { "节点A": 120, "节点B": 350, ... }
-      for (const [name, delay] of Object.entries(data)) {
-        // delay 为数字（毫秒），也可能为 0 或负值？统一处理
-        if (typeof delay === 'number' && delay > 0) {
-          delays.value[name] = delay
-        } else if (delay === 0) {
-          // 0 表示测速中？通常不会返回 0，但以防万一
-          delays.value[name] = 0
-        } else {
-          delays.value[name] = -1 // 超时或失败
-        }
-      }
+      // 延迟映射与「全部测速」共用 store 的同一套判定（正值=毫秒、0=测速中、其余=超时）
+      proxyStore.applyDelayMap(await resp.json())
       // 刷新全部数据（色条、历史等也会更新）
       proxyStore.fetchProxies(true)
       globalStore.showToast(t('proxies.test_complete'), 'success')
     } else {
-      globalStore.showToast(t('common.operation_failed'), 'error')
+      globalStore.showToast(`${t('common.operation_failed')}: ${await readErrorMessage(resp)}`, 'error')
     }
   } catch (e) {
     globalStore.showToast(t('common.operation_failed'), 'error')

@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed, nextTick, watch, onActivated, on
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useLogStore } from '../store/logs'
+import PageHeader from '../components/PageHeader.vue'
 import {
   TrashOutline,
   PauseOutline,
@@ -87,13 +88,7 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col flex-1 min-h-0 gap-4 h-full relative">
-    <div class="glass-medium shadow-none px-6 py-3 md:py-0 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex flex-wrap gap-4 items-center justify-between transition-all shrink-0 h-auto min-h-[56px] md:h-[56px]">
-      <!-- 标题和状态 -->
-      <h3 class="text-base font-semibold flex items-center gap-2 shrink-0 order-1">
-        <DocumentTextOutline class="w-5 h-5 text-accent" />
-        {{ t('logs.title') }}
-      </h3>
-
+    <PageHeader :title="t('logs.title')" :icon="DocumentTextOutline">
       <!-- 搜索、级别过滤区域 -->
       <div class="flex items-center gap-3 flex-1 justify-end min-w-[280px] sm:min-w-0 order-3 md:order-2">
         <!-- 桌面端日志级别过滤（4按钮并排） -->
@@ -132,7 +127,8 @@ onUnmounted(() => {
       </div>
 
       <!-- 操作按钮（暂停、清空） -->
-      <div class="flex gap-2 shrink-0 order-2 md:order-3">
+      <template #actions>
+        <div class="flex gap-2 shrink-0 order-2 md:order-3">
         <button
           @click="isPaused = !isPaused"
           class="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 whitespace-nowrap"
@@ -151,8 +147,9 @@ onUnmounted(() => {
           <TrashOutline class="w-3.5 h-3.5" />
           {{ t('logs.clear') }}
         </button>
-      </div>
-    </div>
+        </div>
+      </template>
+    </PageHeader>
 
     <!-- 日志终端界面：底色/前景取自主题变量（--log-*），随主题切换，不再是固定黑底 -->
     <div
