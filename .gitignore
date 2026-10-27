@@ -12,6 +12,7 @@ upx-ucl
 geo*
 mihomo
 .tmp-*
+.playwright-skill
 
 # VitePress（docs/）的开发缓存：跑过 docs 的 dev/build 后才会出现，
 # 与后端的 .gocache* 同理，属于本地产物而非源码
