@@ -764,7 +764,8 @@ onUnmounted(() => {
         <CloseOutline class="w-4 h-4 text-slate-400" />
       </button>
     </div>
-    <div class="flex-1 overflow-y-auto pr-1">
+    <!-- pr-2 给滚动条留位：覆盖式滚动条会压住右侧开关。 -->
+    <div class="flex-1 overflow-y-auto pr-2">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div v-for="col in columnDefs" :key="col.key"
              class="flex items-center justify-between py-1.5 px-2 rounded-lg"
@@ -822,8 +823,8 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- 内容 -->
-    <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+    <!-- 内容。pr-2 给滚动条留位：覆盖式滚动条会压住内容右边缘。 -->
+    <div class="flex-1 overflow-y-auto pr-2 space-y-4">
       <!-- 基本信息 -->
       <div class="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3">
         <h4 class="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-2">

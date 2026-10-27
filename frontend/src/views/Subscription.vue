@@ -1000,7 +1000,8 @@ onUnmounted(() => {
           <CloseOutline class="w-5 h-5" />
         </button>
       </div>
-      <div class="flex-1 min-h-0 overflow-y-auto pr-1 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+      <!-- pr-2 给滚动条留位：覆盖式滚动条会压住文字右边缘。 -->
+      <div class="flex-1 min-h-0 overflow-y-auto pr-2 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
         {{ t('subscription.help_content') }}
       </div>
     </AppModal>

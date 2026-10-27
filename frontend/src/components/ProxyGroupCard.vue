@@ -262,7 +262,8 @@ const handleTestGroup = async () => {
   isTesting.value = true
   try {
     const groupName = props.group.name
-    const testURL = 'http://www.gstatic.com/generate_204'
+    // 与单节点/全部测速共用同一个自定义地址（设置项在代理设置弹窗里）
+    const testURL = proxyStore.getDelayTestUrl()
     const timeout = 5000
     const endpoint = `/group/${encodeURIComponent(groupName)}/delay?url=${encodeURIComponent(testURL)}&timeout=${timeout}`
     const resp = await apiFetch(endpoint)

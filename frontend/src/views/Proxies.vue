@@ -3,7 +3,7 @@ import { ref, watch, onMounted, onUnmounted, onActivated, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { GlobeOutline, SyncOutline, SettingsOutline } from '@vicons/ionicons5'
 import { storeToRefs } from 'pinia'
-import { useProxyStore } from '../store/proxies'
+import { useProxyStore, DEFAULT_DELAY_TEST_URL, normalizeDelayTestUrl } from '../store/proxies'
 import { useGlobalStore } from '../store/global'
 import { useConfigStore } from '../store/config'
 import { useSubscriptionStore } from '../store/subscription'
@@ -29,6 +29,17 @@ const { currentConfig } = storeToRefs(subscriptionStore)
 // ===== 设置弹窗 =====
 const showSettingsDialog = ref(false)
 const isActive = useViewActive()
+
+// 测速地址预设：都是会快速返回 204/2xx 的轻量端点。
+// 之所以给预设而不是只给一个空输入框：这个地址填错的代价是「所有节点看起来都超时」，
+// 大多数用户并不知道该填什么；预设覆盖常见场景，自定义留给有特殊需求的人。
+const TEST_URL_CUSTOM = '__custom__'
+const TEST_URL_PRESETS = [
+  { value: DEFAULT_DELAY_TEST_URL, labelKey: 'proxies.test_url_preset_gstatic' },
+  { value: 'https://cp.cloudflare.com/generate_204', labelKey: 'proxies.test_url_preset_cloudflare' },
+  { value: 'https://captive.apple.com/hotspot-detect.html', labelKey: 'proxies.test_url_preset_apple' },
+]
+
 const settingsForm = ref({
   sort: 'default' as 'default' | 'name' | 'delay' | 'quality',
   thresholdLow: 200,
@@ -36,7 +47,16 @@ const settingsForm = ref({
   historyCount: 5,
   filterRegex: '',
   autoCloseConnections: true, 
+  testUrl: DEFAULT_DELAY_TEST_URL,
+  // 预设下拉的当前选项：命中预设就是该 URL，否则是「自定义」
+  testUrlPreset: DEFAULT_DELAY_TEST_URL as string,
 })
+
+// 选中预设即写入对应地址；选「自定义」只切换输入框可见性，保留当前值供用户改写
+const onTestUrlPresetChange = () => {
+  const preset = TEST_URL_PRESETS.find(p => p.value === settingsForm.value.testUrlPreset)
+  if (preset) settingsForm.value.testUrl = preset.value
+}
 
 // 打开弹窗时禁止 body 滚动。
 // 必须同时考虑视图激活态：KeepAlive 停用本视图时 onUnmounted 不会触发，
@@ -48,6 +68,7 @@ watch([showSettingsDialog, isActive], applyBodyScrollLock)
 onUnmounted(() => document.body.classList.remove('overflow-hidden'))
 
 const openSettingsDialog = () => {
+  const currentTestUrl = proxyStore.testUrl
   settingsForm.value = {
     sort: sortOrder.value,
     thresholdLow: delayThresholds.value.low,
@@ -55,11 +76,21 @@ const openSettingsDialog = () => {
     historyCount: historyCount.value,
     filterRegex: filterRegex.value,
     autoCloseConnections: proxyStore.autoCloseConnections, 
+    testUrl: currentTestUrl,
+    testUrlPreset: TEST_URL_PRESETS.some(p => p.value === currentTestUrl) ? currentTestUrl : TEST_URL_CUSTOM,
   }
   showSettingsDialog.value = true
 }
 
 const saveSettings = async () => {
+  // 先校验测速地址：非法时一处设置都不落，弹窗保持打开让用户直接改。
+  // （若先保存其余设置再拒绝，用户看到「保存失败」但实际上别的项已经生效了。）
+  const testUrl = normalizeDelayTestUrl(settingsForm.value.testUrl)
+  if (!testUrl) {
+    globalStore.showToast(t('proxies.test_url_invalid'), 'error')
+    return
+  }
+  proxyStore.setTestUrl(testUrl)
   setSortOrder(settingsForm.value.sort)
   updateSettings(
     { low: settingsForm.value.thresholdLow, mid: settingsForm.value.thresholdMid },
@@ -171,7 +202,8 @@ const handleTestAll = async () => {
   globalStore.showToast(t('proxies.testing_all'), 'info')
   try {
     const groups = proxyGroups.value // 所有组
-    const testURL = 'http://www.gstatic.com/generate_204'
+    // 统一取 Store 的测速地址：与单节点/单组测速共用同一设置，不再各自硬编码
+    const testURL = proxyStore.getDelayTestUrl()
     const results = await mapWithConcurrency(groups, TEST_ALL_CONCURRENCY, async (group) => {
       const endpoint = `/group/${encodeURIComponent(group.name)}/delay?url=${encodeURIComponent(testURL)}&timeout=5000`
       const resp = await apiFetch(endpoint)
@@ -371,8 +403,9 @@ onUnmounted(() => {
     >
       <h4 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ t('proxies.settings_title') }}</h4>
 
-      <!-- 表单区：只有这里滚动，底部操作按钮始终留在视口内 -->
-      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1">
+      <!-- 表单区：只有这里滚动，底部操作按钮始终留在视口内。
+           pr-2 给滚动条留位：覆盖式滚动条会压住输入框/开关的右边缘。 -->
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-2">
 
         <!-- 新增：自动断开连接开关 -->
         <div class="flex items-center justify-between py-1.5">
@@ -399,6 +432,31 @@ onUnmounted(() => {
             <option value="delay">{{ t('proxies.sort_delay') }}</option>
             <option value="quality">{{ t('proxies.sort_quality') }}</option>
           </select>
+        </div>
+
+        <!-- 测速地址：预设下拉 + 自定义输入。
+             单节点 / 单组 / 全部测速共用这一个地址（见 store/proxies.ts）。 -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">{{ t('proxies.test_url') }}</label>
+          <select
+            v-model="settingsForm.testUrlPreset"
+            @change="onTestUrlPresetChange"
+            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-accent outline-none"
+          >
+            <option v-for="preset in TEST_URL_PRESETS" :key="preset.value" :value="preset.value">
+              {{ t(preset.labelKey) }}
+            </option>
+            <option :value="TEST_URL_CUSTOM">{{ t('proxies.test_url_custom') }}</option>
+          </select>
+          <input
+            v-if="settingsForm.testUrlPreset === TEST_URL_CUSTOM"
+            v-model="settingsForm.testUrl"
+            type="text"
+            spellcheck="false"
+            autocapitalize="off"
+            :placeholder="DEFAULT_DELAY_TEST_URL"
+            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-accent outline-none"
+          />
         </div>
 
         <!-- 低延迟阈值 -->

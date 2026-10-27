@@ -59,7 +59,8 @@ fluxor/
         │   │                   #   + 自定义模式：custom_nodes 列表、节点协议字段表（/subscribe/node-protocols 懒加载缓存）、
         │   │                   #     独立规则作用域（/subscribe/custom-mode-rules/custom）
         │   ├── overview.ts # 仪表盘实时统计（速度/流量/内存/连接数/版本/当前节点）、60 点流量历史、3 路 WS + 1 路 SSE
-        │   ├── proxies.ts  # 代理组列表、节点延迟字典、手风琴展开状态、并发受限（10）批量测速
+        │   ├── proxies.ts  # 代理组列表、节点延迟字典、手风琴展开状态、并发受限（10）批量测速、
+        │   │               #   自定义测速地址（localStorage，单节点/单组/全部测速共用，非法值回落默认 204 端点）
         │   ├── connections.ts # 活跃/已关闭连接列表、汇总统计、排序/搜索、WS 瞬时速率计算（快照差分）
         │   ├── rules.ts    # 规则列表、规则提供商列表、fetch/refresh 方法
         │   └── logs.ts     # 日志缓冲区（上限 2000 条）、自动滚动、暂停/继续、指数退避重连（1s~30s）

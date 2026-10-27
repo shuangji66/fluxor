@@ -12,6 +12,39 @@ export interface ProxyGroup {
   hidden?: boolean
 }
 
+/**
+ * 默认测速地址。
+ *
+ * 内核的延迟测试要求 `url` 参数是一个会快速返回 204/2xx 的端点，
+ * 该地址是**经代理**访问的，因此不能填内网地址或被墙域名——
+ * 那样只会让所有节点一起显示「超时」。
+ */
+export const DEFAULT_DELAY_TEST_URL = 'https://www.gstatic.com/generate_204'
+
+// 旧版本的默认值（http）。历史 localStorage 里若仍是它，读盘时升级为当前的 https 默认值。
+const LEGACY_DEFAULT_DELAY_TEST_URL = 'http://www.gstatic.com/generate_204'
+
+/**
+ * 归一化用户输入的测速地址。
+ *
+ * - 空串/纯空白 → 回落到默认地址（用户只是清空了输入框，不该把测速打坏）；
+ * - 非 http(s) 的完整 URL → 返回 null，由调用方拒绝保存并提示。
+ *
+ * 校验不能省：`/proxies/{name}/delay` 与 `/group/{name}/delay` 的 url 由内核解析，
+ * 非法值会让每个节点都直接失败，界面上看起来就是「所有节点全部超时」。
+ */
+export function normalizeDelayTestUrl(raw: unknown): string | null {
+  const trimmed = typeof raw === 'string' ? raw.trim() : ''
+  if (!trimmed) return DEFAULT_DELAY_TEST_URL
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return trimmed
+  } catch {
+    // 落到下方 return null
+  }
+  return null
+}
+
 export const useProxyStore = defineStore('proxies', () => {
   const proxyGroups = ref<ProxyGroup[]>([])
   const delays = ref<Record<string, number>>({})
@@ -19,6 +52,11 @@ export const useProxyStore = defineStore('proxies', () => {
   const isLoading = ref(false)
   const expandedState = ref<Record<string, boolean>>({})
   const providerInfos = ref<Record<string, any>>({})
+
+  // 自定义测速地址：单节点 / 单组 / 全部测速三个入口共用这一处设置。
+  // 任何一路单独硬编码 URL 都会造成「有的入口走自定义、有的走默认」的错位。
+  const testUrl = ref(DEFAULT_DELAY_TEST_URL)
+  const getDelayTestUrl = () => testUrl.value
 
   // needsRefresh：代理数据（代理组、节点、各组的当前选择）可能已过期。
   // 来源是配置页对内核运行态的任何一次重建——重载 config.yaml、启动 / 重启 / 升级内核，
@@ -283,7 +321,7 @@ export const useProxyStore = defineStore('proxies', () => {
   
     try {
       const encoded = encodeURIComponent(realName)
-      const url = 'http://www.gstatic.com/generate_204'
+      const url = testUrl.value
       let endpoint: string
   
       if (mode === 'merge') {
@@ -343,6 +381,11 @@ export const useProxyStore = defineStore('proxies', () => {
         if (parsed.autoCloseConnections !== undefined) {
           autoCloseConnections.value = parsed.autoCloseConnections
         }
+        // 旧版本没有该字段；历史数据也可能被手工改坏，一律归一化后再用
+        if (parsed.testUrl !== undefined) {
+          const stored = normalizeDelayTestUrl(parsed.testUrl) ?? DEFAULT_DELAY_TEST_URL
+          testUrl.value = stored === LEGACY_DEFAULT_DELAY_TEST_URL ? DEFAULT_DELAY_TEST_URL : stored
+        }
       } catch (e) {}
     }
   }
@@ -356,7 +399,14 @@ export const useProxyStore = defineStore('proxies', () => {
       sortOrder: sortOrder.value,
       filterRegex: filterRegex.value,
       autoCloseConnections: autoCloseConnections.value,
+      testUrl: testUrl.value,
     }))
+  }
+
+  // 设置测速地址（调用方负责先过 normalizeDelayTestUrl，非法值不会走到这里）
+  function setTestUrl(url: string) {
+    testUrl.value = normalizeDelayTestUrl(url) ?? DEFAULT_DELAY_TEST_URL
+    saveAllSettings()
   }
 
   // 新增：单独设置自动断开连接开关
@@ -441,6 +491,10 @@ export const useProxyStore = defineStore('proxies', () => {
     setFilterRegex,
     autoCloseConnections,
     setAutoCloseConnections,
+    // 测速地址：单节点（本 Store）/ 单组（ProxyGroupCard）/ 全部（Proxies.vue）共用
+    testUrl,
+    getDelayTestUrl,
+    setTestUrl,
     providerInfos,
     // 跨页「代理数据已过期」标记：登记方为配置页的内核运行态操作，消费方为代理页 onActivated
     markNeedsRefresh,

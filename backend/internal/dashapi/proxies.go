@@ -129,7 +129,7 @@ func HandleGroupDelay(w http.ResponseWriter, r *http.Request) {
 func TestGroupDelay(groupName string) {
 	target := fmt.Sprintf("/group/%s/delay?url=%s&timeout=%d",
 		url.PathEscape(groupName),
-		url.QueryEscape("http://www.gstatic.com/generate_204"),
+		url.QueryEscape("https://www.gstatic.com/generate_204"),
 		5000)
 	resp, err := core.CoreRequest("GET", target, nil)
 	if err != nil {
